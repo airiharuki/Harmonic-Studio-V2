@@ -65,6 +65,8 @@ function MainApp() {
   const [splitting, setSplitting] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [chords, setChords] = useState<string[] | null>(null);
+  const [generatingChords, setGeneratingChords] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -213,6 +215,25 @@ function MainApp() {
       toast.success("Analysis complete (Simulated)!");
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleGenerateChords = async () => {
+    if (!analysis) return;
+    setGeneratingChords(true);
+    try {
+      const response = await axios.post("/api/chords", {
+        key: analysis.key,
+        scale: analysis.scale,
+        mood: analysis.mood,
+        bpm: analysis.bpm
+      });
+      setChords(response.data.chords);
+      toast.success("AI generated chords based on the vibe!");
+    } catch (error: any) {
+      toast.error("Failed to generate chords: " + (error.response?.data?.error || error.message));
+    } finally {
+      setGeneratingChords(false);
     }
   };
 
@@ -438,6 +459,39 @@ function MainApp() {
                                 <Progress value={analysis.energy * 100} className="h-2 bg-zinc-700" />
                                 <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
                               </div>
+                            </div>
+                            <div className="col-span-2 p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50 mt-2">
+                              <div className="flex justify-between items-center mb-4">
+                                <p className="text-xs text-zinc-500 uppercase font-bold">AI Chord Progression</p>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={handleGenerateChords}
+                                  disabled={generatingChords}
+                                  className="h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300"
+                                >
+                                  {generatingChords ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
+                                  Generate
+                                </Button>
+                              </div>
+                              
+                              {chords ? (
+                                <motion.div 
+                                  initial={{ opacity: 0, y: 5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="grid grid-cols-4 gap-2"
+                                >
+                                  {chords.map((chord, i) => (
+                                    <div key={i} className="bg-zinc-900/80 border border-zinc-700 rounded-lg p-3 flex items-center justify-center text-lg font-bold text-zinc-100 shadow-inner">
+                                      {chord}
+                                    </div>
+                                  ))}
+                                </motion.div>
+                              ) : (
+                                <div className="h-14 flex items-center justify-center border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
+                                  <p className="text-xs text-zinc-500 italic">Click generate to create a progression based on the vibe.</p>
+                                </div>
+                              )}
                             </div>
                           </motion.div>
                         )}

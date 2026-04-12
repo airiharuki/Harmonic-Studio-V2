@@ -11,6 +11,7 @@ This app is a Frankenstein's monster of audio processing, stitched together with
 *   **Audio Downloading (`yt-dlp`)**: We rip audio from the interwebs faster than you can say "copyright infringement" (just kidding, please only download royalty-free lo-fi beats to study/relax to).
 *   **Stem Splitting (`demucs`)**: Ever wanted to isolate the vocals of a song just to realize the singer is actually terrible without the backing track? Now you can! We slice your audio into Vocals, Drums, Bass, and "Other" (which is usually just the sound of the guitarist's ego).
 *   **Music Analysis (`essentia.js`)**: We use actual, literal math to tell you the BPM, Key, Scale, Energy, and Mood of a track. It's like having a tiny, very pedantic music major trapped in your browser.
+*   **AI Chord Generation (`Gemini`)**: Don't know what chords to play over that beat? We feed the track's vibe (Key, Scale, Mood, BPM) directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
 
 ## 🚨 THE GOLDEN RULE: WAV ONLY 🚨
 

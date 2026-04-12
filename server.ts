@@ -8,6 +8,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
+import { GoogleGenAI } from "@google/genai";
 
 // Safe __dirname fallback for both ESM (dev) and CJS (prod bundle)
 const currentDir = typeof __dirname !== 'undefined' 
@@ -166,6 +167,34 @@ async function startServer() {
       res.download(filepath);
     } else {
       res.status(404).send("File not found");
+    }
+  });
+
+  app.post("/api/chords", async (req, res) => {
+    try {
+      const { key, scale, mood, bpm } = req.body;
+      if (!key || !scale) {
+        return res.status(400).json({ error: "Key and scale are required" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${key} ${scale}. The mood is ${mood || 'neutral'} and the BPM is ${bpm || 120}. 
+      Return ONLY a raw JSON array of 4 strings representing the chords (e.g., ["Cmaj7", "Am7", "Dm7", "G7"]). Do not include markdown formatting, backticks, or any other text.`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      
+      let text = response.text || "[]";
+      // Clean up potential markdown formatting if Gemini ignores the instruction
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const chords = JSON.parse(text);
+      res.json({ chords });
+    } catch (error: any) {
+      console.error("Chord generation error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 
