@@ -11,6 +11,7 @@ import archiver from "archiver";
 import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
 import ffmpegStatic from "ffmpeg-static";
+import basicAuth from 'basic-auth';
 
 // Safe __dirname fallback for both ESM (dev) and CJS (prod bundle)
 const currentDir = typeof __dirname !== 'undefined' 
@@ -35,6 +36,16 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json());
+
+  // Basic Auth Middleware
+  app.use((req, res, next) => {
+    const user = basicAuth(req);
+    if (!user || user.name !== process.env.BASIC_AUTH_USER || user.pass !== process.env.BASIC_AUTH_PASS) {
+      res.set('WWW-Authenticate', 'Basic realm="VibeCoded"');
+      return res.status(401).send('Authentication required');
+    }
+    next();
+  });
 
   // Ensure directories exist
   const downloadsDir = path.join(currentDir, "downloads");
