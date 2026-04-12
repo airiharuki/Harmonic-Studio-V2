@@ -14,6 +14,8 @@ This app is a Frankenstein's monster of audio processing, stitched together with
 *   **AI Chord Generation (`Gemini`)**: Don't know what chords to play over that beat? We feed the track's vibe (Key, Scale, Mood, BPM) directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
 *   **Interactive Stem Mixer**: A visual mockup for adjusting the individual volumes of your separated stems (Vocals, Drums, Bass, Other).
 *   **DJ Tools & Pitch Shifter**: Want to mix D Major into A Minor? Our Pitch Shift Calculator tells you exactly how many semitones to pitch up or down to match root notes or harmonic relative keys. Plus, an interactive Circle of Fifths with Camelot wheel values!
+*   **Vibe Studio**: A dedicated space where the AI Chord Generator lives, surrounded by the pure essence of your track's vibe.
+*   **Aesthetic Overload**: We've implemented a creamy, smooth transition between Light and Dark modes, complete with a grainy VHS overlay and custom background images. It's not just an app; it's an *experience*.
 
 ## 🚨 THE GOLDEN RULE: WAV ONLY 🚨
 
@@ -51,7 +53,7 @@ Want to help make this chaotic music lab even better? We'd love your help!
 3.  Submit a Pull Request.
 4.  If your code breaks the stem splitter, you owe us a coffee. If it fixes a bug, we owe you a high five (redeemable in the metaverse).
 
-*Note: Please don't submit PRs to change the color scheme. The orange stays. It's aggressive, and we like it.*
+*Note: Please don't submit PRs to remove the VHS grain. It's aggressive, and we like it.*
 
 ## 🐛 Bug Reports & Feature Requests
 

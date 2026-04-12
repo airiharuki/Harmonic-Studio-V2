@@ -81,6 +81,11 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    
+    /* Custom Theme Variables */
+    --bg-image: url('https://i.ibb.co/7d91C7rW/IMG-2226.jpg');
+    --app-bg: #f8f5f2;
+    --app-text: #2a2a2a;
 }
 
 .dark {
@@ -115,16 +120,42 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* Custom Theme Variables */
+    --bg-image: url('https://i.ibb.co/ZzWWQ7Vp/IMG-2640.jpg');
+    --app-bg: #0a0a0a;
+    --app-text: #f4f4f5;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
     }
   body {
     @apply bg-background text-foreground;
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: var(--app-text);
+    transition: background-image 0.7s ease-in-out, color 0.5s ease-in-out;
     }
   html {
     @apply font-sans;
     }
+}
+
+/* VHS Grain Overlay */
+.vhs-grain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+  opacity: 0.6;
+  mix-blend-mode: overlay;
 }

@@ -46,63 +46,93 @@ export const PitchShifter = () => {
   const shift = calculateShift();
 
   return (
-    <div className="space-y-4 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 space-y-2">
-          <label className="text-xs text-zinc-500 uppercase font-bold">From Track</label>
-          <div className="flex gap-2">
-            <Select value={sourceKey} onValueChange={setSourceKey}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALL_KEYS.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={sourceScale} onValueChange={setSourceScale}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Major">Major</SelectItem>
-                <SelectItem value="Minor">Minor</SelectItem>
-              </SelectContent>
-            </Select>
+    <div className="space-y-6 p-6 bg-black/20 rounded-xl border border-white/10 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex-1 w-full space-y-3">
+          <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider">From Track</label>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-[10px] text-zinc-500 uppercase mb-1 block">Key</label>
+              <Select value={sourceKey} onValueChange={setSourceKey}>
+                <SelectTrigger className="bg-black/40 border-white/10 h-12 text-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_KEYS.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-zinc-500 uppercase mb-1 block">Scale</label>
+              <Select value={sourceScale} onValueChange={setSourceScale}>
+                <SelectTrigger className="bg-black/40 border-white/10 h-12 text-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Major">Major</SelectItem>
+                  <SelectItem value="Minor">Minor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         
-        <ArrowRight className="w-6 h-6 text-zinc-600 mt-6" />
+        <div className="hidden md:flex items-center justify-center mt-6">
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+            <ArrowRight className="w-5 h-5 text-zinc-400" />
+          </div>
+        </div>
 
-        <div className="flex-1 space-y-2">
-          <label className="text-xs text-zinc-500 uppercase font-bold">To Track</label>
-          <div className="flex gap-2">
-            <Select value={targetKey} onValueChange={setTargetKey}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALL_KEYS.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={targetScale} onValueChange={setTargetScale}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Major">Major</SelectItem>
-                <SelectItem value="Minor">Minor</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="flex-1 w-full space-y-3">
+          <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider">To Track</label>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-[10px] text-zinc-500 uppercase mb-1 block">Key</label>
+              <Select value={targetKey} onValueChange={setTargetKey}>
+                <SelectTrigger className="bg-black/40 border-white/10 h-12 text-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_KEYS.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-zinc-500 uppercase mb-1 block">Scale</label>
+              <Select value={targetScale} onValueChange={setTargetScale}>
+                <SelectTrigger className="bg-black/40 border-white/10 h-12 text-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Major">Major</SelectItem>
+                  <SelectItem value="Minor">Minor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </div>
 
       {shift && (
-        <div className="mt-4 p-4 bg-black/40 rounded-lg border border-white/5 space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-zinc-400">Direct Root Shift:</span>
-            <span className="font-bold text-orange-400 text-lg">
-              {shift.rootShift > 0 ? '+' : ''}{shift.rootShift} st
-            </span>
-          </div>
-          {sourceScale !== targetScale && (
-            <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
-              <span className="text-sm text-zinc-400">Harmonic Mix (Match Relative):</span>
-              <span className="font-bold text-blue-400 text-lg">
-                {shift.smartShift > 0 ? '+' : ''}{shift.smartShift} st
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-5 bg-black/30 rounded-xl border border-white/5 flex flex-col justify-center items-center text-center">
+            <span className="text-xs text-zinc-400 uppercase tracking-wider mb-2">Direct Root Shift</span>
+            <div className="flex items-baseline gap-1">
+              <span className="font-bold text-orange-400 text-4xl">
+                {shift.rootShift > 0 ? '+' : ''}{shift.rootShift}
               </span>
+              <span className="text-zinc-500 font-medium">st</span>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-2">Shifts root note exactly</p>
+          </div>
+          
+          {sourceScale !== targetScale ? (
+            <div className="p-5 bg-blue-500/10 rounded-xl border border-blue-500/20 flex flex-col justify-center items-center text-center">
+              <span className="text-xs text-blue-300/70 uppercase tracking-wider mb-2">Harmonic Mix (Relative)</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-bold text-blue-400 text-4xl">
+                  {shift.smartShift > 0 ? '+' : ''}{shift.smartShift}
+                </span>
+                <span className="text-blue-500/50 font-medium">st</span>
+              </div>
+              <p className="text-[10px] text-blue-400/60 mt-2">Matches relative major/minor</p>
+            </div>
+          ) : (
+             <div className="p-5 bg-black/20 rounded-xl border border-white/5 flex flex-col justify-center items-center text-center opacity-50">
+              <span className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Harmonic Mix</span>
+              <span className="text-sm text-zinc-400 mt-2">Scales already match</span>
             </div>
           )}
         </div>

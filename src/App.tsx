@@ -20,7 +20,10 @@ import {
   Mic2,
   Drum,
   Guitar,
-  Piano
+  Piano,
+  Moon,
+  Sun,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import axios from "axios";
 import { CircleOfFifths } from "./CircleOfFifths";
 import { PitchShifter } from "./PitchShifter";
@@ -60,6 +63,7 @@ class ErrorBoundary extends React.Component<any, any> {
 }
 
 function MainApp() {
+  const { theme, setTheme } = useTheme();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [videoInfo, setVideoInfo] = useState<any>(null);
@@ -257,34 +261,46 @@ function MainApp() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-orange-500/30">
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <header className="mb-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-medium mb-4"
+    <>
+      <div className="vhs-grain" />
+      <div className="min-h-screen font-sans selection:bg-orange-500/30 relative z-10">
+        <div className="absolute top-6 right-6">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="rounded-full bg-black/20 border-white/10 backdrop-blur-md hover:bg-black/40"
           >
-            <Music className="w-3 h-3" />
-            <span>VibeCoded Music Lab</span>
-          </motion.div>
-          <motion.h1 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-5xl font-bold tracking-tight mb-4 bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent"
-          >
-            Music Analysis & Processing
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-zinc-400 text-lg max-w-2xl mx-auto"
-          >
-            Download, split stems, and analyze music theory properties using state-of-the-art tools.
-          </motion.p>
-        </header>
+            {theme === 'dark' ? <Sun className="w-5 h-5 text-orange-400" /> : <Moon className="w-5 h-5 text-blue-400" />}
+          </Button>
+        </div>
+        <div className="max-w-5xl mx-auto px-6 py-12">
+          <header className="mb-12 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-medium mb-4 backdrop-blur-md"
+            >
+              <Music className="w-3 h-3" />
+              <span>VibeCoded Music Lab</span>
+            </motion.div>
+            <motion.h1 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+            >
+              Music Analysis & Processing
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-lg max-w-2xl mx-auto opacity-80"
+            >
+              Download, split stems, and analyze music theory properties using state-of-the-art tools.
+            </motion.p>
+          </header>
 
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
@@ -407,6 +423,10 @@ function MainApp() {
                       <BarChart3 className="w-4 h-4 mr-2" />
                       Analysis
                     </TabsTrigger>
+                    <TabsTrigger value="vibestudio" className="data-[state=active]:bg-zinc-800">
+                      <Sparkles className="w-4 h-4 mr-2 text-yellow-400" />
+                      Vibe Studio
+                    </TabsTrigger>
                     <TabsTrigger value="djtools" className="data-[state=active]:bg-zinc-800">
                       <Scissors className="w-4 h-4 mr-2" />
                       DJ Tools
@@ -472,39 +492,6 @@ function MainApp() {
                                 <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
                               </div>
                             </div>
-                            <div className="col-span-2 p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50 mt-2">
-                              <div className="flex justify-between items-center mb-4">
-                                <p className="text-xs text-zinc-500 uppercase font-bold">AI Chord Progression</p>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={handleGenerateChords}
-                                  disabled={generatingChords}
-                                  className="h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300"
-                                >
-                                  {generatingChords ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
-                                  Generate
-                                </Button>
-                              </div>
-                              
-                              {chords ? (
-                                <motion.div 
-                                  initial={{ opacity: 0, y: 5 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  className="grid grid-cols-4 gap-2"
-                                >
-                                  {chords.map((chord, i) => (
-                                    <div key={i} className="bg-zinc-900/80 border border-zinc-700 rounded-lg p-3 flex items-center justify-center text-lg font-bold text-zinc-100 shadow-inner">
-                                      {chord}
-                                    </div>
-                                  ))}
-                                </motion.div>
-                              ) : (
-                                <div className="h-14 flex items-center justify-center border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
-                                  <p className="text-xs text-zinc-500 italic">Click generate to create a progression based on the vibe.</p>
-                                </div>
-                              )}
-                            </div>
                           </motion.div>
                         )}
 
@@ -532,6 +519,74 @@ function MainApp() {
                             ))}
                           </div>
                         </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="vibestudio" className="mt-0">
+                    <Card className="theme-card">
+                      <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-yellow-500" />
+                          Vibe Studio
+                        </CardTitle>
+                        <CardDescription className="opacity-70">
+                          Generate AI chord progressions based on the track's vibe.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-8">
+                        {!analysis ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+                            <div className="w-16 h-16 rounded-full bg-black/20 flex items-center justify-center">
+                              <Info className="w-8 h-8 opacity-50" />
+                            </div>
+                            <p className="opacity-60">Analyze a track first to extract its vibe.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            <div className="flex items-center gap-4 p-4 rounded-xl bg-black/20 border border-white/10">
+                              <div className="flex-1">
+                                <p className="text-xs uppercase font-bold opacity-50 mb-1">Current Vibe</p>
+                                <p className="text-xl font-bold">{analysis.key} {analysis.scale} • {analysis.mood} • {analysis.bpm} BPM</p>
+                              </div>
+                            </div>
+
+                            <div className="p-6 rounded-xl bg-black/30 border border-white/10">
+                              <div className="flex justify-between items-center mb-6">
+                                <div>
+                                  <h4 className="font-bold text-lg">AI Chord Progression</h4>
+                                  <p className="text-sm opacity-60">Powered by Gemini</p>
+                                </div>
+                                <Button 
+                                  onClick={handleGenerateChords}
+                                  disabled={generatingChords}
+                                  className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                                >
+                                  {generatingChords ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                  Generate Magic
+                                </Button>
+                              </div>
+                              
+                              {chords ? (
+                                <motion.div 
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+                                >
+                                  {chords.map((chord, i) => (
+                                    <div key={i} className="bg-white/10 border border-white/20 rounded-xl p-6 flex items-center justify-center text-3xl font-bold shadow-lg backdrop-blur-md">
+                                      {chord}
+                                    </div>
+                                  ))}
+                                </motion.div>
+                              ) : (
+                                <div className="h-32 flex items-center justify-center border-2 border-dashed border-white/20 rounded-xl bg-black/10">
+                                  <p className="opacity-50 italic">Waiting for inspiration...</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -631,8 +686,9 @@ function MainApp() {
           )}
         </AnimatePresence>
       </div>
-      <Toaster position="bottom-right" theme="dark" />
+      <Toaster position="bottom-right" theme={theme as any} />
     </div>
+    </>
   );
 }
 
