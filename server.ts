@@ -9,8 +9,13 @@ import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Safe __dirname fallback for both ESM (dev) and CJS (prod bundle)
+const currentDir = typeof __dirname !== 'undefined' 
+  ? __dirname 
+  : (typeof import.meta !== 'undefined' && import.meta.url 
+      ? path.dirname(fileURLToPath(import.meta.url)) 
+      : process.cwd());
+
 const execAsync = promisify(exec);
 
 process.on('uncaughtException', (err) => {
@@ -29,8 +34,8 @@ async function startServer() {
   app.use(express.json());
 
   // Ensure directories exist
-  const downloadsDir = path.join(__dirname, "downloads");
-  const outputDir = path.join(__dirname, "output");
+  const downloadsDir = path.join(currentDir, "downloads");
+  const outputDir = path.join(currentDir, "output");
   if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
