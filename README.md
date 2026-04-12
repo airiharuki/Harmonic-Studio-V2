@@ -2,7 +2,7 @@
 
 Welcome to the **VibeCoded Music Lab**, the only place on the internet where we take music theory entirely too seriously, but literally nothing else. 
 
-Are you tired of listening to a song and *not* knowing if its danceability quotient is exactly 0.84? Do you have an overwhelming urge to rip the bassline out of a 2009 YouTube tutorial video? You're in the right place, my friend.
+Have you ever listened to a song and thought, "Wow, this pitch is in a weird scale," and wondered exactly how many semitones you should pitch it up or down in your DAW? Do you have an overwhelming urge to rip the bassline out of a 2009 YouTube tutorial video? Or maybe you just want to know if a Yuno Miles track is technically in the same key as a Skrillex drop? You're in the right place, my friend.
 
 ## 🎸 What is this sorcery?
 
@@ -22,6 +22,15 @@ This app is a Frankenstein's monster of audio processing, stitched together with
 Listen to me very carefully. If you want to use the stem splitter or the music analyzer, **YOU MUST DOWNLOAD THE AUDIO AS A WAV FILE.** 
 
 Why? Because MP3s are compressed, lossy garbage that throw our delicate algorithms into an existential crisis. We demand *uncompressed fidelity*. We want every single bit of audio data, even the parts human ears can't hear. Give us the WAVs, or give us death (or, you know, a generic error message).
+
+## 🎮 How to Use (A Guide for the Musically Deranged)
+
+1. **Feed the Machine**: Paste a YouTube URL into the input box. (Remember: **WAV ONLY** if you want the good stuff).
+2. **Extract the Essence**: Hit the download button. Wait patiently while our server does the heavy lifting.
+3. **Analyze the Vibe**: Click "Analyze Track". Our math-powered hamsters will determine the BPM, Key, Scale, and overall mood.
+4. **Chop it Up**: Click "Split Stems" to isolate the vocals, drums, bass, and everything else. Perfect for when you want to remix that one obscure track.
+5. **Enter the Vibe Studio**: Head over to the Vibe Studio tab, click "Generate Magic", and let Gemini write a 4-bar chord progression tailored to the exact vibe of your track.
+6. **Do DJ Math**: Use the DJ Tools tab to figure out how to mix two completely incompatible songs together using the Pitch Shift Calculator and Circle of Fifths.
 
 ## 💻 Running Locally
 
