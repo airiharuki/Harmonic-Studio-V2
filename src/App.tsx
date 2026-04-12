@@ -34,6 +34,8 @@ import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { ThemeProvider } from "next-themes";
 import axios from "axios";
+import { CircleOfFifths } from "./CircleOfFifths";
+import { PitchShifter } from "./PitchShifter";
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -69,6 +71,12 @@ function MainApp() {
   const [generatingChords, setGeneratingChords] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [stemVolumes, setStemVolumes] = useState({
+    vocals: 80,
+    drums: 80,
+    bass: 80,
+    other: 80
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -399,6 +407,10 @@ function MainApp() {
                       <BarChart3 className="w-4 h-4 mr-2" />
                       Analysis
                     </TabsTrigger>
+                    <TabsTrigger value="djtools" className="data-[state=active]:bg-zinc-800">
+                      <Scissors className="w-4 h-4 mr-2" />
+                      DJ Tools
+                    </TabsTrigger>
                     <TabsTrigger value="player" className="data-[state=active]:bg-zinc-800">
                       <Play className="w-4 h-4 mr-2" />
                       Player
@@ -498,20 +510,54 @@ function MainApp() {
 
                         <div className="space-y-4">
                           <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Stem Preview (Mockup)</h4>
-                          <div className="space-y-3">
+                          <div className="space-y-3 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
                             {[
-                              { label: "Vocals", icon: Mic2, color: "text-blue-400" },
-                              { label: "Drums", icon: Drum, color: "text-red-400" },
-                              { label: "Bass", icon: Guitar, color: "text-yellow-400" },
-                              { label: "Other", icon: Piano, color: "text-green-400" },
+                              { id: "vocals", label: "Vocals", icon: Mic2, color: "text-blue-400" },
+                              { id: "drums", label: "Drums", icon: Drum, color: "text-red-400" },
+                              { id: "bass", label: "Bass", icon: Guitar, color: "text-yellow-400" },
+                              { id: "other", label: "Other", icon: Piano, color: "text-green-400" },
                             ].map((stem) => (
-                              <div key={stem.label} className="flex items-center gap-4">
+                              <div key={stem.id} className="flex items-center gap-4">
                                 <stem.icon className={`w-4 h-4 ${stem.color}`} />
                                 <span className="text-sm font-medium w-16">{stem.label}</span>
-                                <Slider defaultValue={[80]} max={100} step={1} className="flex-1" />
+                                <Slider 
+                                  value={[stemVolumes[stem.id as keyof typeof stemVolumes]]} 
+                                  onValueChange={(val) => setStemVolumes(prev => ({...prev, [stem.id]: val[0]}))}
+                                  max={100} 
+                                  step={1} 
+                                  className="flex-1" 
+                                />
+                                <span className="text-xs text-zinc-500 w-8 text-right">{stemVolumes[stem.id as keyof typeof stemVolumes]}%</span>
                               </div>
                             ))}
                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="djtools" className="mt-0">
+                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
+                      <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          <Scissors className="w-5 h-5 text-orange-500" />
+                          DJ Tools & Pitch Shifting
+                        </CardTitle>
+                        <CardDescription className="text-zinc-500">
+                          Calculate semitone shifts and explore the Circle of Fifths
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-8">
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Pitch Shift Calculator</h4>
+                          <PitchShifter />
+                        </div>
+                        
+                        <Separator className="bg-zinc-800" />
+                        
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider text-center">Interactive Circle of Fifths</h4>
+                          <CircleOfFifths />
                         </div>
                       </CardContent>
                     </Card>

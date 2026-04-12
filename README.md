@@ -12,12 +12,27 @@ This app is a Frankenstein's monster of audio processing, stitched together with
 *   **Stem Splitting (`demucs`)**: Ever wanted to isolate the vocals of a song just to realize the singer is actually terrible without the backing track? Now you can! We slice your audio into Vocals, Drums, Bass, and "Other" (which is usually just the sound of the guitarist's ego).
 *   **Music Analysis (`essentia.js`)**: We use actual, literal math to tell you the BPM, Key, Scale, Energy, and Mood of a track. It's like having a tiny, very pedantic music major trapped in your browser.
 *   **AI Chord Generation (`Gemini`)**: Don't know what chords to play over that beat? We feed the track's vibe (Key, Scale, Mood, BPM) directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
+*   **Interactive Stem Mixer**: A visual mockup for adjusting the individual volumes of your separated stems (Vocals, Drums, Bass, Other).
+*   **DJ Tools & Pitch Shifter**: Want to mix D Major into A Minor? Our Pitch Shift Calculator tells you exactly how many semitones to pitch up or down to match root notes or harmonic relative keys. Plus, an interactive Circle of Fifths with Camelot wheel values!
 
 ## 🚨 THE GOLDEN RULE: WAV ONLY 🚨
 
 Listen to me very carefully. If you want to use the stem splitter or the music analyzer, **YOU MUST DOWNLOAD THE AUDIO AS A WAV FILE.** 
 
 Why? Because MP3s are compressed, lossy garbage that throw our delicate algorithms into an existential crisis. We demand *uncompressed fidelity*. We want every single bit of audio data, even the parts human ears can't hear. Give us the WAVs, or give us death (or, you know, a generic error message).
+
+## 💻 Running Locally
+
+Want to run this chaotic masterpiece on your own machine? Here's how:
+
+1.  **Clone the repo**: `git clone <your-repo-url>`
+2.  **Install dependencies**: `npm install`
+3.  **Set up environment variables**: Copy `.env.example` to `.env` and add your `GEMINI_API_KEY`.
+4.  **Install Python dependencies**: You'll need `demucs` and `yt-dlp` installed on your system.
+    *   `pip install demucs yt-dlp`
+    *   *Note: Demucs works best with a GPU, otherwise it might take a while to split stems.*
+5.  **Start the dev server**: `npm run dev`
+6.  **Open your browser**: Go to `http://localhost:3000` and start vibing.
 
 ## 🧘‍♂️ Why 432Hz?
 
