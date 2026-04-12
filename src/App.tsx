@@ -336,76 +336,134 @@ function MainApp() {
           </Button>
         </div>
         <div className="max-w-5xl mx-auto px-6 py-12">
-          <header className="mb-12 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-medium mb-4 backdrop-blur-md"
-            >
-              <Music className="w-3 h-3" />
-              <span>VibeCoded Music Lab</span>
-            </motion.div>
-            <motion.h1 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
-            >
-              Music Analysis & Processing
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-lg max-w-2xl mx-auto opacity-80"
-            >
-              Download, split stems, and analyze music theory properties using state-of-the-art tools.
-            </motion.p>
-          </header>
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="relative max-w-2xl mx-auto mb-16"
-        >
-          <div className="flex flex-col gap-4 p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800 backdrop-blur-xl shadow-2xl">
-            <div className="flex gap-2">
-              <Input 
-                placeholder="Paste YouTube, SoundCloud, etc. URL here..." 
-                value={url}
-                onChange={(e) => {
-                  setUrl(e.target.value);
-                  if (e.target.value) setFile(null);
-                }}
-                className="bg-transparent border-zinc-700 focus-visible:ring-orange-500 text-lg h-12"
-              />
-              <Button 
-                onClick={handleFetchInfo} 
-                disabled={loading || (!url && !file)}
-                className="h-12 px-6 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all active:scale-95"
-              >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                <span className="ml-2">Load</span>
-              </Button>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-px bg-zinc-800"></div>
-              <span className="text-xs text-zinc-500 uppercase tracking-widest">OR</span>
-              <div className="flex-1 h-px bg-zinc-800"></div>
-            </div>
-            <div className="flex items-center justify-center w-full">
-              <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-zinc-800 border-dashed rounded-xl cursor-pointer bg-zinc-900/30 hover:bg-zinc-800/50 transition-colors">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <p className="mb-1 text-sm text-zinc-400"><span className="font-semibold">Click to upload</span> local audio</p>
-                      <p className="text-xs text-zinc-500">WAV, FLAC, or MP3 (WAV/FLAC recommended)</p>
-                      {file && <p className="mt-2 text-sm text-orange-400 font-medium">{file.name}</p>}
-                  </div>
-                  <input id="dropzone-file" type="file" className="hidden" accept=".mp3,.wav,.flac,audio/*" onChange={handleFileChange} />
-              </label>
-            </div>
+        <Tabs defaultValue="composer" className="w-full">
+          <div className="flex justify-center mb-12">
+            <TabsList className="pill-tabs-list">
+              <TabsTrigger value="composer" className="pill-tab-trigger">Composer</TabsTrigger>
+              <TabsTrigger value="analyzer" className="pill-tab-trigger">Analyzer</TabsTrigger>
+            </TabsList>
           </div>
-        </motion.div>
+
+          <TabsContent value="composer" className="space-y-12 outline-none">
+            <header className="text-center mb-12">
+              <motion.h1 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+              >
+                Vibe Composer
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-lg max-w-2xl mx-auto opacity-80"
+              >
+                Tools for the modern producer. Calculate shifts and explore harmonic relationships.
+              </motion.p>
+            </header>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="theme-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Scissors className="w-5 h-5 text-purple-500" />
+                    Pitch Shift Calculator
+                  </CardTitle>
+                  <CardDescription>Calculate semitone shifts for your DAW</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PitchShifter />
+                </CardContent>
+              </Card>
+
+              <Card className="theme-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-center justify-center">
+                    Interactive Circle of Fifths
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <CircleOfFifths />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analyzer" className="space-y-8 outline-none">
+            <header className="text-center mb-8">
+              <motion.h1 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+              >
+                Music Analyzer
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-lg max-w-2xl mx-auto opacity-80"
+              >
+                Extract stems, analyze theory, and download from anywhere.
+              </motion.p>
+            </header>
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+              className="relative max-w-2xl mx-auto mb-8"
+            >
+              <div className="flex flex-col gap-4 p-4 rounded-3xl bg-white/10 dark:bg-black/20 border border-white/10 backdrop-blur-xl shadow-2xl">
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Paste URL here..." 
+                    value={url}
+                    onChange={(e) => {
+                      setUrl(e.target.value);
+                      if (e.target.value) setFile(null);
+                    }}
+                    className="bg-transparent border-white/20 focus-visible:ring-purple-500 text-lg h-12 rounded-xl"
+                  />
+                  <Button 
+                    onClick={handleFetchInfo} 
+                    disabled={loading || (!url && !file)}
+                    className="h-12 px-6 bg-purple-600 hover:bg-purple-500 text-white rounded-xl transition-all active:scale-95"
+                  >
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                    <span className="ml-2">Load</span>
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-px bg-white/10"></div>
+                  <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">OR</span>
+                  <div className="flex-1 h-px bg-white/10"></div>
+                </div>
+                <div className="flex items-center justify-center w-full">
+                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-white/10 border-dashed rounded-2xl cursor-pointer bg-white/5 hover:bg-white/10 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <p className="mb-1 text-sm text-white/60"><span className="font-semibold">Click to upload</span> local audio</p>
+                          <p className="text-xs text-white/40 font-mono">WAV, FLAC, or MP3</p>
+                          {file && <p className="mt-2 text-sm text-purple-400 font-medium">{file.name}</p>}
+                      </div>
+                      <input id="dropzone-file" type="file" className="hidden" accept=".mp3,.wav,.flac,audio/*" onChange={handleFileChange} />
+                  </label>
+                </div>
+              </div>
+              <div className="mt-4 text-center">
+                <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-2">Supported Sites</p>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/60">
+                  <span>YouTube</span>
+                  <span>SoundCloud</span>
+                  <span>Bandcamp</span>
+                  <span>Vimeo</span>
+                  <span>Mixcloud</span>
+                  <span>Twitch</span>
+                  <span className="opacity-40">+ 1000s more via yt-dlp</span>
+                </div>
+              </div>
+            </motion.div>
 
         <AnimatePresence mode="wait">
           {videoInfo ? (
@@ -417,7 +475,7 @@ function MainApp() {
               className="grid grid-cols-1 lg:grid-cols-12 gap-8"
             >
               <div className="lg:col-span-5 space-y-6">
-                <Card className="bg-zinc-900/40 border-zinc-800 overflow-hidden backdrop-blur-sm">
+                <Card className="theme-card">
                   <div className="aspect-video relative group">
                     <img 
                       src={videoInfo.thumbnail} 
@@ -428,67 +486,66 @@ function MainApp() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <div className="absolute bottom-4 left-4 right-4">
                       <h3 className="font-bold text-lg line-clamp-2 text-white">{videoInfo.title}</h3>
-                      <p className="text-zinc-400 text-sm mt-1">{videoInfo.uploader}</p>
+                      <p className="text-white/60 text-sm mt-1">{videoInfo.uploader}</p>
                     </div>
                   </div>
                   <CardContent className="p-6 space-y-6">
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 border-none">
+                      <Badge variant="secondary" className="bg-white/10 text-white/80 border-none">
                         {Math.floor(videoInfo.duration / 60)}:{(videoInfo.duration % 60).toString().padStart(2, '0')}
                       </Badge>
-                      <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 border-none">
+                      <Badge variant="secondary" className="bg-white/10 text-white/80 border-none">
                         {videoInfo.view_count?.toLocaleString()} views
                       </Badge>
                     </div>
 
                     {!videoInfo.isLocal && (
                       <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Download Raw Audio</h4>
+                        <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider">Download Raw Audio</h4>
                         <div className="grid grid-cols-3 gap-3">
                           <Button 
                             variant="outline" 
-                            className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                            className="border-white/10 bg-white/5 hover:bg-white/10 text-white/80"
                             onClick={() => handleDownload("mp3")}
-                            disabled={downloading !== null}
+                            disabled={!!downloading}
                           >
-                            {downloading === "mp3" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
-                            MP3
+                            {downloading === "mp3" ? <Loader2 className="w-4 h-4 animate-spin" /> : "MP3"}
                           </Button>
                           <Button 
                             variant="outline" 
-                            className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                            className="border-white/10 bg-white/5 hover:bg-white/10 text-white/80"
                             onClick={() => handleDownload("wav")}
-                            disabled={downloading !== null}
+                            disabled={!!downloading}
                           >
-                            {downloading === "wav" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
-                            WAV
+                            {downloading === "wav" ? <Loader2 className="w-4 h-4 animate-spin" /> : "WAV"}
                           </Button>
                           <Button 
                             variant="outline" 
-                            className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                            className="border-white/10 bg-white/5 hover:bg-white/10 text-white/80"
                             onClick={() => handleDownload("flac")}
-                            disabled={downloading !== null}
+                            disabled={!!downloading}
                           >
-                            {downloading === "flac" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
-                            FLAC
+                            {downloading === "flac" ? <Loader2 className="w-4 h-4 animate-spin" /> : "FLAC"}
                           </Button>
                         </div>
                       </div>
                     )}
 
-                    {videoInfo.isLocal && audioUrl && (
+                    {videoInfo.isLocal && (
                       <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Original Audio</h4>
+                        <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider">Local File</h4>
                         <Button 
                           variant="outline" 
-                          className="w-full border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                          className="w-full border-white/10 bg-white/5 hover:bg-white/10 text-white/80"
                           onClick={() => {
-                            const link = document.createElement("a");
-                            link.href = audioUrl;
-                            link.setAttribute("download", videoInfo.title || "audio");
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            if (audioUrl) {
+                              const link = document.createElement("a");
+                              link.href = audioUrl;
+                              link.setAttribute("download", videoInfo.title);
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }
                           }}
                         >
                           <Download className="w-4 h-4 mr-2" />
@@ -497,106 +554,131 @@ function MainApp() {
                       </div>
                     )}
 
-                    <Separator className="bg-zinc-800" />
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Stem Splitting</h4>
-                        <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20">WAV/FLAC Rec.</Badge>
+                    {audioUrl && (
+                      <div className="pt-4 border-t border-white/10">
+                        <Button 
+                          onClick={togglePlay}
+                          className="w-full bg-white text-black hover:bg-white/90 font-bold h-12 rounded-xl"
+                        >
+                          {isPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                          {isPlaying ? "Pause Preview" : "Play Preview"}
+                        </Button>
+                        <audio 
+                          ref={audioRef} 
+                          src={audioUrl} 
+                          onEnded={() => setIsPlaying(false)}
+                          className="hidden"
+                        />
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        {["vocals", "drums", "bass", "other"].map((stem) => (
-                          <div key={stem} className="flex items-center space-x-2 bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                            <input 
-                              type="checkbox" 
-                              id={`stem-${stem}`}
-                              checked={selectedStems.includes(stem)}
-                              onChange={() => toggleStem(stem)}
-                              className="w-4 h-4 rounded border-zinc-700 text-orange-500 focus:ring-orange-500 bg-zinc-800"
-                            />
-                            <label htmlFor={`stem-${stem}`} className="text-sm capitalize text-zinc-300 cursor-pointer select-none">
-                              {stem}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex justify-end mb-3">
-                        <button onClick={toggleAllStems} className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                          {selectedStems.length === 4 ? "Deselect All" : "Select All"}
-                        </button>
-                      </div>
-
-                      <Button 
-                        className="w-full bg-white text-black hover:bg-zinc-200 font-bold h-12 rounded-xl"
-                        onClick={handleSplit}
-                        disabled={splitting || selectedStems.length === 0}
-                      >
-                        {splitting ? (
-                          <>
-                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                            Processing Stems...
-                          </>
-                        ) : (
-                          <>
-                            <Scissors className="w-5 h-5 mr-2" />
-                            Split & Download Selected
-                          </>
-                        )}
-                      </Button>
-                      <p className="text-[10px] text-zinc-500 text-center italic">
-                        Separates audio into selected stems and zips them.
-                      </p>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="lg:col-span-7 space-y-6">
-                <Tabs defaultValue="analysis" className="w-full">
-                  <TabsList className="bg-zinc-900/50 border border-zinc-800 p-1 mb-6">
-                    <TabsTrigger value="analysis" className="data-[state=active]:bg-zinc-800">
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Analysis
-                    </TabsTrigger>
-                    <TabsTrigger value="vibestudio" className="data-[state=active]:bg-zinc-800">
-                      <Sparkles className="w-4 h-4 mr-2 text-yellow-400" />
-                      Vibe Studio
-                    </TabsTrigger>
-                    <TabsTrigger value="djtools" className="data-[state=active]:bg-zinc-800">
-                      <Scissors className="w-4 h-4 mr-2" />
-                      DJ Tools
-                    </TabsTrigger>
-                    <TabsTrigger value="player" className="data-[state=active]:bg-zinc-800">
-                      <Play className="w-4 h-4 mr-2" />
-                      Player
-                    </TabsTrigger>
+              <div className="lg:col-span-7">
+                <Tabs defaultValue="split" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 bg-white/5 p-1 rounded-2xl border border-white/10 mb-6">
+                    <TabsTrigger value="split" className="rounded-xl data-[state=active]:bg-purple-600 data-[state=active]:text-white">Split</TabsTrigger>
+                    <TabsTrigger value="analyze" className="rounded-xl data-[state=active]:bg-purple-600 data-[state=active]:text-white">Analyze</TabsTrigger>
+                    <TabsTrigger value="vibestudio" className="rounded-xl data-[state=active]:bg-purple-600 data-[state=active]:text-white">Vibe</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="analysis" className="mt-0">
-                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
+                  <TabsContent value="split" className="mt-0">
+                    <Card className="theme-card">
                       <CardHeader>
                         <CardTitle className="text-xl flex items-center gap-2">
-                          <BarChart3 className="w-5 h-5 text-orange-500" />
-                          Music Theory Analysis
+                          <Scissors className="w-5 h-5 text-purple-500" />
+                          Stem Separation
                         </CardTitle>
-                        <CardDescription className="text-zinc-500">
-                          Detect BPM, Key, Scale, and Mood using Essentia.js
+                        <CardDescription className="opacity-70">
+                          Split the track into individual components.
+                          <p className="text-[10px] mt-1 font-bold text-purple-400">Powered by Demucs - Stem Separation</p>
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-8">
+                      <CardContent className="space-y-6">
+                        <div className="p-4 rounded-2xl bg-black/20 border border-white/10 space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-bold opacity-60 uppercase tracking-wider">Select Stems</h4>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={toggleAllStems}
+                              className="text-xs hover:bg-white/5"
+                            >
+                              {selectedStems.length === 4 ? "Deselect All" : "Select All"}
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {[
+                              { id: "vocals", label: "Vocals", icon: Mic2 },
+                              { id: "drums", label: "Drums", icon: Drum },
+                              { id: "bass", label: "Bass", icon: Guitar },
+                              { id: "other", label: "Other", icon: Piano },
+                            ].map((stem) => (
+                              <div 
+                                key={stem.id}
+                                onClick={() => toggleStem(stem.id)}
+                                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                  selectedStems.includes(stem.id) 
+                                    ? "bg-purple-600/20 border-purple-500/50 text-white" 
+                                    : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"
+                                }`}
+                              >
+                                <stem.icon className="w-4 h-4" />
+                                <span className="text-sm font-medium">{stem.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Button 
+                          onClick={handleSplit} 
+                          disabled={splitting || selectedStems.length === 0}
+                          className="w-full h-14 bg-purple-600 hover:bg-purple-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-purple-900/20"
+                        >
+                          {splitting ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                              Splitting Stems...
+                            </>
+                          ) : (
+                            <>
+                              <Scissors className="w-5 h-5 mr-2" />
+                              Split & Download ZIP
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-center text-[10px] opacity-40 italic">
+                          Note: Processing takes 1-3 minutes. High-quality stems (WAV/FLAC) recommended.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="analyze" className="mt-0">
+                    <Card className="theme-card">
+                      <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          <BarChart3 className="w-5 h-5 text-blue-500" />
+                          Music Theory Analysis
+                        </CardTitle>
+                        <CardDescription className="opacity-70">
+                          Extract key, BPM, scale, and mood from the audio.
+                          <p className="text-[10px] mt-1 font-bold text-blue-400">Powered by Essentia.js - Music Analysis</p>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
                         {!analysis ? (
-                          <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
-                              <Info className="w-8 h-8 text-zinc-600" />
+                          <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
+                            <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                              <BarChart3 className="w-10 h-10 text-blue-500 opacity-50" />
                             </div>
                             <div className="space-y-2">
-                              <p className="text-zinc-400">No analysis data yet.</p>
+                              <p className="text-white/60">Ready to analyze the harmonic and rhythmic structure.</p>
                               <Button 
                                 onClick={handleAnalyze} 
-                                disabled={analyzing}
-                                variant="secondary"
-                                className="bg-zinc-800 hover:bg-zinc-700 text-white"
+                                disabled={analyzing || !audioUrl}
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 h-12 rounded-xl"
                               >
                                 {analyzing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BarChart3 className="w-4 h-4 mr-2" />}
                                 Start Analysis
@@ -609,22 +691,22 @@ function MainApp() {
                             animate={{ opacity: 1 }}
                             className="grid grid-cols-2 gap-4"
                           >
-                            <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
-                              <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Tempo</p>
-                              <p className="text-3xl font-bold text-white">{analysis.bpm} <span className="text-sm font-normal text-zinc-500">BPM</span></p>
+                            <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                              <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Tempo</p>
+                              <p className="text-3xl font-bold text-white">{analysis.bpm} <span className="text-sm font-normal text-white/40">BPM</span></p>
                             </div>
-                            <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
-                              <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Key & Scale</p>
-                              <p className="text-3xl font-bold text-white">{analysis.key} <span className="text-sm font-normal text-zinc-500">{analysis.scale}</span></p>
+                            <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                              <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Key & Scale</p>
+                              <p className="text-3xl font-bold text-white">{analysis.key} <span className="text-sm font-normal text-white/40">{analysis.scale}</span></p>
                             </div>
-                            <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
-                              <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Mood</p>
+                            <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                              <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Mood</p>
                               <p className="text-3xl font-bold text-white">{analysis.mood}</p>
                             </div>
-                            <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
-                              <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Energy</p>
+                            <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                              <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Energy</p>
                               <div className="flex items-center gap-3 mt-2">
-                                <Progress value={analysis.energy * 100} className="h-2 bg-zinc-700" />
+                                <Progress value={analysis.energy * 100} className="h-2 bg-white/10" />
                                 <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
                               </div>
                             </div>
@@ -632,8 +714,8 @@ function MainApp() {
                         )}
 
                         <div className="space-y-4">
-                          <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Stem Preview (Mockup)</h4>
-                          <div className="space-y-3 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
+                          <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider">Stem Preview (Mockup)</h4>
+                          <div className="space-y-4 p-5 bg-black/20 rounded-2xl border border-white/10">
                             {[
                               { id: "vocals", label: "Vocals", icon: Mic2, color: "text-blue-400" },
                               { id: "drums", label: "Drums", icon: Drum, color: "text-red-400" },
@@ -642,7 +724,7 @@ function MainApp() {
                             ].map((stem) => (
                               <div key={stem.id} className="flex items-center gap-4">
                                 <stem.icon className={`w-4 h-4 ${stem.color}`} />
-                                <span className="text-sm font-medium w-16">{stem.label}</span>
+                                <span className="text-xs font-bold w-16 opacity-60">{stem.label}</span>
                                 <Slider 
                                   value={[stemVolumes[stem.id as keyof typeof stemVolumes]]} 
                                   onValueChange={(val) => setStemVolumes(prev => ({...prev, [stem.id]: val[0]}))}
@@ -650,7 +732,7 @@ function MainApp() {
                                   step={1} 
                                   className="flex-1" 
                                 />
-                                <span className="text-xs text-zinc-500 w-8 text-right">{stemVolumes[stem.id as keyof typeof stemVolumes]}%</span>
+                                <span className="text-[10px] font-mono opacity-40 w-8 text-right">{stemVolumes[stem.id as keyof typeof stemVolumes]}%</span>
                               </div>
                             ))}
                           </div>
@@ -726,83 +808,6 @@ function MainApp() {
                       </CardContent>
                     </Card>
                   </TabsContent>
-
-                  <TabsContent value="djtools" className="mt-0">
-                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
-                      <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                          <Scissors className="w-5 h-5 text-orange-500" />
-                          DJ Tools & Pitch Shifting
-                        </CardTitle>
-                        <CardDescription className="text-zinc-500">
-                          Calculate semitone shifts and explore the Circle of Fifths
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-8">
-                        <div className="space-y-4">
-                          <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Pitch Shift Calculator</h4>
-                          <PitchShifter />
-                        </div>
-                        
-                        <Separator className="bg-zinc-800" />
-                        
-                        <div className="space-y-4">
-                          <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider text-center">Interactive Circle of Fifths</h4>
-                          <CircleOfFifths />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="player" className="mt-0">
-                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm p-8 flex flex-col items-center justify-center text-center">
-                      <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl mb-8 border-4 border-zinc-800 rotate-3">
-                        <img 
-                          src={videoInfo.thumbnail} 
-                          alt="Album Art" 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      <h3 className="text-2xl font-bold mb-1 line-clamp-1">{videoInfo.title}</h3>
-                      <p className="text-zinc-500 mb-8">{videoInfo.uploader}</p>
-                      
-                      <div className="w-full space-y-6">
-                        <div className="space-y-2">
-                          <Slider defaultValue={[0]} max={100} step={1} className="w-full" />
-                          <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
-                            <span>0:00</span>
-                            <span>{Math.floor(videoInfo.duration / 60)}:{(videoInfo.duration % 60).toString().padStart(2, '0')}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-center gap-8">
-                          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white">
-                            <ChevronRight className="w-6 h-6 rotate-180" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            className="w-16 h-16 rounded-full bg-white text-black hover:bg-zinc-200 transition-transform active:scale-90"
-                            onClick={togglePlay}
-                          >
-                            {isPlaying ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white">
-                            <ChevronRight className="w-6 h-6" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {audioUrl && (
-                        <audio 
-                          ref={audioRef} 
-                          src={audioUrl} 
-                          onEnded={() => setIsPlaying(false)}
-                          className="hidden"
-                        />
-                      )}
-                    </Card>
-                  </TabsContent>
                 </Tabs>
               </div>
             </motion.div>
@@ -811,16 +816,21 @@ function MainApp() {
               key="empty"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-20 text-center"
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center py-20 text-center space-y-6"
             >
-              <div className="w-24 h-24 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 shadow-inner">
-                <Music className="w-10 h-10 text-zinc-700" />
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                <Music className="w-12 h-12 opacity-20" />
               </div>
-              <h2 className="text-2xl font-bold text-zinc-300 mb-2">Ready to analyze?</h2>
-              <p className="text-zinc-500 max-w-sm">Enter a YouTube URL above to start downloading, splitting stems, and analyzing music theory.</p>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold opacity-40">No track loaded</h2>
+                <p className="text-white/30 max-w-sm">Paste a URL or upload a file above to start your music analysis journey.</p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
+      </TabsContent>
+    </Tabs>
       </div>
       <Toaster position="bottom-right" theme={theme as any} />
     </div>

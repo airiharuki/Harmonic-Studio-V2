@@ -1,6 +1,6 @@
 # 🎵 VibeCoded Music Lab 🧪✨
 
-A music theory tool that actually doesn't suck. Calculate pitch shifts, generate AI chords, analyze YouTube tracks, split stems, and stare at a Circle of Fifths that actually looks good—all while vibing at A=432Hz because we're fancy like that.
+A music theory tool that actually doesn't suck. Calculate pitch shifts, generate AI chords, analyze tracks, split stems, and stare at a Circle of Fifths that actually looks good—all while vibing at A=432Hz because we're fancy like that.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Vite + React](https://img.shields.io/badge/vite-react-black.svg)
@@ -8,131 +8,78 @@ A music theory tool that actually doesn't suck. Calculate pitch shifts, generate
 
 ## ✨ What's This Thing Do?
 
-### 🎹 Pitch & Scale Calculator
+### 🎹 Vibe Composer (Main Tab)
+Have you ever listened to a song and thought, "Wow, this pitch is in a weird scale," and wondered exactly how many semitones you should pitch it up or down in your DAW? Or maybe you just want to know if a **Yuno Miles** track is technically in the same key as a **Skrillex** drop? You're in the right place, my friend.
 
-Have you ever listened to a song and thought, "Wow, this pitch is in a weird scale," and wondered exactly how many semitones you should pitch it up or down in your DAW? Or maybe you just want to know if a Yuno Miles track is technically in the same key as a Skrillex drop? You're in the right place, my friend.
+- 🎯 **Pitch Shift Calculator**: Tells you exactly how many semitones to pitch that thing (+7, -3, whatever) so it actually fits your project.
+- ⭕ **Interactive Circle of Fifths**: Finally, a Circle of Fifths that doesn't look like it was made in MS Paint in 2003. Supports both Musical and Camelot modes.
 
-- 🎯 Visual display of direct root shifts
-- 🧠 Harmonic mixing (matches relative major/minor keys)
-- ⬆️⬇️ Tells you exactly how many semitones to pitch that thing (+7, -3, whatever)
+### 🧠 Music Analyzer (Analyzer Tab)
+Paste a link or upload a file, get the audio, and extract the vibe. That's it. That's the feature.
 
-### 🎸 AI Chord Generation (Vibe Studio)
-
-Look, we've all been there. Staring at the piano roll at 3am, trying to make a chord progression that doesn't sound like ass. This thing helps. We feed the track's vibe (Key, Scale, Mood, BPM) directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
-
-- 🤖 Powered by Gemini AI
-- ✨ Generates chords based on the exact vibe of your analyzed track
-- 🔮 Lives in its own dedicated "Vibe Studio" tab
-
-### ⭕ Circle of Fifths
-
-Finally, a Circle of Fifths that doesn't look like it was made in MS Paint in 2003.
-
-- 🎵 **Musical Mode**: Classic notation for the theory nerds
-- 🔢 **Camelot Mode**: For DJs who think in numbers and letters
-- 🌙 Inner ring for minor keys, outer ring for major keys
-
-### 📺 YouTube Audio Downloader & Analyzer
-
-Paste a YouTube link, get the audio, and extract the vibe. That's it. That's the feature.
-
-- 📥 **Audio Downloading (`yt-dlp`)**: We rip audio from the interwebs faster than you can say "copyright infringement" (just kidding, please only download royalty-free lo-fi beats to study/relax to).
+- 📥 **Universal Downloader (`yt-dlp`)**: We rip audio from the interwebs faster than you can say "copyright infringement".
 - 🧠 **Music Analysis (`essentia.js`)**: We use actual, literal math to tell you the BPM, Key, Scale, Energy, and Mood of a track. It's like having a tiny, very pedantic music major trapped in your browser.
+- 🎙️ **Stem Splitting (`demucs`)**: Slice your audio into Vocals, Drums, Bass, and "Other" (which is usually just the sound of the guitarist's ego).
+- ✨ **Vibe Studio**: Feed the track's vibe directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
 
-### 🎵 Stem Splitter
+## 🚨 THE GOLDEN RULE: WAV/FLAC ONLY 🚨
 
-Do you have an overwhelming urge to rip the bassline out of a 2009 YouTube tutorial video? Ever wanted to isolate the vocals of a song just to realize the singer is actually terrible without the backing track? Now you can!
-
-- 🎙️ **Stem Splitting (`demucs`)**: We slice your audio into Vocals, Drums, Bass, and "Other" (which is usually just the sound of the guitarist's ego).
-- 🎚️ **Interactive Stem Mixer**: A visual mockup for adjusting the individual volumes of your separated stems.
-
-### 🌓 It Looks Pretty Too™
-
-- 🌙 Dark mode for late night sessions (moody charcoal-to-black gradient)
-- ☀️ Light mode for when you open your laptop at a coffee shop (creamy off-white aesthetic™)
-- 📺 **VHS Grain Overlay**: It's aggressive, and we like it. 
-- ✨ Smooth-ass theme transitions that don't just snap between modes
-
-## 🚨 THE GOLDEN RULE: WAV ONLY 🚨
-
-Listen to me very carefully. If you want to use the stem splitter or the music analyzer, **YOU MUST DOWNLOAD THE AUDIO AS A WAV FILE.** 
+Listen to me very carefully. If you want to use the stem splitter or the music analyzer, **YOU SHOULD PREFER WAV OR FLAC FILES.** 
 
 Why? Because MP3s are compressed, lossy garbage that throw our delicate algorithms into an existential crisis. We demand *uncompressed fidelity*. We want every single bit of audio data, even the parts human ears can't hear. Give us the WAVs, or give us death (or, you know, a generic error message).
 
-## 🚀 Try It
+## 🌐 Supported Sites (yt-dlp)
+We support over 1000+ sites including:
+- **YouTube** (obviously)
+- **SoundCloud** (for the underground vibes)
+- **Bandcamp** (support the artists!)
+- **Vimeo**
+- **Mixcloud**
+- **Twitch**
+- **Twitter/X**
+- **TikTok**
+- And basically anything else that hosts video or audio.
 
-Just clone it and run it. Or click the deploy link if there is one.
+## 🚀 How to Actually Use It
+
+### Need to Pitch Shift Something?
+1. Go to the **Composer** tab (it's the landing page).
+2. Pick your current key/scale (From Track).
+3. Pick where you want it to go (To Track).
+4. It tells you the semitones ("+7" means pitch up 7, etc.).
+5. Go do that in your DAW.
+6. Profit 💰 (or at least sound like you know what you're doing).
+
+### Analyzing & Splitting a Track
+1. Go to the **Analyzer** tab.
+2. Paste a URL 📺 OR upload a local file 📁.
+3. Hit **Load** to fetch metadata.
+4. Choose your format (WAV/FLAC recommended) and hit **Download**.
+5. Once loaded, use the sub-tabs:
+   - **Split**: Select which stems you want (Vocals, Drums, etc.) and hit **Split & Download ZIP**.
+   - **Analyze**: Hit **Start Analysis** to get the BPM, Key, and Mood.
+   - **Vibe**: After analysis, hit **Generate Magic** for AI chord progressions.
 
 ## 🛠️ What's It Made With?
 
-- ⚡ Vite + React (living on the edge)
-- 🎨 Tailwind CSS 4 (utility classes go brrrr)
-- 🤖 Google Gemini API (for the AI chords)
-- 🧠 Essentia.js (for the math)
-- 🐍 Python, `yt-dlp`, and `demucs` (for the heavy lifting)
-- 💎 VHS Grain everywhere (because 1995 called and we answered)
+- ⚡ **Vite + React** (living on the edge)
+- 🎨 **Tailwind CSS 4** (utility classes go brrrr)
+- 🤖 **Google Gemini API** (for the AI chords)
+- 🧠 **Essentia.js** (for the math)
+- 🐍 **Python, `yt-dlp`, and `demucs`** (for the heavy lifting)
+- 📺 **VHS Grain Overlay** (because 1995 called and we answered)
 
-## 📦 How to Run This Locally
+## 🌓 It Looks Pretty Too™
 
-```bash
-# Get the code
-git clone <your-repo-url>
-cd vibecoded-music-lab
+- 🌙 **Dark Mode**: Based on a moody charcoal aesthetic (IMG-2640).
+- ☀️ **Light Mode**: Creamy off-white aesthetic™ (IMG-2226).
+- 📺 **VHS Grain Overlay**: It's aggressive, and we like it. 
 
-# Install the stuff
-npm install
+---
 
-# Set up environment variables
-cp .env.example .env
-# Add your GEMINI_API_KEY to the .env file
+**Made with ❤️, ☕, and questionable life choices**
 
-# Install Python dependencies (you'll need demucs and yt-dlp installed on your system)
-pip install demucs yt-dlp
-# Note: Demucs works best with a GPU, otherwise it might take a while to split stems.
-
-# Run it
-npm run dev
-
-# Now go to localhost:3000 and make some music
-```
-
-## 🎯 How to Actually Use It
-
-### Need to Pitch Shift Something?
-
-1. Go to the DJ Tools tab
-2. Pick your current key/scale (From Track)
-3. Pick where you want it to go (To Track)
-4. It tells you the semitones ("+7" means pitch up 7, etc.)
-5. Go do that in your DAW
-6. Profit 💰
-
-### Analyzing a Track
-
-1. Paste a YouTube URL 📺 (Remember: **WAV ONLY** if you want the good stuff).
-2. Hit the download button. Wait patiently while our server does the heavy lifting.
-3. Click "Analyze Track". Our math-powered hamsters will determine the BPM, Key, Scale, and overall mood.
-4. Copy whatever values you need.
-
-### Splitting Stems
-
-1. After downloading your WAV file, click "Split Stems".
-2. Wait for processing (may take a minute depending on file size).
-3. Use the interactive stem mixer mockup to adjust volumes.
-4. Use them in your DAW for remixing, sampling, or production.
-
-### Making AI Chords
-
-1. Analyze a track first to extract its vibe.
-2. Head over to the Vibe Studio tab ✨
-3. Click "Generate Magic" 🎲
-4. Let Gemini write a 4-bar chord progression tailored to the exact vibe of your track.
-
-### Using the Circle of Fifths
-
-1. Go to the DJ Tools tab.
-2. Toggle between Musical and Camelot mode based on your vibe.
-3. Read the tips on the side if you forgot your music theory classes 📚
+*P.S. - If you made it this far in the README, you're the real MVP 🏅*
 
 ## 🎼 Why 432Hz Though?
 

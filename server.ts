@@ -44,7 +44,7 @@ async function startServer() {
   const upload = multer({ dest: downloadsDir });
 
   // API Routes
-  app.post("/api/upload", upload.single("file"), (req, res) => {
+  app.post("/api/upload", upload.single("file"), (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     
     // Rename file to include original extension

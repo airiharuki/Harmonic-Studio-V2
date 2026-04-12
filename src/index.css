@@ -83,8 +83,10 @@
     --sidebar-ring: oklch(0.708 0 0);
     
     /* Custom Theme Variables */
-    --app-bg-gradient: linear-gradient(135deg, #fdfbf7 0%, #f4eee6 50%, #e8dfd5 100%);
-    --app-text: #2a2a2a;
+    --bg-image: url('https://i.ibb.co/7d91C7rW/IMG-2226.jpg');
+    --app-text: #4a3b3b;
+    --pill-bg: rgba(255, 255, 255, 0.4);
+    --pill-active: #b388ff;
 }
 
 .dark {
@@ -119,10 +121,12 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
-
+    
     /* Custom Theme Variables */
-    --app-bg-gradient: linear-gradient(135deg, #1c1a19 0%, #121110 50%, #080808 100%);
+    --bg-image: url('https://i.ibb.co/ZzWWQ7Vp/IMG-2640.jpg');
     --app-text: #f4f4f5;
+    --pill-bg: rgba(0, 0, 0, 0.3);
+    --pill-active: #9b59b6;
 }
 
 @layer base {
@@ -132,17 +136,19 @@
     }
   body {
     @apply bg-background text-foreground;
-    background: var(--app-bg-gradient);
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center;
     background-attachment: fixed;
     color: var(--app-text);
-    transition: background 0.7s ease-in-out, color 0.5s ease-in-out;
+    transition: background-image 0.7s ease-in-out, color 0.5s ease-in-out;
     }
   html {
     @apply font-sans;
     }
 }
 
-/* VHS Grain Overlay */
+/* VHS Grain & Scanlines Overlay */
 .vhs-grain {
   position: fixed;
   top: 0;
@@ -151,7 +157,54 @@
   height: 100vh;
   pointer-events: none;
   z-index: 9999;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
-  opacity: 0.6;
+  background: 
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  background-size: 100% 3px, 3px 100%;
+  opacity: 0.3;
+}
+
+.vhs-grain::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+  opacity: 0.5;
   mix-blend-mode: overlay;
+  animation: noise 0.2s infinite steps(2);
+}
+
+@keyframes noise {
+  0% { transform: translate(0,0) }
+  10% { transform: translate(-1%,-1%) }
+  20% { transform: translate(1%,1%) }
+  30% { transform: translate(-2%,1%) }
+  40% { transform: translate(2%,-1%) }
+  50% { transform: translate(-1%,2%) }
+  60% { transform: translate(1%,-2%) }
+  70% { transform: translate(2%,2%) }
+  80% { transform: translate(-2%,-2%) }
+  90% { transform: translate(1%,1%) }
+  100% { transform: translate(0,0) }
+}
+
+/* Pill Tab Switcher Styles */
+.pill-tabs-list {
+  @apply inline-flex items-center p-1 rounded-full border border-white/10 backdrop-blur-md;
+  background: var(--pill-bg);
+}
+
+.pill-tab-trigger {
+  @apply px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 data-[state=active]:text-white data-[state=active]:shadow-lg;
+}
+
+.pill-tab-trigger[data-state="active"] {
+  background: var(--pill-active);
+}
+
+.theme-card {
+  @apply bg-white/10 dark:bg-black/20 border-white/10 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl;
 }
