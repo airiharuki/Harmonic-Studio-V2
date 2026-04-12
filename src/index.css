@@ -83,8 +83,7 @@
     --sidebar-ring: oklch(0.708 0 0);
     
     /* Custom Theme Variables */
-    --bg-image: url('https://i.ibb.co/7d91C7rW/IMG-2226.jpg');
-    --app-bg: #f8f5f2;
+    --app-bg-gradient: linear-gradient(135deg, #fdfbf7 0%, #f4eee6 50%, #e8dfd5 100%);
     --app-text: #2a2a2a;
 }
 
@@ -122,8 +121,7 @@
     --sidebar-ring: oklch(0.556 0 0);
 
     /* Custom Theme Variables */
-    --bg-image: url('https://i.ibb.co/ZzWWQ7Vp/IMG-2640.jpg');
-    --app-bg: #0a0a0a;
+    --app-bg-gradient: linear-gradient(135deg, #1c1a19 0%, #121110 50%, #080808 100%);
     --app-text: #f4f4f5;
 }
 
@@ -134,12 +132,10 @@
     }
   body {
     @apply bg-background text-foreground;
-    background-image: var(--bg-image);
-    background-size: cover;
-    background-position: center;
+    background: var(--app-bg-gradient);
     background-attachment: fixed;
     color: var(--app-text);
-    transition: background-image 0.7s ease-in-out, color 0.5s ease-in-out;
+    transition: background 0.7s ease-in-out, color 0.5s ease-in-out;
     }
   html {
     @apply font-sans;

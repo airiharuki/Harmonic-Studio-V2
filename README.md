@@ -15,7 +15,7 @@ This app is a Frankenstein's monster of audio processing, stitched together with
 *   **Interactive Stem Mixer**: A visual mockup for adjusting the individual volumes of your separated stems (Vocals, Drums, Bass, Other).
 *   **DJ Tools & Pitch Shifter**: Want to mix D Major into A Minor? Our Pitch Shift Calculator tells you exactly how many semitones to pitch up or down to match root notes or harmonic relative keys. Plus, an interactive Circle of Fifths with Camelot wheel values!
 *   **Vibe Studio**: A dedicated space where the AI Chord Generator lives, surrounded by the pure essence of your track's vibe.
-*   **Aesthetic Overload**: We've implemented a creamy, smooth transition between Light and Dark modes, complete with a grainy VHS overlay and custom background images. It's not just an app; it's an *experience*.
+*   **Aesthetic Overload**: We've implemented a creamy, smooth transition between Light and Dark modes, complete with a grainy VHS overlay and custom gradient color palettes. It's not just an app; it's an *experience*.
 
 ## 🚨 THE GOLDEN RULE: WAV ONLY 🚨
 
