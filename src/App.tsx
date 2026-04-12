@@ -65,6 +65,7 @@ class ErrorBoundary extends React.Component<any, any> {
 function MainApp() {
   const { theme, setTheme } = useTheme();
   const [url, setUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [videoInfo, setVideoInfo] = useState<any>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -74,6 +75,8 @@ function MainApp() {
   const [chords, setChords] = useState<string[] | null>(null);
   const [generatingChords, setGeneratingChords] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
+  const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [stemVolumes, setStemVolumes] = useState({
     vocals: 80,
@@ -110,15 +113,35 @@ function MainApp() {
   }, []);
 
   const handleFetchInfo = async () => {
-    if (!url) return;
+    if (!url && !file) return;
     setLoading(true);
     setVideoInfo(null);
     setAnalysis(null);
     setAudioUrl(null);
     try {
-      const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
-      setVideoInfo(response.data);
-      toast.success("Video info fetched!");
+      if (file) {
+        // Handle local file upload
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await axios.post("/api/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        setUploadedFilename(response.data.filename);
+        setAudioUrl(response.data.url);
+        setVideoInfo({
+          title: response.data.originalName,
+          uploader: "Local File",
+          thumbnail: "https://images.unsplash.com/photo-1614149162883-504ce4d13909?q=80&w=800&auto=format&fit=crop",
+          duration: 0,
+          view_count: 0,
+          isLocal: true
+        });
+        toast.success("File uploaded successfully!");
+      } else {
+        const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
+        setVideoInfo(response.data);
+        toast.success("Video info fetched!");
+      }
     } catch (error: any) {
       toast.error("Failed to fetch video info: " + (error.response?.data?.error || error.message));
     } finally {
@@ -126,7 +149,19 @@ function MainApp() {
     }
   };
 
-  const handleDownload = async (format: "mp3" | "wav") => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      setUrl(""); // Clear URL if file is selected
+      
+      if (selectedFile.name.toLowerCase().endsWith(".mp3")) {
+        toast.warning("Warning: MP3s are compressed and may reduce the quality of stem splitting and analysis. WAV or FLAC is recommended.", { duration: 5000 });
+      }
+    }
+  };
+
+  const handleDownload = async (format: "mp3" | "wav" | "flac") => {
     setDownloading(format);
     try {
       const response = await axios.post("/api/download", { url, format });
@@ -141,7 +176,7 @@ function MainApp() {
       
       toast.success(`Download started for ${format.toUpperCase()}`);
       
-      if (format === "wav") {
+      if (format === "wav" || format === "flac") {
         setAudioUrl(downloadUrl);
       }
     } catch (error: any) {
@@ -152,9 +187,21 @@ function MainApp() {
   };
 
   const handleSplit = async () => {
+    if (selectedStems.length === 0) {
+      toast.error("Please select at least one stem to download.");
+      return;
+    }
+    
     setSplitting(true);
     try {
-      const response = await axios.post("/api/split", { url });
+      const payload: any = { stemsToZip: selectedStems };
+      if (uploadedFilename) {
+        payload.filename = uploadedFilename;
+      } else {
+        payload.url = url;
+      }
+
+      const response = await axios.post("/api/split", payload);
       const downloadUrl = response.data.url;
       
       const link = document.createElement("a");
@@ -169,6 +216,20 @@ function MainApp() {
       toast.error(`Splitting failed: ${error.response?.data?.error || error.message}`);
     } finally {
       setSplitting(false);
+    }
+  };
+
+  const toggleStem = (stem: string) => {
+    setSelectedStems(prev => 
+      prev.includes(stem) ? prev.filter(s => s !== stem) : [...prev, stem]
+    );
+  };
+
+  const toggleAllStems = () => {
+    if (selectedStems.length === 4) {
+      setSelectedStems([]);
+    } else {
+      setSelectedStems(["vocals", "drums", "bass", "other"]);
     }
   };
 
@@ -308,21 +369,41 @@ function MainApp() {
           transition={{ delay: 0.3 }}
           className="relative max-w-2xl mx-auto mb-16"
         >
-          <div className="flex gap-2 p-2 rounded-2xl bg-zinc-900/50 border border-zinc-800 backdrop-blur-xl shadow-2xl">
-            <Input 
-              placeholder="Paste YouTube URL here..." 
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="bg-transparent border-none focus-visible:ring-0 text-lg h-12"
-            />
-            <Button 
-              onClick={handleFetchInfo} 
-              disabled={loading || !url}
-              className="h-12 px-6 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all active:scale-95"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-              <span className="ml-2">Fetch</span>
-            </Button>
+          <div className="flex flex-col gap-4 p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800 backdrop-blur-xl shadow-2xl">
+            <div className="flex gap-2">
+              <Input 
+                placeholder="Paste YouTube, SoundCloud, etc. URL here..." 
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  if (e.target.value) setFile(null);
+                }}
+                className="bg-transparent border-zinc-700 focus-visible:ring-orange-500 text-lg h-12"
+              />
+              <Button 
+                onClick={handleFetchInfo} 
+                disabled={loading || (!url && !file)}
+                className="h-12 px-6 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all active:scale-95"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                <span className="ml-2">Load</span>
+              </Button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-zinc-800"></div>
+              <span className="text-xs text-zinc-500 uppercase tracking-widest">OR</span>
+              <div className="flex-1 h-px bg-zinc-800"></div>
+            </div>
+            <div className="flex items-center justify-center w-full">
+              <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-zinc-800 border-dashed rounded-xl cursor-pointer bg-zinc-900/30 hover:bg-zinc-800/50 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <p className="mb-1 text-sm text-zinc-400"><span className="font-semibold">Click to upload</span> local audio</p>
+                      <p className="text-xs text-zinc-500">WAV, FLAC, or MP3 (WAV/FLAC recommended)</p>
+                      {file && <p className="mt-2 text-sm text-orange-400 font-medium">{file.name}</p>}
+                  </div>
+                  <input id="dropzone-file" type="file" className="hidden" accept=".mp3,.wav,.flac,audio/*" onChange={handleFileChange} />
+              </label>
+            </div>
           </div>
         </motion.div>
 
@@ -360,41 +441,96 @@ function MainApp() {
                       </Badge>
                     </div>
 
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Download Raw Audio</h4>
-                      <div className="grid grid-cols-2 gap-3">
+                    {!videoInfo.isLocal && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Download Raw Audio</h4>
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button 
+                            variant="outline" 
+                            className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                            onClick={() => handleDownload("mp3")}
+                            disabled={downloading !== null}
+                          >
+                            {downloading === "mp3" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+                            MP3
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                            onClick={() => handleDownload("wav")}
+                            disabled={downloading !== null}
+                          >
+                            {downloading === "wav" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+                            WAV
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                            onClick={() => handleDownload("flac")}
+                            disabled={downloading !== null}
+                          >
+                            {downloading === "flac" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+                            FLAC
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {videoInfo.isLocal && audioUrl && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Original Audio</h4>
                         <Button 
                           variant="outline" 
-                          className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
-                          onClick={() => handleDownload("mp3")}
-                          disabled={downloading !== null}
+                          className="w-full border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
+                          onClick={() => {
+                            const link = document.createElement("a");
+                            link.href = audioUrl;
+                            link.setAttribute("download", videoInfo.title || "audio");
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
                         >
-                          {downloading === "mp3" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
-                          MP3
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300"
-                          onClick={() => handleDownload("wav")}
-                          disabled={downloading !== null}
-                        >
-                          {downloading === "wav" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
-                          WAV
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Original File
                         </Button>
                       </div>
-                    </div>
+                    )}
 
                     <Separator className="bg-zinc-800" />
 
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Stem Splitting</h4>
-                        <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20">WAV Only</Badge>
+                        <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20">WAV/FLAC Rec.</Badge>
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        {["vocals", "drums", "bass", "other"].map((stem) => (
+                          <div key={stem} className="flex items-center space-x-2 bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
+                            <input 
+                              type="checkbox" 
+                              id={`stem-${stem}`}
+                              checked={selectedStems.includes(stem)}
+                              onChange={() => toggleStem(stem)}
+                              className="w-4 h-4 rounded border-zinc-700 text-orange-500 focus:ring-orange-500 bg-zinc-800"
+                            />
+                            <label htmlFor={`stem-${stem}`} className="text-sm capitalize text-zinc-300 cursor-pointer select-none">
+                              {stem}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-end mb-3">
+                        <button onClick={toggleAllStems} className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                          {selectedStems.length === 4 ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
+
                       <Button 
                         className="w-full bg-white text-black hover:bg-zinc-200 font-bold h-12 rounded-xl"
                         onClick={handleSplit}
-                        disabled={splitting}
+                        disabled={splitting || selectedStems.length === 0}
                       >
                         {splitting ? (
                           <>
@@ -404,12 +540,12 @@ function MainApp() {
                         ) : (
                           <>
                             <Scissors className="w-5 h-5 mr-2" />
-                            Split Stems (Demucs)
+                            Split & Download Selected
                           </>
                         )}
                       </Button>
                       <p className="text-[10px] text-zinc-500 text-center italic">
-                        Separates audio into Drums, Bass, Vocals, and Other.
+                        Separates audio into selected stems and zips them.
                       </p>
                     </div>
                   </CardContent>
