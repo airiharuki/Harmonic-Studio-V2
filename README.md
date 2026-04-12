@@ -12,12 +12,13 @@ A music theory tool that actually doesn't suck. Calculate pitch shifts, generate
 Have you ever listened to a song and thought, "Wow, this pitch is in a weird scale," and wondered exactly how many semitones you should pitch it up or down in your DAW? Or maybe you just want to know if a **Yuno Miles** track is technically in the same key as a **Skrillex** drop? You're in the right place, my friend.
 
 - 🎯 **Pitch Shift Calculator**: Tells you exactly how many semitones to pitch that thing (+7, -3, whatever) so it actually fits your project.
-- ⭕ **Interactive Circle of Fifths**: Finally, a Circle of Fifths that doesn't look like it was made in MS Paint in 2003. Supports both Musical and Camelot modes.
+- ⭕ **Interactive Circle of Fifths**: Finally, a Circle of Fifths that doesn't look like it was made in MS Paint in 2003. Completely redesigned with a beautiful horizontal layout, inner/outer rings for minor/major keys, and a harmonic relationship guide. Supports both Musical and Camelot modes.
 
 ### 🧠 Music Analyzer (Analyzer Tab)
 Paste a link or upload a file, get the audio, and extract the vibe. That's it. That's the feature.
 
-- 📥 **Universal Downloader (`yt-dlp`)**: We rip audio from the interwebs faster than you can say "copyright infringement".
+- 📥 **Universal Downloader (`yt-dlp`)**: We rip audio from the interwebs faster than you can say "copyright infringement". Files are automatically renamed to the actual track title.
+- 🎧 **Hidden Iframe Player**: Preview your downloaded tracks directly in the browser using our stealthy hidden iframe technique (because raw audio tags are so 2010).
 - 🧠 **Music Analysis (`essentia.js`)**: We use actual, literal math to tell you the BPM, Key, Scale, Energy, and Mood of a track. It's like having a tiny, very pedantic music major trapped in your browser.
 - 🎙️ **Stem Splitting (`demucs`)**: Slice your audio into Vocals, Drums, Bass, and "Other" (which is usually just the sound of the guitarist's ego).
 - ✨ **Vibe Studio**: Feed the track's vibe directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
@@ -67,6 +68,7 @@ We support over 1000+ sites including:
 - 🤖 **Google Gemini API** (for the AI chords)
 - 🧠 **Essentia.js** (for the math)
 - 🐍 **Python, `yt-dlp`, and `demucs`** (for the heavy lifting)
+- 🎬 **`ffmpeg-static`** (because raw audio needs to be converted properly)
 - 📺 **VHS Grain Overlay** (because 1995 called and we answered)
 
 ## 🌓 It Looks Pretty Too™
@@ -76,6 +78,10 @@ We support over 1000+ sites including:
 - 📺 **VHS Grain Overlay**: It's aggressive, and we like it. 
 
 ---
+
+**Made with ❤️, ☕, and questionable life choices**
+
+*P.S. - If you made it this far in the README, you're the real MVP 🏅*
 
 ## 🎼 Why 432Hz Though?
 

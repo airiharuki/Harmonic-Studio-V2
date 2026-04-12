@@ -193,12 +193,12 @@
 
 /* Pill Tab Switcher Styles */
 .pill-tabs-list {
-  @apply inline-flex items-center p-1 rounded-full border border-white/10 backdrop-blur-md;
+  @apply inline-flex items-center p-1 rounded-full border border-black/10 dark:border-white/10 backdrop-blur-md;
   background: var(--pill-bg);
 }
 
 .pill-tab-trigger {
-  @apply px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 data-[state=active]:text-white data-[state=active]:shadow-lg;
+  @apply px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 data-[state=active]:text-background data-[state=active]:shadow-lg;
 }
 
 .pill-tab-trigger[data-state="active"] {
@@ -206,5 +206,5 @@
 }
 
 .theme-card {
-  @apply bg-white/10 dark:bg-black/20 border-white/10 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl;
+  @apply bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl;
 }

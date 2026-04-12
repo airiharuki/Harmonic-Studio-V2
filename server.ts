@@ -10,6 +10,7 @@ import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
 import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
+import ffmpegStatic from "ffmpeg-static";
 
 // Safe __dirname fallback for both ESM (dev) and CJS (prod bundle)
 const currentDir = typeof __dirname !== 'undefined' 
@@ -79,18 +80,21 @@ async function startServer() {
   });
 
   app.post("/api/download", async (req, res) => {
-    const { url, format } = req.body;
+    const { url, format, title } = req.body;
     if (!url || !format) return res.status(400).json({ error: "URL and format are required" });
 
-    const filename = `audio_${Date.now()}.${format}`;
+    const safeTitle = title ? title.replace(/[^a-zA-Z0-9 \-_]/g, '').replace(/ /g, '_') : `audio_${Date.now()}`;
+    const filename = `${safeTitle}.${format}`;
     const filepath = path.join(downloadsDir, filename);
 
     try {
       const options: any = {
+        format: 'bestaudio/best',
         extractAudio: true,
         audioFormat: format,
         output: filepath,
         noCheckCertificates: true,
+        ffmpegLocation: ffmpegStatic,
       };
 
       if (format === 'wav') {
