@@ -48,5 +48,9 @@ If you're sure it's a bug, describe it in excruciating detail. If you just say "
 
 For feature requests, dream big! Want us to add a feature that automatically translates guitar solos into interpretive dance? We probably won't do it, but we'd love to read the proposal.
 
+## 📜 License
+
+This project is licensed under the **MIT License**. Basically, do whatever you want with the code, but if your track doesn't blow up, don't complain to us.
+
 ---
 *Built with 🧡, ☕, and a profound misunderstanding of copyright law by the VibeCoded team.*
