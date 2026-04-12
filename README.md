@@ -61,6 +61,16 @@ We support over 1000+ sites including:
    - **Analyze**: Hit **Start Analysis** to get the BPM, Key, and Mood.
    - **Vibe**: After analysis, hit **Generate Magic** for AI chord progressions.
 
+## 🚀 Deployment (Oracle Cloud Free Tier)
+
+This app requires significant RAM (2GB+) to run the Demucs AI stem splitter, meaning standard free tiers on Render or Netlify will crash. 
+
+The best way to host this for free is using **Oracle Cloud's "Always Free" ARM instance** (which gives you 24GB of RAM for free).
+
+We have included a `Dockerfile` and `docker-compose.yml` to make this easy. 
+
+**See the full step-by-step guide in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md).**
+
 ## 🛠️ What's It Made With?
 
 - ⚡ **Vite + React** (living on the edge)
