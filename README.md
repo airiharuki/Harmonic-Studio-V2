@@ -77,10 +77,6 @@ We support over 1000+ sites including:
 
 ---
 
-**Made with ❤️, ☕, and questionable life choices**
-
-*P.S. - If you made it this far in the README, you're the real MVP 🏅*
-
 ## 🎼 Why 432Hz Though?
 
 Look, is there any peer-reviewed scientific evidence that tuning your instruments to 432Hz aligns your chakras with the resonant frequency of the universe? No. Absolutely not. 
