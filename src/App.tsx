@@ -23,7 +23,8 @@ import {
   Piano,
   Moon,
   Sun,
-  Sparkles
+  Sparkles,
+  Repeat
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import { ThemeProvider, useTheme } from "next-themes";
 import axios from "axios";
 import { CircleOfFifths } from "./CircleOfFifths";
 import { PitchShifter } from "./PitchShifter";
+import { Chord, Note } from "tonal";
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -85,6 +87,16 @@ function MainApp() {
     other: 80
   });
 
+  // Loop Studio State
+  const [loopBars, setLoopBars] = useState(4);
+  const [loopBpm, setLoopBpm] = useState(120);
+  const [loopTimeSig, setLoopTimeSig] = useState("4/4");
+  const [loopChords, setLoopChords] = useState<string[] | null>(null);
+  const [generatingLoop, setGeneratingLoop] = useState(false);
+  const [isLoopPlaying, setIsLoopPlaying] = useState(false);
+  const [synth, setSynth] = useState<any>(null);
+  const [bpmError, setBpmError] = useState<string | null>(null);
+
   // PitchShifter State
   const [sourceKey, setSourceKey] = useState('D');
   const [sourceScale, setSourceScale] = useState('Major');
@@ -108,6 +120,14 @@ function MainApp() {
         const coreScript = document.createElement("script");
         coreScript.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js";
         document.head.appendChild(coreScript);
+
+        // Load SpessaSynth for SF2 playback
+        const spessaScript = document.createElement("script");
+        spessaScript.src = "https://cdn.jsdelivr.net/npm/spessasynth@latest/dist/spessasynth.min.js";
+        spessaScript.onload = () => {
+          console.log("SpessaSynth loaded");
+        };
+        document.head.appendChild(spessaScript);
 
         console.log("Essentia scripts injected");
       } catch (e) {
@@ -329,6 +349,99 @@ function MainApp() {
     }
   };
 
+  const handleGenerateLoop = async () => {
+    if (loopBpm > 300) {
+      toast.error("We’re not making extra tone today");
+      return;
+    }
+    if (loopBpm < 30) {
+      toast.error("BPM too low! Minimum is 30.");
+      return;
+    }
+    setGeneratingLoop(true);
+    try {
+      const response = await axios.post("/api/loop", {
+        key: sourceKey,
+        scale: sourceScale,
+        bars: loopBars,
+        timeSignature: loopTimeSig,
+        bpm: loopBpm
+      });
+      setLoopChords(response.data.chords);
+      toast.success(`Generated ${loopBars}-bar loop in ${sourceKey} ${sourceScale}!`);
+    } catch (error: any) {
+      toast.error("Failed to generate loop: " + (error.response?.data?.error || error.message));
+    } finally {
+      setGeneratingLoop(false);
+    }
+  };
+
+  const playLoop = async () => {
+    if (!loopChords) return;
+    
+    if (isLoopPlaying) {
+      setIsLoopPlaying(false);
+      if (synth) {
+        synth.stopAllNotes();
+      }
+      return;
+    }
+
+    setIsLoopPlaying(true);
+    
+    try {
+      let currentSynth = synth;
+      if (!currentSynth) {
+        const win = window as any;
+        if (!win.SpessaSynth) {
+          toast.error("Synth library not loaded yet.");
+          setIsLoopPlaying(false);
+          return;
+        }
+
+        toast.info("Loading high-quality piano soundfont...");
+        const response = await fetch("https://musical-artifacts.com/artifacts/7759/Korg_E.piano1.sf2");
+        const arrayBuffer = await response.arrayBuffer();
+        
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        currentSynth = new win.SpessaSynth.Synthetizer(audioCtx.destination, arrayBuffer);
+        setSynth(currentSynth);
+      }
+
+      const barDuration = (60 / loopBpm) * 4; // Assuming 4/4 for now
+      
+      for (let i = 0; i < loopChords.length; i++) {
+        if (!isLoopPlaying) break;
+        
+        const chordName = loopChords[i];
+        const notes = Chord.get(chordName).notes;
+        const midiNotes = notes.map(n => Note.midi(n + "4"));
+
+        // Play notes
+        midiNotes.forEach(note => {
+          if (note !== null) currentSynth.noteOn(0, note, 80);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, barDuration * 1000 * 0.9)); // Play for 90% of the bar
+        
+        // Stop notes
+        midiNotes.forEach(note => {
+          if (note !== null) currentSynth.noteOff(0, note);
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, barDuration * 1000 * 0.1)); // 10% gap
+        
+        if (i === loopChords.length - 1) {
+          i = -1; // Loop back
+        }
+      }
+    } catch (error) {
+      console.error("Playback error:", error);
+      toast.error("Playback error. Check console.");
+      setIsLoopPlaying(false);
+    }
+  };
+
   return (
     <>
       <div className="vhs-grain" />
@@ -348,6 +461,7 @@ function MainApp() {
           <div className="flex justify-center mb-12">
             <TabsList className="pill-tabs-list">
               <TabsTrigger value="composer" className="pill-tab-trigger">Composer</TabsTrigger>
+              <TabsTrigger value="loopstudio" className="pill-tab-trigger">Loop Studio</TabsTrigger>
               <TabsTrigger value="analyzer" className="pill-tab-trigger">Analyzer</TabsTrigger>
             </TabsList>
           </div>
@@ -394,6 +508,125 @@ function MainApp() {
                 onSetBaseKey={(k: string, s: string) => { setSourceKey(k); setSourceScale(s); }}
                 onSetTargetKey={(k: string, s: string) => { setTargetKey(k); setTargetScale(s); }}
               />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="loopstudio" className="space-y-12 outline-none">
+            <header className="text-center mb-12">
+              <motion.h1 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+              >
+                Loop Studio
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-lg max-w-2xl mx-auto opacity-80"
+              >
+                Create custom chord loops. Set your parameters and let AI compose.
+              </motion.p>
+            </header>
+
+            <div className="max-w-4xl mx-auto space-y-8">
+              <Card className="theme-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Repeat className="w-5 h-5 text-foreground" />
+                    Loop Parameters
+                  </CardTitle>
+                  <CardDescription>Configure your loop settings (Key is synced with Circle of Fifths)</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase opacity-50">Bars (4-16)</label>
+                      <Input 
+                        type="number" 
+                        min={4} 
+                        max={16} 
+                        value={loopBars} 
+                        onChange={(e) => setLoopBars(parseInt(e.target.value) || 4)}
+                        className="theme-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase opacity-50">BPM</label>
+                      <Input 
+                        type="number" 
+                        value={loopBpm} 
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setLoopBpm(val);
+                          if (val > 300) {
+                            setBpmError("We’re not making extra tone today");
+                          } else {
+                            setBpmError(null);
+                          }
+                        }}
+                        className={`theme-input ${bpmError ? 'border-red-500' : ''}`}
+                      />
+                      {bpmError && <p className="text-[10px] text-red-500 font-bold">{bpmError}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase opacity-50">Time Signature</label>
+                      <Input 
+                        value={loopTimeSig} 
+                        onChange={(e) => setLoopTimeSig(e.target.value)}
+                        className="theme-input"
+                        placeholder="4/4"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase font-bold opacity-50">Active Key</p>
+                      <p className="text-xl font-bold">{sourceKey} {sourceScale}</p>
+                    </div>
+                    <p className="text-[10px] opacity-40 italic max-w-[150px] text-right">
+                      Change the key using the Circle of Fifths in the Composer tab.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button 
+                      onClick={handleGenerateLoop}
+                      disabled={generatingLoop || !!bpmError}
+                      className="h-14 bg-foreground text-background hover:bg-foreground/90 font-bold text-lg rounded-2xl shadow-lg"
+                    >
+                      {generatingLoop ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Sparkles className="w-5 h-5 mr-2" />}
+                      Generate Loop
+                    </Button>
+                    <Button 
+                      onClick={playLoop}
+                      disabled={!loopChords}
+                      variant="outline"
+                      className="h-14 border-foreground/20 hover:bg-foreground/5 font-bold text-lg rounded-2xl"
+                    >
+                      {isLoopPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                      {isLoopPlaying ? "Stop Loop" : "Play Loop (SF2)"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {loopChords && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+                >
+                  {loopChords.map((chord, i) => (
+                    <div key={i} className="theme-card p-6 flex flex-col items-center justify-center gap-2 min-h-[120px] relative overflow-hidden group">
+                      <div className="absolute top-2 left-2 text-[10px] font-bold opacity-20">BAR {i + 1}</div>
+                      <span className="text-3xl font-bold tracking-tighter group-hover:scale-110 transition-transform">{chord}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
             </div>
           </TabsContent>
 

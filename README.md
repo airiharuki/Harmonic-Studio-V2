@@ -23,6 +23,15 @@ Paste a link or upload a file, get the audio, and extract the vibe. That's it. T
 - 🎙️ **Stem Splitting (`demucs`)**: Slice your audio into Vocals, Drums, Bass, and "Other" (which is usually just the sound of the guitarist's ego).
 - ✨ **Vibe Studio**: Feed the track's vibe directly into Gemini's massive AI brain, and it spits out a 4-bar chord progression. It's basically ghostwriting for your jam sessions.
 
+### 🔁 Loop Studio (Loop Studio Tab)
+The ultimate playground for creating custom chord loops.
+
+- 🎹 **AI Loop Generation**: Generate 4-16 bar chord progressions in any key.
+- ⏱️ **Custom Parameters**: Type in your own BPM (30-300) and Time Signature.
+- 🔊 **SF2 Playback**: Hear your loops instantly with a high-quality **Korg E.piano1** SoundFont. No more guessing what the chords sound like.
+- ⭕ **Synced Theory**: Automatically syncs with the Circle of Fifths so your loops are always in the right key.
+- 🚫 **BPM Validation**: "We’re not making extra tone today" — built-in protection against impossible tempos.
+
 ## 🚨 THE GOLDEN RULE: WAV/FLAC ONLY 🚨
 
 Listen to me very carefully. If you want to use the stem splitter or the music analyzer, **YOU SHOULD PREFER WAV OR FLAC FILES.** 
@@ -61,6 +70,13 @@ We support over 1000+ sites including:
    - **Analyze**: Hit **Start Analysis** to get the BPM, Key, and Mood.
    - **Vibe**: After analysis, hit **Generate Magic** for AI chord progressions.
 
+### Creating Custom Loops
+1. Go to the **Loop Studio** tab.
+2. Set your **Bars** (4-16), **BPM** (30-300), and **Time Signature**.
+3. (Optional) Set your key in the **Composer** tab using the Circle of Fifths.
+4. Hit **Generate Loop** to get an AI-composed progression.
+5. Hit **Play Loop (SF2)** to hear it played with a professional electric piano sound.
+
 ## 🚀 Deployment (Oracle Cloud Free Tier)
 
 This app requires significant RAM (2GB+) to run the Demucs AI stem splitter, meaning standard free tiers on Render or Netlify will crash. 
@@ -77,6 +93,7 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 - 🎨 **Tailwind CSS 4** (utility classes go brrrr)
 - 🤖 **Google Gemini API** (for the AI chords)
 - 🧠 **Essentia.js** (for the math)
+- 🎹 **SpessaSynth + Tonal** (for high-quality SF2 playback and theory)
 - 🐍 **Python, `yt-dlp`, and `demucs`** (for the heavy lifting)
 - 🎬 **`ffmpeg-static`** (because raw audio needs to be converted properly)
 - 📺 **VHS Grain Overlay** (because 1995 called and we answered)

@@ -238,7 +238,7 @@ async function startServer() {
       Return ONLY a raw JSON array of 4 strings representing the chords (e.g., ["Cmaj7", "Am7", "Dm7", "G7"]). Do not include markdown formatting, backticks, or any other text.`;
       
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash",
         contents: prompt,
       });
       
@@ -250,6 +250,35 @@ async function startServer() {
       res.json({ chords });
     } catch (error: any) {
       console.error("Chord generation error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/loop", async (req, res) => {
+    try {
+      const { key, scale, bars, timeSignature, bpm } = req.body;
+      if (!key || !scale || !bars) {
+        return res.status(400).json({ error: "Key, scale, and bars are required" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `You are a professional music producer. Generate a ${bars}-bar chord progression for a loop in the key of ${key} ${scale}. 
+      The time signature is ${timeSignature || '4/4'} and the BPM is ${bpm || 120}.
+      Return ONLY a raw JSON array of ${bars} strings representing the chords (one chord per bar). Do not include markdown formatting, backticks, or any other text.
+      Example for 4 bars: ["Cmaj7", "Am7", "Dm7", "G7"]`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: prompt,
+      });
+      
+      let text = response.text || "[]";
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const chords = JSON.parse(text);
+      res.json({ chords });
+    } catch (error: any) {
+      console.error("Loop generation error:", error);
       res.status(500).json({ error: error.message });
     }
   });
