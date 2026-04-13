@@ -101,8 +101,8 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 
 ## 🌓 It Looks Pretty Too™
 
-- 🌙 **Dark Mode**: Based on a moody charcoal aesthetic (IMG-2640).
-- ☀️ **Light Mode**: Creamy off-white aesthetic™ (IMG-2226).
+- 🌙 **Dark Mode**: Based on a moody charcoal aesthetic.
+- ☀️ **Light Mode**: Creamy off-white aesthetic™.
 - 📺 **VHS Grain Overlay**: It's aggressive, and we like it. 
 
 ---
