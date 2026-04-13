@@ -11,7 +11,7 @@ A music theory tool that actually doesn't suck. Calculate pitch shifts, generate
 ### 🎹 Vibe Composer (Main Tab)
 Have you ever listened to a song and thought, "Wow, this pitch is in a weird scale," and wondered exactly how many semitones you should pitch it up or down in your DAW? Or maybe you just want to know if a **Yuno Miles** track is technically in the same key as a **Skrillex** drop? You're in the right place, my friend.
 
-- 🎯 **Pitch Shift Calculator**: Tells you exactly how many semitones to pitch that thing (+7, -3, whatever) so it actually fits your project.
+- 🎯 **Pitch Shift Calculator**: Tells you exactly how many semitones to pitch that thing (+7, -3, whatever) so it actually fits your project. Now with live key/scale display for your base and target keys.
 - ⭕ **Interactive Circle of Fifths**: Finally, a Circle of Fifths that doesn't look like it was made in MS Paint in 2003. Completely redesigned with a beautiful horizontal layout, inner/outer rings for minor/major keys, and a harmonic relationship guide. Supports both Musical and Camelot modes.
 
 ### 🧠 Music Analyzer (Analyzer Tab)
@@ -28,6 +28,7 @@ The ultimate playground for creating custom chord loops.
 
 - 🎹 **AI Loop Generation**: Generate 4-16 bar chord progressions in any key.
 - ⏱️ **Custom Parameters**: Type in your own BPM (30-300) and Time Signature.
+- 🎛️ **Manual Key Control**: Manually set the key and scale, or sync it instantly with the Circle of Fifths.
 - 🔊 **SF2 Playback**: Hear your loops instantly with a high-quality **Korg E.piano1** SoundFont. No more guessing what the chords sound like.
 - ⭕ **Synced Theory**: Automatically syncs with the Circle of Fifths so your loops are always in the right key.
 - 🚫 **BPM Validation**: "We’re not making extra tone today" — built-in protection against impossible tempos.

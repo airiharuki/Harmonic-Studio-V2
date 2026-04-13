@@ -87,21 +87,23 @@ function MainApp() {
     other: 80
   });
 
-  // Loop Studio State
-  const [loopBars, setLoopBars] = useState(4);
-  const [loopBpm, setLoopBpm] = useState(120);
-  const [loopTimeSig, setLoopTimeSig] = useState("4/4");
-  const [loopChords, setLoopChords] = useState<string[] | null>(null);
-  const [generatingLoop, setGeneratingLoop] = useState(false);
-  const [isLoopPlaying, setIsLoopPlaying] = useState(false);
-  const [synth, setSynth] = useState<any>(null);
-  const [bpmError, setBpmError] = useState<string | null>(null);
-
   // PitchShifter State
   const [sourceKey, setSourceKey] = useState('D');
   const [sourceScale, setSourceScale] = useState('Major');
   const [targetKey, setTargetKey] = useState('A');
   const [targetScale, setTargetScale] = useState('Minor');
+
+  // Loop Studio State
+  const [loopBars, setLoopBars] = useState(4);
+  const [loopBpm, setLoopBpm] = useState(120);
+  const [loopTimeSig, setLoopTimeSig] = useState("4/4");
+  const [loopKey, setLoopKey] = useState('D');
+  const [loopScale, setLoopScale] = useState('Major');
+  const [loopChords, setLoopChords] = useState<string[] | null>(null);
+  const [generatingLoop, setGeneratingLoop] = useState(false);
+  const [isLoopPlaying, setIsLoopPlaying] = useState(false);
+  const [synth, setSynth] = useState<any>(null);
+  const [bpmError, setBpmError] = useState<string | null>(null);
 
   useEffect(() => {
     // Initialize Eruda for mobile debugging
@@ -361,14 +363,14 @@ function MainApp() {
     setGeneratingLoop(true);
     try {
       const response = await axios.post("/api/loop", {
-        key: sourceKey,
-        scale: sourceScale,
+        key: loopKey,
+        scale: loopScale,
         bars: loopBars,
         timeSignature: loopTimeSig,
         bpm: loopBpm
       });
       setLoopChords(response.data.chords);
-      toast.success(`Generated ${loopBars}-bar loop in ${sourceKey} ${sourceScale}!`);
+      toast.success(`Generated ${loopBars}-bar loop in ${loopKey} ${loopScale}!`);
     } catch (error: any) {
       toast.error("Failed to generate loop: " + (error.response?.data?.error || error.message));
     } finally {
@@ -495,6 +497,16 @@ function MainApp() {
                   <CardDescription>Calculate semitone shifts for your DAW</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                      <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Base Key</p>
+                      <p className="text-xl font-bold">{sourceKey} {sourceScale}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                      <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Target Key</p>
+                      <p className="text-xl font-bold">{targetKey} {targetScale}</p>
+                    </div>
+                  </div>
                   <PitchShifter 
                     sourceKey={sourceKey} setSourceKey={setSourceKey}
                     sourceScale={sourceScale} setSourceScale={setSourceScale}
@@ -581,14 +593,37 @@ function MainApp() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase opacity-50">Key</label>
+                      <Input 
+                        value={loopKey} 
+                        onChange={(e) => setLoopKey(e.target.value)}
+                        className="theme-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase opacity-50">Scale</label>
+                      <Input 
+                        value={loopScale} 
+                        onChange={(e) => setLoopScale(e.target.value)}
+                        className="theme-input"
+                      />
+                    </div>
+                  </div>
+
                   <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 flex items-center justify-between">
                     <div>
-                      <p className="text-xs uppercase font-bold opacity-50">Active Key</p>
-                      <p className="text-xl font-bold">{sourceKey} {sourceScale}</p>
+                      <p className="text-xs uppercase font-bold opacity-50">Circle of Fifths Sync</p>
+                      <p className="text-sm font-bold">Base Key: {sourceKey} {sourceScale}</p>
                     </div>
-                    <p className="text-[10px] opacity-40 italic max-w-[150px] text-right">
-                      Change the key using the Circle of Fifths in the Composer tab.
-                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => { setLoopKey(sourceKey); setLoopScale(sourceScale); }}
+                    >
+                      Sync
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
