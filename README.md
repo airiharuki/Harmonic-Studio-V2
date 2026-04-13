@@ -2,6 +2,9 @@
 
 A music theory tool that actually doesn't suck. Calculate pitch shifts, generate AI chords, analyze tracks, split stems, and stare at a Circle of Fifths that actually looks good—all while vibing at A=432Hz because we're fancy like that.
 
+> **Wait, is this that old project?**
+> If you're looking for that old comp project from months ago, you're in the wrong place. This is the spiritual successor—faster, smarter, and significantly more powerful. It's refined, powered by a robust suite of tools, and doesn't rely on fragile, over-hyped hosting platforms that shall remain nameless (looking at you, Vercel). This version is a massive upgrade over that v0 prototype.
+
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Vite + React](https://img.shields.io/badge/vite-react-black.svg)
 ![Vibes](https://img.shields.io/badge/vibes-immaculate-ff69b4.svg)

@@ -955,12 +955,12 @@ function MainApp() {
                           {splitting ? (
                             <>
                               <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                              Splitting Stems...
+                              Stemming...
                             </>
                           ) : (
                             <>
                               <Scissors className="w-5 h-5 mr-2" />
-                              Split & Download ZIP
+                              Stem it!
                             </>
                           )}
                         </Button>
