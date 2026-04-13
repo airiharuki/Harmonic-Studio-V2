@@ -112,11 +112,7 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 
 ---
 
-**Made with ❤️, ☕, and questionable life choices**
-
 *P.S. - If you made it this far in the README, you're the real MVP 🏅*
-
-## 🎼 Why 432Hz Though?
 
 Look, is there any peer-reviewed scientific evidence that tuning your instruments to 432Hz aligns your chakras with the resonant frequency of the universe? No. Absolutely not. 
 
@@ -216,6 +212,6 @@ If this helped you make something cool, that's dope. Drop a star ⭐ if you're f
 
 ---
 
-**Made with ❤️, ☕, and questionable life choices**
-
 *P.S. - If you made it this far in the README, you're the real MVP 🏅*
+
+**Made with ❤️, ☕, and questionable life choices**
