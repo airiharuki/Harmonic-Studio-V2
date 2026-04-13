@@ -121,7 +121,7 @@ async function startServer() {
   });
 
   app.post("/api/split", async (req, res) => {
-    const { url, filename, stemsToZip } = req.body;
+    const { url, filename, stemsToZip, model } = req.body;
     if (!url && !filename) return res.status(400).json({ error: "URL or filename is required" });
 
     const jobId = `job_${Date.now()}`;
@@ -151,19 +151,34 @@ async function startServer() {
         fs.copyFileSync(sourcePath, inputPath);
       }
 
-      // 2. Run Demucs
-      const demucsOutputDir = path.join(outputDir, jobId);
-      const demucsCommand = `demucs -o "${demucsOutputDir}" "${inputPath}"`;
+      // 2. Run Splitting
+      const outputDirForJob = path.join(outputDir, jobId);
+      let command = "";
+      switch (model) {
+        case 'mdx':
+          command = `mdx-net -o "${outputDirForJob}" "${inputPath}"`;
+          break;
+        case 'spleeter':
+          command = `spleeter separate -o "${outputDirForJob}" "${inputPath}"`;
+          break;
+        case 'bs-roformer':
+          command = `bs-roformer -o "${outputDirForJob}" "${inputPath}"`;
+          break;
+        case 'demucs':
+        default:
+          command = `demucs -o "${outputDirForJob}" "${inputPath}"`;
+          break;
+      }
       
-      console.log(`Running demucs: ${demucsCommand}`);
+      console.log(`Running splitting command: ${command}`);
       try {
-        await execAsync(demucsCommand);
-      } catch (demucsError) {
-        console.warn("Demucs failed or not installed. Falling back to mock splitting for demo purposes.");
-        // Create mock stems if demucs fails
-        const mockStemsPath = path.join(demucsOutputDir, "htdemucs", "input");
+        await execAsync(command);
+      } catch (error) {
+        console.warn("Splitting failed or not installed. Falling back to mock splitting for demo purposes.");
+        // Create mock stems if splitting fails
+        const mockStemsPath = path.join(outputDirForJob, "htdemucs", "input");
         if (!fs.existsSync(mockStemsPath)) {
-          fs.mkdirSync(path.join(demucsOutputDir, "htdemucs"), { recursive: true });
+          fs.mkdirSync(path.join(outputDirForJob, "htdemucs"), { recursive: true });
           fs.mkdirSync(mockStemsPath, { recursive: true });
           // Copy input to mock stems
           const stems = ["vocals.wav", "drums.wav", "bass.wav", "other.wav"];
@@ -174,7 +189,7 @@ async function startServer() {
       }
 
       // 3. Zip the results
-      const stemsPath = path.join(demucsOutputDir, "htdemucs", "input");
+      const stemsPath = path.join(outputDirForJob, "htdemucs", "input");
       const zipFilename = `${jobId}_stems.zip`;
       const zipPath = path.join(outputDir, zipFilename);
       const output = fs.createWriteStream(zipPath);

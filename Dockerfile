@@ -14,8 +14,8 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install Demucs via pip in the virtual environment
-RUN pip install --no-cache-dir -U demucs
+# Install Demucs and MDX-Net via pip in the virtual environment
+RUN pip install --no-cache-dir -U demucs mdx-net
 
 # Set working directory
 WORKDIR /app

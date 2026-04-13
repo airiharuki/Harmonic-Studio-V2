@@ -79,6 +79,7 @@ function MainApp() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
   const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
+  const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
   const [isPlaying, setIsPlaying] = useState(false);
   const [stemVolumes, setStemVolumes] = useState({
     vocals: 80,
@@ -235,7 +236,7 @@ function MainApp() {
     
     setSplitting(true);
     try {
-      const payload: any = { stemsToZip: selectedStems };
+      const payload: any = { stemsToZip: selectedStems, model: splittingModel };
       if (uploadedFilename) {
         payload.filename = uploadedFilename;
       } else {
@@ -877,21 +878,51 @@ function MainApp() {
                         </CardTitle>
                         <CardDescription className="opacity-70">
                           Split the track into individual components.
-                          <p className="text-[10px] mt-1 font-bold opacity-60">Powered by Demucs - Stem Separation</p>
+                          <p className="text-[10px] mt-1 font-bold opacity-60">Powered by {splittingModel.toUpperCase()} - Stem Separation</p>
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 space-y-4">
+                          <h4 className="text-sm font-bold opacity-60 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            {['demucs', 'mdx', 'spleeter', 'bs-roformer'].map((model) => (
+                              <div 
+                                key={model}
+                                onClick={() => setSplittingModel(model as any)}
+                                className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border cursor-pointer transition-all ${
+                                  splittingModel === model 
+                                    ? "bg-foreground/10 border-foreground/30 text-foreground" 
+                                    : "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 text-black/40 dark:text-white/40 hover:bg-black/10 dark:hover:bg-white/10"
+                                }`}
+                              >
+                                <span className="text-sm font-medium capitalize">{model}</span>
+                                {model !== 'demucs' && <span className="text-[10px] opacity-50">(BETA)</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 space-y-4">
                           <div className="flex justify-between items-center">
                             <h4 className="text-sm font-bold opacity-60 uppercase tracking-wider">Select Stems</h4>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={toggleAllStems}
-                              className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
-                            >
-                              {selectedStems.length === 4 ? "Deselect All" : "Select All"}
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setSelectedStems(['vocals', 'other'])}
+                                className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
+                              >
+                                Vocals/Inst
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={toggleAllStems}
+                                className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
+                              >
+                                {selectedStems.length === 4 ? "Deselect All" : "Select All"}
+                              </Button>
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {[
