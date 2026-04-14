@@ -25,7 +25,8 @@ import {
   Moon,
   Sun,
   Sparkles,
-  Repeat
+  Repeat,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,8 @@ class ErrorBoundary extends React.Component<any, any> {
 
 function MainApp() {
   const { theme, setTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState("composer");
+  const [isNavExpanded, setIsNavExpanded] = useState(false);
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -757,9 +760,55 @@ function MainApp() {
           </Button>
         </div>
         <div className="max-w-5xl mx-auto px-6 py-12">
-        <Tabs defaultValue="composer" className="w-full">
-          <div className="flex justify-center mb-12">
-            <TabsList className="pill-tabs-list">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex justify-center mb-12 relative z-50">
+            {/* Mobile Liquid Glass Switcher */}
+            <div className="sm:hidden relative w-[240px]">
+              <motion.div 
+                className="bg-black/10 dark:bg-white/10 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col shadow-2xl absolute top-0 left-0 right-0 z-50"
+                animate={{ height: isNavExpanded ? 'auto' : '56px' }}
+                transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+              >
+                <button 
+                  onClick={() => setIsNavExpanded(!isNavExpanded)}
+                  className="h-[56px] px-6 flex items-center justify-between gap-4 font-medium text-lg text-primary w-full"
+                >
+                  <span>{activeTab === 'composer' ? 'Composer' : activeTab === 'loopstudio' ? 'Loop Studio' : 'Analyzer'}</span>
+                  <motion.div animate={{ rotate: isNavExpanded ? 180 : 0 }}>
+                    <ChevronDown className="w-5 h-5 opacity-50" />
+                  </motion.div>
+                </button>
+                
+                <AnimatePresence>
+                  {isNavExpanded && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col pb-2 px-2"
+                    >
+                      {['composer', 'loopstudio', 'analyzer'].filter(t => t !== activeTab).map(t => (
+                        <button
+                          key={t}
+                          onClick={() => {
+                            setActiveTab(t);
+                            setIsNavExpanded(false);
+                          }}
+                          className="py-3 px-4 text-left rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 font-medium text-foreground/70 transition-colors"
+                        >
+                          {t === 'composer' ? 'Composer' : t === 'loopstudio' ? 'Loop Studio' : 'Analyzer'}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+              {/* Spacer to prevent content jump when absolute positioned pill expands */}
+              <div className="h-[56px]"></div>
+            </div>
+
+            {/* Desktop Tabs */}
+            <TabsList className="hidden sm:inline-flex pill-tabs-list">
               <TabsTrigger value="composer" className="pill-tab-trigger">Composer</TabsTrigger>
               <TabsTrigger value="loopstudio" className="pill-tab-trigger">Loop Studio</TabsTrigger>
               <TabsTrigger value="analyzer" className="pill-tab-trigger">Analyzer</TabsTrigger>

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && npm run build:server",
-    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --external:vite --external:express --external:youtube-dl-exec --external:archiver --external:cors --external:multer --external:fluent-ffmpeg --external:ffmpeg-static",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
     "start": "node dist/server.js",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
