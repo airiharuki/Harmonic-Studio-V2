@@ -107,13 +107,23 @@ function MainApp() {
   const [midiData, setMidiData] = useState<{tracks: any[], duration: number} | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
   const [midiCurrentTime, setMidiCurrentTime] = useState(0);
+  const [midiBpm, setMidiBpm] = useState<number | null>(null);
+  const [midiTimeSig, setMidiTimeSig] = useState<string | null>(null);
   const [midiMode, setMidiMode] = useState<'soundfont' | 'sine'>('soundfont');
+  const [parsedLyrics, setParsedLyrics] = useState<{time: number, text: string}[]>([]);
   const midiIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const midiAudioCtxRef = useRef<AudioContext | null>(null);
   const midiStartTimeRef = useRef<number>(0);
   const midiPausedTimeRef = useRef<number>(0);
   const midiActiveNotesRef = useRef<any[]>([]);
   const currentMidiRef = useRef<any>(null);
+  const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    if (activeLyricRef.current) {
+      activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [midiCurrentTime]);
 
   const stopMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
@@ -162,8 +172,10 @@ function MainApp() {
       currentMidiRef.current.tracks.forEach(track => {
           track.notes.forEach(note => {
               if (note.time >= pausedTime) {
-                  const stop = synth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
-                  midiActiveNotesRef.current.push(stop);
+                  const node = synth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+                  midiActiveNotesRef.current.push(() => {
+                    if (node && typeof node.stop === 'function') node.stop();
+                  });
               }
           });
       });
@@ -220,8 +232,37 @@ function MainApp() {
     currentMidiRef.current = midi;
     setMidiData({ tracks: midi.tracks, duration: midi.duration });
     
+    // Extract BPM and Time Signature
+    if (midi.header.tempos.length > 0) {
+      setMidiBpm(Math.round(midi.header.tempos[0].bpm));
+    }
+    if (midi.header.timeSignatures.length > 0) {
+      setMidiTimeSig(`${midi.header.timeSignatures[0].timeSignature[0]}/${midi.header.timeSignatures[0].timeSignature[1]}`);
+    }
+
     // Check if it's the specific file
     setShowLyrics(file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我"));
+    
+    if (file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我")) {
+      try {
+        const response = await fetch('/lyrics.txt');
+        const text = await response.text();
+        const lines = text.split('\n');
+        const lyrics: {time: number, text: string}[] = [];
+        lines.forEach(line => {
+          const match = line.match(/\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
+          if (match) {
+            const mins = parseInt(match[1]);
+            const secs = parseFloat(match[2]);
+            const time = mins * 60 + secs;
+            lyrics.push({ time, text: match[3].trim() });
+          }
+        });
+        setParsedLyrics(lyrics);
+      } catch (e) {
+        console.error("Failed to load lyrics:", e);
+      }
+    }
     
     let currentSynth = synth;
     if (!currentSynth) {
@@ -254,8 +295,10 @@ function MainApp() {
     midiActiveNotesRef.current = [];
     midi.tracks.forEach(track => {
         track.notes.forEach(note => {
-            const stop = currentSynth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
-            midiActiveNotesRef.current.push(stop);
+            const node = currentSynth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+            midiActiveNotesRef.current.push(() => {
+              if (node && typeof node.stop === 'function') node.stop();
+            });
         });
     });
   };
@@ -283,7 +326,36 @@ function MainApp() {
     currentMidiRef.current = midi;
     setMidiData({ tracks: midi.tracks, duration: midi.duration });
     
+    // Extract BPM and Time Signature
+    if (midi.header.tempos.length > 0) {
+      setMidiBpm(Math.round(midi.header.tempos[0].bpm));
+    }
+    if (midi.header.timeSignatures.length > 0) {
+      setMidiTimeSig(`${midi.header.timeSignatures[0].timeSignature[0]}/${midi.header.timeSignatures[0].timeSignature[1]}`);
+    }
+
     setShowLyrics(file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我"));
+    
+    if (file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我")) {
+      try {
+        const response = await fetch('/lyrics.txt');
+        const text = await response.text();
+        const lines = text.split('\n');
+        const lyrics: {time: number, text: string}[] = [];
+        lines.forEach(line => {
+          const match = line.match(/\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
+          if (match) {
+            const mins = parseInt(match[1]);
+            const secs = parseFloat(match[2]);
+            const time = mins * 60 + secs;
+            lyrics.push({ time, text: match[3].trim() });
+          }
+        });
+        setParsedLyrics(lyrics);
+      } catch (e) {
+        console.error("Failed to load lyrics:", e);
+      }
+    }
     
     midiStartTimeRef.current = audioCtx.currentTime + 0.5;
     const startTime = midiStartTimeRef.current;
@@ -881,7 +953,15 @@ function MainApp() {
                     <Input 
                       type="file" 
                       accept=".mid" 
-                      onChange={(e) => setMidiFile(e.target.files?.[0] || null)}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setMidiFile(file);
+                        setMidiData(null);
+                        setMidiBpm(null);
+                        setMidiTimeSig(null);
+                        setParsedLyrics([]);
+                        setShowLyrics(false);
+                      }}
                       className="theme-input"
                     />
                     <div className="flex flex-col gap-2">
@@ -944,6 +1024,26 @@ function MainApp() {
                         {isMidiPlaying && !isMidiPaused && midiMode === 'sine' ? "Pause Sine" : (isMidiPaused && midiMode === 'sine') ? "Resume Sine" : "Play Sine (432Hz)"}
                       </Button>
                     </div>
+                    {midiData && (
+                      <div className="flex items-center gap-4 px-2 py-1 bg-white/5 rounded-lg border border-white/10">
+                        {midiBpm && (
+                          <div className="flex items-center gap-1.5">
+                            <BarChart3 className="w-3.5 h-3.5 text-primary/70" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">BPM:</span>
+                            <span className="text-xs font-mono font-bold text-primary">{midiBpm}</span>
+                          </div>
+                        )}
+                        {midiTimeSig && (
+                          <div className="flex items-center gap-1.5">
+                            <Music className="w-3.5 h-3.5 text-primary/70" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Time:</span>
+                            <span className="text-xs font-mono font-bold text-primary">{midiTimeSig}</span>
+                          </div>
+                        )}
+                        <div className="flex-1" />
+                        <div className="text-[10px] font-mono opacity-40 uppercase font-bold">MIDI Metadata</div>
+                      </div>
+                    )}
                     {midiData && <PianoRoll tracks={midiData.tracks} duration={midiData.duration} currentTime={midiCurrentTime} />}
                     
                     {showLyrics && (
@@ -956,29 +1056,28 @@ function MainApp() {
                           <Sparkles className="w-5 h-5 text-primary" />
                           <h3 className="font-bold text-lg">想念你想我 (When You Missed Me)</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <p className="text-sm font-medium text-white/90 leading-relaxed">
-                              能不能就這樣 擁抱著<br/>
-                              直到這世界 停止轉動<br/>
-                              想念你想我 的時候<br/>
-                              眼淚卻不停 的流<br/>
-                              想念你想我 想到快發瘋<br/>
-                              在每一個寂寞的夜裡<br/>
-                              我依然在這裡等你
-                            </p>
-                          </div>
-                          <div className="space-y-4">
-                            <p className="text-sm font-medium text-white/70 leading-relaxed italic">
-                              Can we just embrace like this<br/>
-                              Until the world stops turning<br/>
-                              When I miss you missing me<br/>
-                              Tears just keep flowing<br/>
-                              Missing you missing me until I go crazy<br/>
-                              In every lonely night<br/>
-                              I am still here waiting for you
-                            </p>
-                          </div>
+                        <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 relative">
+                          {parsedLyrics.length > 0 ? (
+                            parsedLyrics.map((lyric, idx) => {
+                              const isActive = midiCurrentTime >= lyric.time && (idx === parsedLyrics.length - 1 || midiCurrentTime < parsedLyrics[idx + 1].time);
+                              return (
+                                <motion.p 
+                                  key={idx}
+                                  ref={isActive ? activeLyricRef : null}
+                                  animate={{ 
+                                    opacity: isActive ? 1 : 0.4,
+                                    scale: isActive ? 1.02 : 1,
+                                    color: isActive ? "#fff" : "rgba(255,255,255,0.5)"
+                                  }}
+                                  className={`text-sm font-medium leading-relaxed transition-all duration-300 ${isActive ? 'text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]' : ''}`}
+                                >
+                                  {lyric.text}
+                                </motion.p>
+                              );
+                            })
+                          ) : (
+                            <p className="text-sm text-white/40 italic">Loading lyrics...</p>
+                          )}
                         </div>
                         <div className="mt-6 pt-4 border-t border-white/10">
                           <p className="text-center font-serif italic text-primary/80 text-sm tracking-wide">
