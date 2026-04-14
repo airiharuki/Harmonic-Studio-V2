@@ -114,7 +114,7 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 
 ---
 
-*P.S. - If you made it this far in the README, you're the real MVP 🏅*
+## 🧘 The 432Hz Disclaimer
 
 Look, is there any peer-reviewed scientific evidence that tuning your instruments to 432Hz aligns your chakras with the resonant frequency of the universe? No. Absolutely not. 
 
