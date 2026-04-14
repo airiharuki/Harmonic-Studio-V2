@@ -108,6 +108,13 @@ function MainApp() {
   const midiIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const playMidi = async (file: File) => {
+    // Safari requires AudioContext to be created and resumed synchronously in the click handler
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
     setIsMidiPlaying(true);
     setMidiCurrentTime(0);
     const arrayBuffer = await file.arrayBuffer();
@@ -126,12 +133,10 @@ function MainApp() {
             return;
         }
         toast.info("Loading high-quality piano soundfont...");
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
         setSynth(currentSynth);
     }
 
-    const audioCtx = currentSynth.context || new (window.AudioContext || (window as any).webkitAudioContext)();
     const startTime = audioCtx.currentTime + 0.5; // Add a small delay for smoother start
 
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
@@ -158,6 +163,13 @@ function MainApp() {
   };
 
   const playMidiSine = async (file: File) => {
+    // Safari requires AudioContext to be created and resumed synchronously in the click handler
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
     setIsMidiPlaying(true);
     setMidiCurrentTime(0);
     const arrayBuffer = await file.arrayBuffer();
@@ -166,7 +178,6 @@ function MainApp() {
     
     setShowLyrics(file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我"));
     
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const startTime = audioCtx.currentTime + 0.5;
 
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
@@ -499,24 +510,27 @@ function MainApp() {
       return;
     }
 
+    // Safari requires AudioContext to be created and resumed synchronously in the click handler
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
     setIsLoopPlaying(true);
     
     try {
       let currentSynth = synth;
       if (!currentSynth) {
         const win = window as any;
-        if (!win.SpessaSynth) {
-          toast.error("Synth library not loaded yet.");
+        if (!win.Soundfont) {
+          toast.error("Synth library not loaded yet. Please refresh.");
           setIsLoopPlaying(false);
           return;
         }
 
         toast.info("Loading high-quality piano soundfont...");
-        const response = await fetch("https://musical-artifacts.com/artifacts/7759/Korg_E.piano1.sf2");
-        const arrayBuffer = await response.arrayBuffer();
-        
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        currentSynth = new win.SpessaSynth.Synthetizer(audioCtx.destination, arrayBuffer);
+        currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
         setSynth(currentSynth);
       }
 
@@ -530,18 +544,15 @@ function MainApp() {
         const midiNotes = notes.map(n => Note.midi(n + "4"));
 
         // Play notes
+        const startTime = audioCtx.currentTime;
         midiNotes.forEach(note => {
-          if (note !== null) currentSynth.noteOn(0, note, 80);
+          if (note !== null) {
+            const noteName = Note.fromMidi(note);
+            currentSynth.play(noteName, startTime, { duration: barDuration * 0.9, gain: 0.8 });
+          }
         });
 
-        await new Promise(resolve => setTimeout(resolve, barDuration * 1000 * 0.9)); // Play for 90% of the bar
-        
-        // Stop notes
-        midiNotes.forEach(note => {
-          if (note !== null) currentSynth.noteOff(0, note);
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, barDuration * 1000 * 0.1)); // 10% gap
+        await new Promise(resolve => setTimeout(resolve, barDuration * 1000));
         
         if (i === loopChords.length - 1) {
           i = -1; // Loop back

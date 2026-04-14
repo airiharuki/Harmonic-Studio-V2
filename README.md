@@ -197,7 +197,6 @@ Thanks to everyone who's helped make this thing better:
 
 ## ⚠️ Stuff That's Kinda Broken
 
-- 📱 Mobile browsers can be weird with the audio (blame Apple)
 - 📺 YouTube analyzer can take a while if the video is an hour-long DJ mix
 - 🎵 Stem splitter quality depends on audio quality and length (longer files = better separation)
 - ⏱️ Stem processing can be slow on large files without GPU acceleration
