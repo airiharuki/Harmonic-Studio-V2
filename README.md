@@ -114,13 +114,24 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 
 ---
 
-## 🧘 The 432Hz Disclaimer
+## 🧘 Why 432Hz?
 
 Look, is there any peer-reviewed scientific evidence that tuning your instruments to 432Hz aligns your chakras with the resonant frequency of the universe? No. Absolutely not. 
 
 Is it a total vibe? **Yes.** 
 
 We don't make the rules of the universe, we just code the vibes. If you want to argue about standard A440 tuning, please direct your complaints to a brick wall.
+
+*(But seriously, if you want to go back to standard A440, we won't judge too hard. Just change the base frequency in the sine wave fallback in `src/App.tsx`:)*
+
+```typescript
+// In src/App.tsx
+const playMidiSine = async (file: File) => {
+  // ...
+  const A4 = 440; // Change this from 432 to 440
+  // ...
+};
+```
 
 ## 🤝 Want to Contribute?
 

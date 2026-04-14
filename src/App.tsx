@@ -156,6 +156,65 @@ function MainApp() {
       if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     }, (midi.duration + 1) * 1000);
   };
+
+  const playMidiSine = async (file: File) => {
+    setIsMidiPlaying(true);
+    setMidiCurrentTime(0);
+    const arrayBuffer = await file.arrayBuffer();
+    const midi = new Midi(arrayBuffer);
+    setMidiData({ tracks: midi.tracks, duration: midi.duration });
+    
+    setShowLyrics(file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我"));
+    
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const startTime = audioCtx.currentTime + 0.5;
+
+    if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    midiIntervalRef.current = setInterval(() => {
+        const elapsed = audioCtx.currentTime - startTime;
+        if (elapsed >= midi.duration) {
+            if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+            setMidiCurrentTime(midi.duration);
+        } else if (elapsed >= 0) {
+            setMidiCurrentTime(elapsed);
+        }
+    }, 50);
+
+    const A4 = 432; // The magic frequency
+
+    midi.tracks.forEach(track => {
+        track.notes.forEach(note => {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            // Calculate frequency based on A4 = 432Hz
+            // Standard MIDI note for A4 is 69
+            osc.frequency.value = A4 * Math.pow(2, (note.midi - 69) / 12);
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Simple ADSR envelope to avoid clicks
+            const noteStartTime = startTime + note.time;
+            const noteEndTime = noteStartTime + note.duration;
+            
+            gainNode.gain.setValueAtTime(0, noteStartTime);
+            gainNode.gain.linearRampToValueAtTime(note.velocity * 0.3, noteStartTime + 0.05); // Attack
+            gainNode.gain.setValueAtTime(note.velocity * 0.3, Math.max(noteStartTime + 0.05, noteEndTime - 0.05)); // Sustain
+            gainNode.gain.linearRampToValueAtTime(0, noteEndTime); // Release
+            
+            osc.start(noteStartTime);
+            osc.stop(noteEndTime);
+        });
+    });
+    
+    setTimeout(() => {
+      setIsMidiPlaying(false);
+      if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    }, (midi.duration + 1) * 1000);
+  };
+
   const [loopKey, setLoopKey] = useState('D');
   const [loopScale, setLoopScale] = useState('Major');
   const [loopChords, setLoopChords] = useState<string[] | null>(null);
@@ -725,14 +784,25 @@ function MainApp() {
                       </a>
                     </div>
                     
-                    <Button 
-                      onClick={() => midiFile && playMidi(midiFile)}
-                      disabled={!midiFile || isMidiPlaying}
-                      className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 font-bold rounded-xl"
-                    >
-                      {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                      {isMidiPlaying ? "Playing MIDI..." : "Play MIDI"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => midiFile && playMidi(midiFile)}
+                        disabled={!midiFile || isMidiPlaying}
+                        className="flex-1 h-12 bg-foreground text-background hover:bg-foreground/90 font-bold rounded-xl"
+                      >
+                        {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                        {isMidiPlaying ? "Playing MIDI..." : "Play MIDI"}
+                      </Button>
+                      <Button 
+                        onClick={() => midiFile && playMidiSine(midiFile)}
+                        disabled={!midiFile || isMidiPlaying}
+                        variant="outline"
+                        className="flex-1 h-12 font-bold rounded-xl border-primary/30 hover:bg-primary/10"
+                      >
+                        {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                        {isMidiPlaying ? "Playing Sine..." : "Play Sine (432Hz)"}
+                      </Button>
+                    </div>
                     {midiData && <PianoRoll tracks={midiData.tracks} duration={midiData.duration} currentTime={midiCurrentTime} />}
                     
                     {showLyrics && (
