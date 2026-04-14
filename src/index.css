@@ -195,7 +195,7 @@
 
 /* Pill Tab Switcher Styles */
 .pill-tabs-list {
-  @apply inline-flex items-center p-1 rounded-full border border-black/10 dark:border-white/10 backdrop-blur-md;
+  @apply items-center p-1 rounded-full border border-black/10 dark:border-white/10 backdrop-blur-md;
   background: var(--pill-bg);
 }
 
