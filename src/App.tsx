@@ -104,12 +104,18 @@ function MainApp() {
   const [isMidiPlaying, setIsMidiPlaying] = useState(false);
   const [midiData, setMidiData] = useState<{tracks: any[], duration: number} | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [midiCurrentTime, setMidiCurrentTime] = useState(0);
+  const midiIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const playMidi = async (file: File) => {
     setIsMidiPlaying(true);
+    setMidiCurrentTime(0);
     const arrayBuffer = await file.arrayBuffer();
     const midi = new Midi(arrayBuffer);
     setMidiData({ tracks: midi.tracks, duration: midi.duration });
+    
+    // Check if it's the specific file
+    setShowLyrics(file.name === "想念你想我_周兴哲.mid");
     
     let currentSynth = synth;
     if (!currentSynth) {
@@ -120,12 +126,26 @@ function MainApp() {
             return;
         }
         toast.info("Loading high-quality piano soundfont...");
-        const response = await fetch("/assets/piano.sf2");
+        const response = await fetch("https://musical-artifacts.com/artifacts/7759/Korg_E.piano1.sf2");
         const sf2ArrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         currentSynth = new win.SpessaSynth.Synthetizer(audioCtx.destination, sf2ArrayBuffer);
         setSynth(currentSynth);
     }
+
+    const audioCtx = currentSynth.context || new (window.AudioContext || (window as any).webkitAudioContext)();
+    const startTime = audioCtx.currentTime;
+
+    if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    midiIntervalRef.current = setInterval(() => {
+        const elapsed = audioCtx.currentTime - startTime;
+        if (elapsed >= midi.duration) {
+            if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+            setMidiCurrentTime(midi.duration);
+        } else {
+            setMidiCurrentTime(elapsed);
+        }
+    }, 50);
 
     midi.tracks.forEach(track => {
         track.notes.forEach(note => {
@@ -138,7 +158,10 @@ function MainApp() {
         });
     });
     
-    setTimeout(() => setIsMidiPlaying(false), midi.duration * 1000);
+    setTimeout(() => {
+      setIsMidiPlaying(false);
+      if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    }, midi.duration * 1000);
   };
   const [loopKey, setLoopKey] = useState('D');
   const [loopScale, setLoopScale] = useState('Major');
@@ -701,14 +724,22 @@ function MainApp() {
                       onChange={(e) => setMidiFile(e.target.files?.[0] || null)}
                       className="theme-input"
                     />
-                    <a 
-                      href="https://filebin.net/5fq1dfcwulxjlhtf/%E6%83%B3%E5%BF%B5%E4%BD%A0%E6%83%B3%E6%88%91_%E5%91%A8%E5%85%B4%E5%93%B2.mid" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline block"
-                    >
-                      Download Demo MIDI: 想念你想我.mid
-                    </a>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold uppercase opacity-50">Demo MIDI</label>
+                      <a 
+                        href="https://filebin.net/5fq1dfcwulxjlhtf/%E6%83%B3%E5%BF%B5%E4%BD%A0%E6%83%B3%E6%88%91_%E5%91%A8%E5%85%B4%E5%93%B2.mid" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Music className="w-5 h-5 text-primary" />
+                          <span className="text-sm font-medium">想念你想我_周兴哲.mid</span>
+                        </div>
+                        <Download className="w-4 h-4 text-primary" />
+                      </a>
+                    </div>
+                    
                     <Button 
                       onClick={() => midiFile && playMidi(midiFile)}
                       disabled={!midiFile || isMidiPlaying}
@@ -717,24 +748,40 @@ function MainApp() {
                       {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
                       {isMidiPlaying ? "Playing MIDI..." : "Play MIDI"}
                     </Button>
-                    {midiData && <PianoRoll tracks={midiData.tracks} duration={midiData.duration} />}
+                    {midiData && <PianoRoll tracks={midiData.tracks} duration={midiData.duration} currentTime={midiCurrentTime} />}
+                    
                     {showLyrics && (
-                      <div className="mt-4 p-4 rounded-xl bg-black/40 border border-foreground/10 text-sm">
-                        <h3 className="font-bold mb-2">Lyrics: 想念你想我 (When You Missed Me)</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="opacity-70">想念你想我<br/>在每一个寂寞的夜里<br/>我依然在这里等你</p>
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 p-6 rounded-2xl bg-gradient-to-br from-black/60 to-black/40 border border-white/10 backdrop-blur-md shadow-xl"
+                      >
+                        <div className="flex items-center gap-2 mb-4">
+                          <Sparkles className="w-5 h-5 text-primary" />
+                          <h3 className="font-bold text-lg">想念你想我 (When You Missed Me)</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-white/90 leading-relaxed">
+                              想念你想我<br/>
+                              在每一个寂寞的夜里<br/>
+                              我依然在这里等你
+                            </p>
                           </div>
-                          <div>
-                            <p className="opacity-70">Missing you, missing me<br/>In every lonely night<br/>I am still here waiting for you</p>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-white/70 leading-relaxed italic">
+                              Missing you, missing me<br/>
+                              In every lonely night<br/>
+                              I am still here waiting for you
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    {showLyrics && (
-                      <p className="text-center italic opacity-60 text-sm mt-4">
-                        "In the silence of the night, your melody still echoes in my heart, waiting to be played again..."
-                      </p>
+                        <div className="mt-6 pt-4 border-t border-white/10">
+                          <p className="text-center font-serif italic text-primary/80 text-sm tracking-wide">
+                            "In the silence of the night, your melody still echoes in my heart, waiting to be played again..."
+                          </p>
+                        </div>
+                      </motion.div>
                     )}
                   </div>
                 </CardContent>
