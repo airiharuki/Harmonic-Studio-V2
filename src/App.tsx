@@ -14,6 +14,7 @@ import {
   Loader2, 
   Play, 
   Pause, 
+  Square,
   Info,
   ChevronRight,
   BarChart3,
@@ -102,23 +103,121 @@ function MainApp() {
   const [loopTimeSig, setLoopTimeSig] = useState("4/4");
   const [midiFile, setMidiFile] = useState<File | null>(null);
   const [isMidiPlaying, setIsMidiPlaying] = useState(false);
+  const [isMidiPaused, setIsMidiPaused] = useState(false);
   const [midiData, setMidiData] = useState<{tracks: any[], duration: number} | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
   const [midiCurrentTime, setMidiCurrentTime] = useState(0);
+  const [midiMode, setMidiMode] = useState<'soundfont' | 'sine'>('soundfont');
   const midiIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const midiAudioCtxRef = useRef<AudioContext | null>(null);
+  const midiStartTimeRef = useRef<number>(0);
+  const midiPausedTimeRef = useRef<number>(0);
+  const midiActiveNotesRef = useRef<any[]>([]);
+  const currentMidiRef = useRef<any>(null);
+
+  const stopMidi = () => {
+    if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    midiActiveNotesRef.current.forEach(stop => stop && stop());
+    midiActiveNotesRef.current = [];
+    setIsMidiPlaying(false);
+    setIsMidiPaused(false);
+    setMidiCurrentTime(0);
+  };
+
+  const pauseMidi = () => {
+    if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    midiActiveNotesRef.current.forEach(stop => stop && stop());
+    midiActiveNotesRef.current = [];
+    
+    if (midiAudioCtxRef.current) {
+      midiPausedTimeRef.current = midiAudioCtxRef.current.currentTime - midiStartTimeRef.current;
+    }
+    
+    setIsMidiPaused(true);
+  };
+
+  const resumeMidi = async () => {
+    if (!midiAudioCtxRef.current || !currentMidiRef.current) return;
+    
+    const audioCtx = midiAudioCtxRef.current;
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    
+    const pausedTime = midiPausedTimeRef.current;
+    midiStartTimeRef.current = audioCtx.currentTime - pausedTime;
+    const startTime = midiStartTimeRef.current;
+
+    if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+    midiIntervalRef.current = setInterval(() => {
+        const elapsed = audioCtx.currentTime - startTime;
+        if (elapsed >= currentMidiRef.current.duration) {
+            if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+            setMidiCurrentTime(currentMidiRef.current.duration);
+            setIsMidiPlaying(false);
+        } else if (elapsed >= 0) {
+            setMidiCurrentTime(elapsed);
+        }
+    }, 50);
+
+    if (midiMode === 'soundfont' && synth) {
+      currentMidiRef.current.tracks.forEach(track => {
+          track.notes.forEach(note => {
+              if (note.time >= pausedTime) {
+                  const stop = synth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+                  midiActiveNotesRef.current.push(stop);
+              }
+          });
+      });
+    } else if (midiMode === 'sine') {
+      const A4 = 432;
+      currentMidiRef.current.tracks.forEach(track => {
+          track.notes.forEach(note => {
+              if (note.time >= pausedTime) {
+                  const osc = audioCtx.createOscillator();
+                  const gainNode = audioCtx.createGain();
+                  osc.type = 'sine';
+                  osc.frequency.value = A4 * Math.pow(2, (note.midi - 69) / 12);
+                  osc.connect(gainNode);
+                  gainNode.connect(audioCtx.destination);
+                  const noteStartTime = startTime + note.time;
+                  const noteEndTime = noteStartTime + note.duration;
+                  gainNode.gain.setValueAtTime(0, noteStartTime);
+                  gainNode.gain.linearRampToValueAtTime(note.velocity * 0.3, noteStartTime + 0.05);
+                  gainNode.gain.setValueAtTime(note.velocity * 0.3, Math.max(noteStartTime + 0.05, noteEndTime - 0.05));
+                  gainNode.gain.linearRampToValueAtTime(0, noteEndTime);
+                  osc.start(noteStartTime);
+                  osc.stop(noteEndTime);
+                  midiActiveNotesRef.current.push(() => {
+                    try { osc.stop(); } catch(e) {}
+                  });
+              }
+          });
+      });
+    }
+    
+    setIsMidiPaused(false);
+  };
 
   const playMidi = async (file: File) => {
+    if (isMidiPaused && midiMode === 'soundfont') {
+      resumeMidi();
+      return;
+    }
+
+    setMidiMode('soundfont');
     // Safari requires AudioContext to be created and resumed synchronously in the click handler
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     const audioCtx = new AudioContextClass();
+    midiAudioCtxRef.current = audioCtx;
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
 
     setIsMidiPlaying(true);
+    setIsMidiPaused(false);
     setMidiCurrentTime(0);
     const arrayBuffer = await file.arrayBuffer();
     const midi = new Midi(arrayBuffer);
+    currentMidiRef.current = midi;
     setMidiData({ tracks: midi.tracks, duration: midi.duration });
     
     // Check if it's the specific file
@@ -137,7 +236,8 @@ function MainApp() {
         setSynth(currentSynth);
     }
 
-    const startTime = audioCtx.currentTime + 0.5; // Add a small delay for smoother start
+    midiStartTimeRef.current = audioCtx.currentTime + 0.5;
+    const startTime = midiStartTimeRef.current;
 
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiIntervalRef.current = setInterval(() => {
@@ -145,40 +245,48 @@ function MainApp() {
         if (elapsed >= midi.duration) {
             if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
             setMidiCurrentTime(midi.duration);
+            setIsMidiPlaying(false);
         } else if (elapsed >= 0) {
             setMidiCurrentTime(elapsed);
         }
     }, 50);
 
+    midiActiveNotesRef.current = [];
     midi.tracks.forEach(track => {
         track.notes.forEach(note => {
-            currentSynth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+            const stop = currentSynth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+            midiActiveNotesRef.current.push(stop);
         });
     });
-    
-    setTimeout(() => {
-      setIsMidiPlaying(false);
-      if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-    }, (midi.duration + 1) * 1000);
   };
 
   const playMidiSine = async (file: File) => {
+    if (isMidiPaused && midiMode === 'sine') {
+      resumeMidi();
+      return;
+    }
+
+    setMidiMode('sine');
     // Safari requires AudioContext to be created and resumed synchronously in the click handler
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     const audioCtx = new AudioContextClass();
+    midiAudioCtxRef.current = audioCtx;
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
 
     setIsMidiPlaying(true);
+    setIsMidiPaused(false);
     setMidiCurrentTime(0);
     const arrayBuffer = await file.arrayBuffer();
     const midi = new Midi(arrayBuffer);
+    currentMidiRef.current = midi;
     setMidiData({ tracks: midi.tracks, duration: midi.duration });
     
     setShowLyrics(file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我"));
     
-    const startTime = audioCtx.currentTime + 0.5;
+    midiStartTimeRef.current = audioCtx.currentTime + 0.5;
+    const startTime = midiStartTimeRef.current;
 
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiIntervalRef.current = setInterval(() => {
@@ -186,12 +294,14 @@ function MainApp() {
         if (elapsed >= midi.duration) {
             if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
             setMidiCurrentTime(midi.duration);
+            setIsMidiPlaying(false);
         } else if (elapsed >= 0) {
             setMidiCurrentTime(elapsed);
         }
     }, 50);
 
     const A4 = 432; // The magic frequency
+    midiActiveNotesRef.current = [];
 
     midi.tracks.forEach(track => {
         track.notes.forEach(note => {
@@ -199,31 +309,26 @@ function MainApp() {
             const gainNode = audioCtx.createGain();
             
             osc.type = 'sine';
-            // Calculate frequency based on A4 = 432Hz
-            // Standard MIDI note for A4 is 69
             osc.frequency.value = A4 * Math.pow(2, (note.midi - 69) / 12);
             
             osc.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             
-            // Simple ADSR envelope to avoid clicks
             const noteStartTime = startTime + note.time;
             const noteEndTime = noteStartTime + note.duration;
             
             gainNode.gain.setValueAtTime(0, noteStartTime);
-            gainNode.gain.linearRampToValueAtTime(note.velocity * 0.3, noteStartTime + 0.05); // Attack
-            gainNode.gain.setValueAtTime(note.velocity * 0.3, Math.max(noteStartTime + 0.05, noteEndTime - 0.05)); // Sustain
-            gainNode.gain.linearRampToValueAtTime(0, noteEndTime); // Release
+            gainNode.gain.linearRampToValueAtTime(note.velocity * 0.3, noteStartTime + 0.05);
+            gainNode.gain.setValueAtTime(note.velocity * 0.3, Math.max(noteStartTime + 0.05, noteEndTime - 0.05));
+            gainNode.gain.linearRampToValueAtTime(0, noteEndTime);
             
             osc.start(noteStartTime);
             osc.stop(noteEndTime);
+            midiActiveNotesRef.current.push(() => {
+              try { osc.stop(); } catch(e) {}
+            });
         });
     });
-    
-    setTimeout(() => {
-      setIsMidiPlaying(false);
-      if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-    }, (midi.duration + 1) * 1000);
   };
 
   const [loopKey, setLoopKey] = useState('D');
@@ -797,21 +902,46 @@ function MainApp() {
                     
                     <div className="flex gap-2">
                       <Button 
-                        onClick={() => midiFile && playMidi(midiFile)}
-                        disabled={!midiFile || isMidiPlaying}
+                        onClick={() => {
+                          if (isMidiPlaying && !isMidiPaused && midiMode === 'soundfont') {
+                            pauseMidi();
+                          } else if (isMidiPaused && midiMode === 'soundfont') {
+                            resumeMidi();
+                          } else if (midiFile) {
+                            playMidi(midiFile);
+                          }
+                        }}
+                        disabled={!midiFile || (isMidiPlaying && midiMode === 'sine')}
                         className="flex-1 h-12 bg-foreground text-background hover:bg-foreground/90 font-bold rounded-xl"
                       >
-                        {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                        {isMidiPlaying ? "Playing MIDI..." : "Play MIDI"}
+                        {isMidiPlaying && !isMidiPaused && midiMode === 'soundfont' ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                        {isMidiPlaying && !isMidiPaused && midiMode === 'soundfont' ? "Pause MIDI" : (isMidiPaused && midiMode === 'soundfont') ? "Resume MIDI" : "Play MIDI"}
                       </Button>
+                      {isMidiPlaying || isMidiPaused ? (
+                        <Button 
+                          onClick={stopMidi}
+                          variant="destructive"
+                          className="h-12 w-12 rounded-xl flex items-center justify-center"
+                        >
+                          <Square className="w-5 h-5" />
+                        </Button>
+                      ) : null}
                       <Button 
-                        onClick={() => midiFile && playMidiSine(midiFile)}
-                        disabled={!midiFile || isMidiPlaying}
+                        onClick={() => {
+                          if (isMidiPlaying && !isMidiPaused && midiMode === 'sine') {
+                            pauseMidi();
+                          } else if (isMidiPaused && midiMode === 'sine') {
+                            resumeMidi();
+                          } else if (midiFile) {
+                            playMidiSine(midiFile);
+                          }
+                        }}
+                        disabled={!midiFile || (isMidiPlaying && midiMode === 'soundfont')}
                         variant="outline"
                         className="flex-1 h-12 font-bold rounded-xl border-primary/30 hover:bg-primary/10"
                       >
-                        {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                        {isMidiPlaying ? "Playing Sine..." : "Play Sine (432Hz)"}
+                        {isMidiPlaying && !isMidiPaused && midiMode === 'sine' ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                        {isMidiPlaying && !isMidiPaused && midiMode === 'sine' ? "Pause Sine" : (isMidiPaused && midiMode === 'sine') ? "Resume Sine" : "Play Sine (432Hz)"}
                       </Button>
                     </div>
                     {midiData && <PianoRoll tracks={midiData.tracks} duration={midiData.duration} currentTime={midiCurrentTime} />}

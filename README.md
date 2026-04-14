@@ -83,7 +83,10 @@ We support over 1000+ sites including:
 4. Hit **Generate Loop** to get an AI-composed progression.
 5. Hit **Play Loop** to hear it played with a professional electric piano sound.
 6. **MIDI Preview**: Upload a `.mid` file to preview the MIDI sequence in a piano roll editor and play it back using the built-in soundfont. Supports multi-track MIDI files.
-7. **Lyrics Display & Demo**: For the demo file "When You Missed Me" by Eric Chou, the lyrics and their translation are automatically displayed below the piano roll, along with a link to download the demo file.
+7. **Lyrics Display & Demo**: For the demo file "When You Missed Me" by Eric Chou, the lyrics and their translation are automatically displayed below the piano roll. You can find the raw lyrics in `public/lyrics.txt` which can be updated with new tracks.
+
+### 📝 Lyrics Management
+We've added a `public/lyrics.txt` file. You can paste lyrics from the web into this file. The app is designed to parse this format for future dynamic lyric support. Currently, it serves as a reference for the built-in demo.
 
 ## 🚀 Deployment (Oracle Cloud Free Tier)
 
