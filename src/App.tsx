@@ -701,6 +701,14 @@ function MainApp() {
                       onChange={(e) => setMidiFile(e.target.files?.[0] || null)}
                       className="theme-input"
                     />
+                    <a 
+                      href="https://filebin.net/5fq1dfcwulxjlhtf/%E6%83%B3%E5%BF%B5%E4%BD%A0%E6%83%B3%E6%88%91_%E5%91%A8%E5%85%B4%E5%93%B2.mid" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline block"
+                    >
+                      Download Demo MIDI: 想念你想我.mid
+                    </a>
                     <Button 
                       onClick={() => midiFile && playMidi(midiFile)}
                       disabled={!midiFile || isMidiPlaying}
@@ -722,6 +730,11 @@ function MainApp() {
                           </div>
                         </div>
                       </div>
+                    )}
+                    {showLyrics && (
+                      <p className="text-center italic opacity-60 text-sm mt-4">
+                        "In the silence of the night, your melody still echoes in my heart, waiting to be played again..."
+                      </p>
                     )}
                   </div>
                 </CardContent>
