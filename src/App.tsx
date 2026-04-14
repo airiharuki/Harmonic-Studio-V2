@@ -556,14 +556,13 @@ function MainApp() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-50">Bars (4-16)</label>
-                      <Input 
-                        type="number" 
-                        min={4} 
-                        max={16} 
+                      <select 
                         value={loopBars} 
-                        onChange={(e) => setLoopBars(parseInt(e.target.value) || 4)}
-                        className="theme-input"
-                      />
+                        onChange={(e) => setLoopBars(parseInt(e.target.value))}
+                        className="theme-input w-full p-2 rounded-lg border border-foreground/20 bg-background"
+                      >
+                        {[4, 8, 12, 16].map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-50">BPM</label>
@@ -585,31 +584,36 @@ function MainApp() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-50">Time Signature</label>
-                      <Input 
+                      <select 
                         value={loopTimeSig} 
                         onChange={(e) => setLoopTimeSig(e.target.value)}
-                        className="theme-input"
-                        placeholder="4/4"
-                      />
+                        className="theme-input w-full p-2 rounded-lg border border-foreground/20 bg-background"
+                      >
+                        {["4/4", "3/4", "6/8"].map(ts => <option key={ts} value={ts}>{ts}</option>)}
+                      </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-50">Key</label>
-                      <Input 
+                      <select 
                         value={loopKey} 
                         onChange={(e) => setLoopKey(e.target.value)}
-                        className="theme-input"
-                      />
+                        className="theme-input w-full p-2 rounded-lg border border-foreground/20 bg-background"
+                      >
+                        {["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].map(k => <option key={k} value={k}>{k}</option>)}
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-50">Scale</label>
-                      <Input 
+                      <select 
                         value={loopScale} 
                         onChange={(e) => setLoopScale(e.target.value)}
-                        className="theme-input"
-                      />
+                        className="theme-input w-full p-2 rounded-lg border border-foreground/20 bg-background"
+                      >
+                        {["Major", "Minor"].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
                     </div>
                   </div>
 
