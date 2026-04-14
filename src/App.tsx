@@ -115,26 +115,24 @@ function MainApp() {
     setMidiData({ tracks: midi.tracks, duration: midi.duration });
     
     // Check if it's the specific file
-    setShowLyrics(file.name === "想念你想我_周兴哲.mid");
+    setShowLyrics(file.name === "想念你想我_周兴哲.mid" || file.name.includes("想念你想我"));
     
     let currentSynth = synth;
     if (!currentSynth) {
         const win = window as any;
-        if (!win.SpessaSynth) {
-            toast.error("Synth library not loaded yet.");
+        if (!win.Soundfont) {
+            toast.error("Synth library not loaded yet. Please refresh.");
             setIsMidiPlaying(false);
             return;
         }
         toast.info("Loading high-quality piano soundfont...");
-        const response = await fetch("https://musical-artifacts.com/artifacts/7759/Korg_E.piano1.sf2");
-        const sf2ArrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        currentSynth = new win.SpessaSynth.Synthetizer(audioCtx.destination, sf2ArrayBuffer);
+        currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
         setSynth(currentSynth);
     }
 
     const audioCtx = currentSynth.context || new (window.AudioContext || (window as any).webkitAudioContext)();
-    const startTime = audioCtx.currentTime;
+    const startTime = audioCtx.currentTime + 0.5; // Add a small delay for smoother start
 
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiIntervalRef.current = setInterval(() => {
@@ -142,26 +140,21 @@ function MainApp() {
         if (elapsed >= midi.duration) {
             if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
             setMidiCurrentTime(midi.duration);
-        } else {
+        } else if (elapsed >= 0) {
             setMidiCurrentTime(elapsed);
         }
     }, 50);
 
     midi.tracks.forEach(track => {
         track.notes.forEach(note => {
-            setTimeout(() => {
-                currentSynth.noteOn(0, note.midi, note.velocity * 127);
-                setTimeout(() => {
-                    currentSynth.noteOff(0, note.midi);
-                }, note.duration * 1000);
-            }, note.time * 1000);
+            currentSynth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
         });
     });
     
     setTimeout(() => {
       setIsMidiPlaying(false);
       if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-    }, midi.duration * 1000);
+    }, (midi.duration + 1) * 1000);
   };
   const [loopKey, setLoopKey] = useState('D');
   const [loopScale, setLoopScale] = useState('Major');
@@ -188,14 +181,6 @@ function MainApp() {
         const coreScript = document.createElement("script");
         coreScript.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js";
         document.head.appendChild(coreScript);
-
-        // Load soundfont for playback
-        const spessaScript = document.createElement("script");
-        spessaScript.src = "https://cdn.jsdelivr.net/npm/spessasynth@latest/dist/spessasynth.min.js";
-        spessaScript.onload = () => {
-          console.log("SpessaSynth loaded");
-        };
-        document.head.appendChild(spessaScript);
 
         console.log("Essentia scripts injected");
       } catch (e) {
@@ -761,16 +746,24 @@ function MainApp() {
                           <h3 className="font-bold text-lg">想念你想我 (When You Missed Me)</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             <p className="text-sm font-medium text-white/90 leading-relaxed">
-                              想念你想我<br/>
-                              在每一个寂寞的夜里<br/>
-                              我依然在这里等你
+                              能不能就這樣 擁抱著<br/>
+                              直到這世界 停止轉動<br/>
+                              想念你想我 的時候<br/>
+                              眼淚卻不停 的流<br/>
+                              想念你想我 想到快發瘋<br/>
+                              在每一個寂寞的夜裡<br/>
+                              我依然在這裡等你
                             </p>
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             <p className="text-sm font-medium text-white/70 leading-relaxed italic">
-                              Missing you, missing me<br/>
+                              Can we just embrace like this<br/>
+                              Until the world stops turning<br/>
+                              When I miss you missing me<br/>
+                              Tears just keep flowing<br/>
+                              Missing you missing me until I go crazy<br/>
                               In every lonely night<br/>
                               I am still here waiting for you
                             </p>
@@ -778,7 +771,7 @@ function MainApp() {
                         </div>
                         <div className="mt-6 pt-4 border-t border-white/10">
                           <p className="text-center font-serif italic text-primary/80 text-sm tracking-wide">
-                            "In the silence of the night, your melody still echoes in my heart, waiting to be played again..."
+                            "Even after 8 years, I'm still stuck in your orbit. Like a satellite that lost its signal, I keep circling our memories, playing this melody and hoping it reaches you somewhere in the universe..."
                           </p>
                         </div>
                       </motion.div>
