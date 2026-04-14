@@ -46,6 +46,12 @@ import { Chord, Note } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
 
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
   state = { hasError: false, error: null };
@@ -87,6 +93,10 @@ function MainApp() {
   const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
   const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   const [stemVolumes, setStemVolumes] = useState({
     vocals: 80,
     drums: 80,
@@ -520,6 +530,8 @@ function MainApp() {
       
       if (format === "wav" || format === "flac") {
         setAudioUrl(downloadUrl);
+        setAudioCurrentTime(0);
+        setIsPlaying(false);
       }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
@@ -1321,30 +1333,56 @@ function MainApp() {
                     )}
 
                     {audioUrl && (
-                      <div className="pt-4 border-t border-black/10 dark:border-white/10">
-                        <Button 
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="w-full bg-foreground text-background hover:bg-foreground/90 font-bold h-12 rounded-xl"
-                        >
-                          {isPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                          {isPlaying ? "Stop Preview" : "Play Preview"}
-                        </Button>
-                        {isPlaying && audioUrl && (
-                          audioUrl.includes('youtube.com/embed') ? (
-                            <iframe 
-                              src={audioUrl} 
-                              allow="autoplay" 
-                              className="hidden"
+                      <div className="pt-4 border-t border-black/10 dark:border-white/10 space-y-4">
+                        <div className="flex items-center gap-4">
+                          <Button 
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              if (audioRef.current) {
+                                if (isPlaying) {
+                                  audioRef.current.pause();
+                                } else {
+                                  audioRef.current.play();
+                                }
+                                setIsPlaying(!isPlaying);
+                              }
+                            }}
+                            className="w-12 h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 shrink-0"
+                          >
+                            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-1" />}
+                          </Button>
+                          
+                          <div className="flex-1 space-y-1">
+                            <div className="flex justify-between text-[10px] font-mono opacity-50 uppercase font-bold">
+                              <span>{formatTime(audioCurrentTime)}</span>
+                              <span>{formatTime(audioDuration)}</span>
+                            </div>
+                            <Slider 
+                              value={[audioCurrentTime]} 
+                              max={audioDuration || 100} 
+                              step={0.1}
+                              onValueChange={(vals) => {
+                                if (audioRef.current) {
+                                  audioRef.current.currentTime = vals[0];
+                                  setAudioCurrentTime(vals[0]);
+                                }
+                              }}
+                              className="cursor-pointer"
                             />
-                          ) : (
-                            <audio 
-                              src={audioUrl} 
-                              autoPlay 
-                              className="hidden"
-                              onEnded={() => setIsPlaying(false)}
-                            />
-                          )
-                        )}
+                          </div>
+                        </div>
+
+                        <audio 
+                          ref={audioRef}
+                          src={audioUrl} 
+                          className="hidden"
+                          onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
+                          onDurationChange={(e) => setAudioDuration(e.currentTarget.duration)}
+                          onEnded={() => setIsPlaying(false)}
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                        />
                       </div>
                     )}
                   </CardContent>

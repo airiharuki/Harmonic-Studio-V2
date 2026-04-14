@@ -11,6 +11,11 @@ import archiver from "archiver";
 import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
 import ffmpegStatic from "ffmpeg-static";
+import ffmpeg from "fluent-ffmpeg";
+
+if (ffmpegStatic) {
+  ffmpeg.setFfmpegPath(ffmpegStatic);
+}
 
 // Safe __dirname fallback for both ESM (dev) and CJS (prod bundle)
 const currentDir = typeof __dirname !== 'undefined' 
@@ -86,22 +91,45 @@ async function startServer() {
     const safeTitle = title ? title.replace(/[^a-zA-Z0-9 \-_]/g, '').replace(/ /g, '_') : `audio_${Date.now()}`;
     const filename = `${safeTitle}.${format}`;
     const filepath = path.join(downloadsDir, filename);
+    const tempFile = path.join(downloadsDir, `temp_${Date.now()}.m4a`);
 
     try {
+      const cookiePath = path.join(currentDir, 'cookies.txt');
+      const hasCookies = fs.existsSync(cookiePath);
+
       const options: any = {
         format: 'bestaudio/best',
-        extractAudio: true,
-        audioFormat: format,
-        output: filepath,
+        output: (format === 'wav' || format === 'flac') ? tempFile : filepath,
         noCheckCertificates: true,
         ffmpegLocation: ffmpegStatic,
+        extractAudio: format !== 'wav' && format !== 'flac',
+        audioFormat: (format === 'wav' || format === 'flac') ? undefined : format,
       };
 
-      if (format === 'wav') {
-        options.audioQuality = 0;
+      if (hasCookies) {
+        options.cookies = cookiePath;
       }
 
+      console.log(`Downloading: ${url} (Cookies: ${hasCookies})`);
       await youtubedl(url, options);
+
+      if (format === 'wav' || format === 'flac') {
+        console.log(`Converting to ${format}...`);
+        await new Promise((resolve, reject) => {
+          ffmpeg(tempFile)
+            .toFormat(format)
+            .on('end', () => {
+              fs.unlinkSync(tempFile);
+              resolve(true);
+            })
+            .on('error', (err) => {
+              if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+              reject(err);
+            })
+            .save(filepath);
+        });
+      }
+
       res.json({ filename, url: `/api/files/${filename}` });
     } catch (error: any) {
       console.error("Download error:", error);
@@ -119,16 +147,31 @@ async function startServer() {
 
     const inputFilename = "input.wav";
     const inputPath = path.join(jobDir, inputFilename);
+    const tempFile = path.join(jobDir, `temp_input.m4a`);
 
     try {
       if (url) {
-        // 1a. Download as WAV
-        console.log(`Downloading WAV for splitting: ${url}`);
+        const cookiePath = path.join(currentDir, 'cookies.txt');
+        const hasCookies = fs.existsSync(cookiePath);
+
+        console.log(`Downloading for splitting: ${url}`);
         await youtubedl(url, {
-          extractAudio: true,
-          audioFormat: "wav",
-          output: inputPath,
+          format: 'bestaudio/best',
+          output: tempFile,
           noCheckCertificates: true,
+          cookies: hasCookies ? cookiePath : undefined,
+        });
+
+        console.log(`Converting to WAV for splitting...`);
+        await new Promise((resolve, reject) => {
+          ffmpeg(tempFile)
+            .toFormat('wav')
+            .on('end', () => {
+              fs.unlinkSync(tempFile);
+              resolve(true);
+            })
+            .on('error', reject)
+            .save(inputPath);
         });
       } else if (filename) {
         // 1b. Use uploaded file
