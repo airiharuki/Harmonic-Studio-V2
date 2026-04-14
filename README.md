@@ -34,7 +34,7 @@ The ultimate playground for creating custom chord loops.
 - 🎹 **AI Loop Generation**: Generate 4-16 bar chord progressions in any key.
 - ⏱️ **Custom Parameters**: Type in your own BPM (30-300) and Time Signature.
 - 🎛️ **Manual Key Control**: Manually set the key and scale, or sync it instantly with the Circle of Fifths.
-- 🔊 **SF2 Playback**: Hear your loops instantly with a high-quality **Korg E.piano1** SoundFont. No more guessing what the chords sound like.
+- 🔊 **SoundFont Playback**: Hear your loops instantly with a high-quality electric piano sound. No more guessing what the chords sound like.
 - ⭕ **Synced Theory**: Automatically syncs with the Circle of Fifths so your loops are always in the right key.
 - 🚫 **BPM Validation**: "We’re not making extra tone today" — built-in protection against impossible tempos.
 
@@ -81,7 +81,9 @@ We support over 1000+ sites including:
 2. Set your **Bars** (4-16), **BPM** (30-300), and **Time Signature**.
 3. (Optional) Set your key in the **Composer** tab using the Circle of Fifths.
 4. Hit **Generate Loop** to get an AI-composed progression.
-5. Hit **Play Loop (SF2)** to hear it played with a professional electric piano sound.
+5. Hit **Play Loop** to hear it played with a professional electric piano sound.
+6. **MIDI Preview**: Upload a `.mid` file to preview the MIDI sequence in a piano roll editor and play it back using the built-in soundfont. Supports multi-track MIDI files.
+7. **Lyrics Display**: For the demo file "When You Missed Me" by Eric Chou, the lyrics and their translation are automatically displayed below the piano roll.
 
 ## 🚀 Deployment (Oracle Cloud Free Tier)
 
@@ -99,7 +101,7 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 - 🎨 **Tailwind CSS 4** (utility classes go brrrr)
 - 🤖 **Google Gemini API** (for the AI chords)
 - 🧠 **Essentia.js** (for the math)
-- 🎹 **SpessaSynth + Tonal** (for high-quality SF2 playback and theory)
+- 🎹 **SpessaSynth + Tonal** (for high-quality soundfont playback and theory)
 - 🐍 **Python, `yt-dlp`, and splitting engines** (for the heavy lifting)
 - 🎬 **`ffmpeg-static`** (because raw audio needs to be converted properly)
 - 📺 **VHS Grain Overlay** (because 1995 called and we answered)

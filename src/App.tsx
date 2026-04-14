@@ -41,6 +41,8 @@ import axios from "axios";
 import { CircleOfFifths } from "./CircleOfFifths";
 import { PitchShifter } from "./PitchShifter";
 import { Chord, Note } from "tonal";
+import { Midi } from "@tonejs/midi";
+import { PianoRoll } from "./components/PianoRoll";
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -98,6 +100,46 @@ function MainApp() {
   const [loopBars, setLoopBars] = useState(4);
   const [loopBpm, setLoopBpm] = useState(120);
   const [loopTimeSig, setLoopTimeSig] = useState("4/4");
+  const [midiFile, setMidiFile] = useState<File | null>(null);
+  const [isMidiPlaying, setIsMidiPlaying] = useState(false);
+  const [midiData, setMidiData] = useState<{tracks: any[], duration: number} | null>(null);
+  const [showLyrics, setShowLyrics] = useState(false);
+
+  const playMidi = async (file: File) => {
+    setIsMidiPlaying(true);
+    const arrayBuffer = await file.arrayBuffer();
+    const midi = new Midi(arrayBuffer);
+    setMidiData({ tracks: midi.tracks, duration: midi.duration });
+    
+    let currentSynth = synth;
+    if (!currentSynth) {
+        const win = window as any;
+        if (!win.SpessaSynth) {
+            toast.error("Synth library not loaded yet.");
+            setIsMidiPlaying(false);
+            return;
+        }
+        toast.info("Loading high-quality piano soundfont...");
+        const response = await fetch("/assets/piano.sf2");
+        const sf2ArrayBuffer = await response.arrayBuffer();
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        currentSynth = new win.SpessaSynth.Synthetizer(audioCtx.destination, sf2ArrayBuffer);
+        setSynth(currentSynth);
+    }
+
+    midi.tracks.forEach(track => {
+        track.notes.forEach(note => {
+            setTimeout(() => {
+                currentSynth.noteOn(0, note.midi, note.velocity * 127);
+                setTimeout(() => {
+                    currentSynth.noteOff(0, note.midi);
+                }, note.duration * 1000);
+            }, note.time * 1000);
+        });
+    });
+    
+    setTimeout(() => setIsMidiPlaying(false), midi.duration * 1000);
+  };
   const [loopKey, setLoopKey] = useState('D');
   const [loopScale, setLoopScale] = useState('Major');
   const [loopChords, setLoopChords] = useState<string[] | null>(null);
@@ -124,7 +166,7 @@ function MainApp() {
         coreScript.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js";
         document.head.appendChild(coreScript);
 
-        // Load SpessaSynth for SF2 playback
+        // Load soundfont for playback
         const spessaScript = document.createElement("script");
         spessaScript.src = "https://cdn.jsdelivr.net/npm/spessasynth@latest/dist/spessasynth.min.js";
         spessaScript.onload = () => {
@@ -647,8 +689,40 @@ function MainApp() {
                       className="h-14 border-foreground/20 hover:bg-foreground/5 font-bold text-lg rounded-2xl"
                     >
                       {isLoopPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                      {isLoopPlaying ? "Stop Loop" : "Play Loop (SF2)"}
+                      {isLoopPlaying ? "Stop Loop" : "Play Loop"}
                     </Button>
+                  </div>
+                  
+                  <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 space-y-4">
+                    <label className="text-xs font-bold uppercase opacity-50">MIDI Preview</label>
+                    <Input 
+                      type="file" 
+                      accept=".mid" 
+                      onChange={(e) => setMidiFile(e.target.files?.[0] || null)}
+                      className="theme-input"
+                    />
+                    <Button 
+                      onClick={() => midiFile && playMidi(midiFile)}
+                      disabled={!midiFile || isMidiPlaying}
+                      className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 font-bold rounded-xl"
+                    >
+                      {isMidiPlaying ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                      {isMidiPlaying ? "Playing MIDI..." : "Play MIDI"}
+                    </Button>
+                    {midiData && <PianoRoll tracks={midiData.tracks} duration={midiData.duration} />}
+                    {showLyrics && (
+                      <div className="mt-4 p-4 rounded-xl bg-black/40 border border-foreground/10 text-sm">
+                        <h3 className="font-bold mb-2">Lyrics: 想念你想我 (When You Missed Me)</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="opacity-70">想念你想我<br/>在每一个寂寞的夜里<br/>我依然在这里等你</p>
+                          </div>
+                          <div>
+                            <p className="opacity-70">Missing you, missing me<br/>In every lonely night<br/>I am still here waiting for you</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
