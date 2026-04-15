@@ -46,6 +46,32 @@ async function startServer() {
   if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
+  function cleanupDirectories() {
+    console.log("Running scheduled cleanup of processed files...");
+    const dirs = [downloadsDir, outputDir];
+    for (const dir of dirs) {
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+          const filePath = path.join(dir, file);
+          try {
+            if (fs.lstatSync(filePath).isDirectory()) {
+              fs.rmSync(filePath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(filePath);
+            }
+          } catch (err) {
+            console.error(`Error deleting ${filePath}:`, err);
+          }
+        }
+        console.log(`Cleaned up directory: ${dir}`);
+      }
+    }
+  }
+
+  // Run cleanup every 24 hours
+  setInterval(cleanupDirectories, 24 * 60 * 60 * 1000);
+
   const upload = multer({ dest: downloadsDir });
 
   // API Routes
@@ -73,6 +99,7 @@ async function startServer() {
         dumpSingleJson: true,
         noCheckCertificates: true,
         noWarnings: true,
+        noPlaylist: true,
         preferFreeFormats: true,
         addHeader: ['referer:soundcloud.com', 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36']
       });
@@ -90,45 +117,59 @@ async function startServer() {
     const safeTitle = title ? title.replace(/[^a-zA-Z0-9 \-_]/g, '').replace(/ /g, '_') : `audio_${Date.now()}`;
     const filename = `${safeTitle}.${format}`;
     const filepath = path.join(downloadsDir, filename);
-    const tempFile = path.join(downloadsDir, `temp_${Date.now()}.m4a`);
 
     try {
       const cookiePath = path.join(currentDir, 'cookies.txt');
       const hasCookies = fs.existsSync(cookiePath);
 
+      // Use a temporary output template for the initial download
+      const outputTemplate = path.join(downloadsDir, `temp_dl_${Date.now()}.%(ext)s`);
+
       const options: any = {
         format: 'bestaudio/best',
-        output: (format === 'wav' || format === 'flac') ? tempFile : filepath,
+        output: outputTemplate,
         noCheckCertificates: true,
+        noPlaylist: true,
         ffmpegLocation: ffmpegStatic,
-        extractAudio: format !== 'wav' && format !== 'flac',
-        audioFormat: (format === 'wav' || format === 'flac') ? undefined : format,
+        addHeader: ['referer:soundcloud.com', 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36']
       };
 
       if (hasCookies) {
         options.cookies = cookiePath;
       }
 
-      console.log(`Downloading: ${url} (Cookies: ${hasCookies})`);
+      console.log(`Downloading: ${url} for conversion to ${format}`);
       await youtubedl(url, options);
+      
+      // Find the file that was actually created
+      const files = fs.readdirSync(downloadsDir);
+      const tempBase = `temp_dl_${path.basename(outputTemplate).split('.')[0].split('_')[2]}`;
+      const downloadedFile = files.find(f => f.startsWith(tempBase));
 
-      if (format === 'wav' || format === 'flac') {
-        console.log(`Converting to ${format}...`);
-        await new Promise((resolve, reject) => {
-          ffmpeg(tempFile)
-            .toFormat(format)
-            .on('end', () => {
-              fs.unlinkSync(tempFile);
-              resolve(true);
-            })
-            .on('error', (err) => {
-              if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-              reject(err);
-            })
-            .save(filepath);
-        });
+      if (!downloadedFile) {
+        throw new Error("Downloaded file not found after yt-dlp execution");
       }
 
+      const sourcePath = path.join(downloadsDir, downloadedFile);
+      
+      console.log(`Converting ${sourcePath} to ${filepath} (${format})...`);
+      
+      await new Promise((resolve, reject) => {
+        ffmpeg(sourcePath)
+          .toFormat(format)
+          .on('end', () => {
+            if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+            resolve(true);
+          })
+          .on('error', (err) => {
+            console.error("FFmpeg conversion error:", err);
+            if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+            reject(err);
+          })
+          .save(filepath);
+      });
+
+      console.log(`Successfully converted and prepared file: ${filename}`);
       res.json({ filename, url: `/api/files/${filename}` });
     } catch (error: any) {
       console.error("Download error:", error);
@@ -158,6 +199,8 @@ async function startServer() {
           format: 'bestaudio/best',
           output: tempFile,
           noCheckCertificates: true,
+          noPlaylist: true,
+          addHeader: ['referer:soundcloud.com', 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'],
           cookies: hasCookies ? cookiePath : undefined,
         });
 
@@ -255,11 +298,29 @@ async function startServer() {
   });
 
   app.get("/api/files/:filename", (req, res) => {
-    const filepath = path.join(downloadsDir, req.params.filename);
+    const filename = req.params.filename;
+    const filepath = path.join(downloadsDir, filename);
+    
+    console.log(`Serving file: ${filename} from ${filepath}`);
+    
     if (fs.existsSync(filepath)) {
-      res.download(filepath);
+      // Set correct content type for audio files
+      const ext = path.extname(filename).toLowerCase();
+      if (ext === '.wav') res.setHeader('Content-Type', 'audio/wav');
+      else if (ext === '.flac') res.setHeader('Content-Type', 'audio/flac');
+      else if (ext === '.mp3') res.setHeader('Content-Type', 'audio/mpeg');
+      
+      res.download(filepath, filename, (err) => {
+        if (err) {
+          console.error(`Error sending file ${filename}:`, err);
+          if (!res.headersSent) {
+            res.status(500).send("Error downloading file");
+          }
+        }
+      });
     } else {
-      res.status(404).send("File not found");
+      console.warn(`File not found: ${filepath}`);
+      res.status(404).send("File not found on server. It may have been cleaned up or failed to generate.");
     }
   });
 

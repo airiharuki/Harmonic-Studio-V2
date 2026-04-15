@@ -337,6 +337,12 @@ function MainApp() {
                     }
                 };
             };
+
+            (currentSynth as any).stopAllNotes = () => {
+                for (let i = 0; i < 128; i++) {
+                    currentSynth!.noteOff(0, i, 0);
+                }
+            };
             
             setSynth(currentSynth);
         } catch (e) {
@@ -850,6 +856,12 @@ function MainApp() {
                       currentSynth!.noteOff(0, midiNote, 0);
                   }
               };
+          };
+
+          (currentSynth as any).stopAllNotes = () => {
+              for (let i = 0; i < 128; i++) {
+                  currentSynth!.noteOff(0, i, 0);
+              }
           };
           
           setSynth(currentSynth);
