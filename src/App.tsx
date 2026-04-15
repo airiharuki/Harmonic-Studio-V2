@@ -57,7 +57,7 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-const BLOB_URL_CLEANUP_DELAY_MS = 60_000;
+const AUDIO_BLOB_URL_CLEANUP_DELAY_MS = 60_000;
 const DOWNLOAD_BLOB_CLEANUP_DELAY_MS = 1_500;
 
 // Error Boundary Component
@@ -157,7 +157,7 @@ function MainApp() {
     }
   };
 
-  const scheduleBlobCleanup = (blobUrl: string, delayMs: number = BLOB_URL_CLEANUP_DELAY_MS) => {
+  const scheduleBlobCleanup = (blobUrl: string, delayMs: number = AUDIO_BLOB_URL_CLEANUP_DELAY_MS) => {
     clearBlobCleanupTimeout();
     blobCleanupTimeoutRef.current = window.setTimeout(() => {
       if (audioBlobUrlRef.current === blobUrl) {
@@ -636,7 +636,7 @@ function MainApp() {
       const fileResponse = await axios.get(downloadUrl, { responseType: "blob" });
       const contentType = String(fileResponse.headers["content-type"] || "").toLowerCase();
       if (contentType.includes("text/html")) {
-        throw new Error("Server returned HTML instead of audio data. The download URL may have expired or the server encountered an error.");
+        throw new Error("Server returned HTML instead of expected audio data.");
       }
       const blobUrl = URL.createObjectURL(fileResponse.data);
       
