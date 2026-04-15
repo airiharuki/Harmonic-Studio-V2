@@ -57,6 +57,9 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+const AUDIO_BLOB_URL_CLEANUP_DELAY_MS = 60_000;
+const DOWNLOAD_BLOB_CLEANUP_DELAY_MS = 1_500;
+
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
   state = { hasError: false, error: null };
@@ -101,6 +104,8 @@ function MainApp() {
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioBlobUrlRef = useRef<string | null>(null);
+  const blobCleanupTimeoutRef = useRef<number | null>(null);
 
   const [stemVolumes, setStemVolumes] = useState({
     vocals: 80,
@@ -138,6 +143,31 @@ function MainApp() {
   const currentMidiRef = useRef<any>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
 
+  const clearBlobCleanupTimeout = () => {
+    if (blobCleanupTimeoutRef.current !== null) {
+      window.clearTimeout(blobCleanupTimeoutRef.current);
+      blobCleanupTimeoutRef.current = null;
+    }
+  };
+
+  const releaseDownloadedAudioBlobUrl = () => {
+    if (audioBlobUrlRef.current) {
+      URL.revokeObjectURL(audioBlobUrlRef.current);
+      audioBlobUrlRef.current = null;
+    }
+  };
+
+  const scheduleBlobCleanup = (blobUrl: string, delayMs: number = AUDIO_BLOB_URL_CLEANUP_DELAY_MS) => {
+    clearBlobCleanupTimeout();
+    blobCleanupTimeoutRef.current = window.setTimeout(() => {
+      if (audioBlobUrlRef.current === blobUrl) {
+        audioBlobUrlRef.current = null;
+      }
+      URL.revokeObjectURL(blobUrl);
+      blobCleanupTimeoutRef.current = null;
+    }, delayMs);
+  };
+
   useEffect(() => {
     const index = parsedLyrics.findIndex((lyric, idx) => 
       midiCurrentTime >= lyric.time && (idx === parsedLyrics.length - 1 || midiCurrentTime < parsedLyrics[idx + 1].time)
@@ -152,6 +182,13 @@ function MainApp() {
       activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [activeLyricIndex]);
+
+  useEffect(() => {
+    return () => {
+      clearBlobCleanupTimeout();
+      releaseDownloadedAudioBlobUrl();
+    };
+  }, []);
 
   const stopMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
@@ -545,6 +582,7 @@ function MainApp() {
     setLoading(true);
     setVideoInfo(null);
     setAnalysis(null);
+    releaseDownloadedAudioBlobUrl();
     setAudioUrl(null);
     try {
       if (file) {
@@ -568,18 +606,6 @@ function MainApp() {
       } else {
         const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
         setVideoInfo(response.data);
-        
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-          let videoId = '';
-          if (url.includes('youtu.be/')) {
-            videoId = url.split('youtu.be/')[1].split('?')[0];
-          } else if (url.includes('v=')) {
-            videoId = url.split('v=')[1].split('&')[0];
-          }
-          if (videoId) {
-            setAudioUrl(`https://www.youtube.com/embed/${videoId}?autoplay=1`);
-          }
-        }
         
         toast.success("Video info fetched!");
       }
@@ -607,9 +633,15 @@ function MainApp() {
     try {
       const response = await axios.post("/api/download", { url, format, title: videoInfo?.title });
       const downloadUrl = response.data.url;
+      const fileResponse = await axios.get(downloadUrl, { responseType: "blob" });
+      const contentType = String(fileResponse.headers["content-type"] || "").toLowerCase();
+      if (contentType.includes("text/html")) {
+        throw new Error("Server returned HTML instead of expected audio data.");
+      }
+      const blobUrl = URL.createObjectURL(fileResponse.data);
       
       const link = document.createElement("a");
-      link.href = downloadUrl;
+      link.href = blobUrl;
       const safeTitle = videoInfo?.title ? videoInfo.title.replace(/[^a-zA-Z0-9 \-_]/g, '') : "audio";
       link.setAttribute("download", `${safeTitle}.${format}`);
       document.body.appendChild(link);
@@ -619,9 +651,14 @@ function MainApp() {
       toast.success(`Download started for ${format.toUpperCase()}`);
       
       if (format === "wav" || format === "flac") {
-        setAudioUrl(downloadUrl);
+        clearBlobCleanupTimeout();
+        releaseDownloadedAudioBlobUrl();
+        audioBlobUrlRef.current = blobUrl;
+        setAudioUrl(blobUrl);
         setAudioCurrentTime(0);
         setIsPlaying(false);
+      } else {
+        scheduleBlobCleanup(blobUrl, DOWNLOAD_BLOB_CLEANUP_DELAY_MS);
       }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
