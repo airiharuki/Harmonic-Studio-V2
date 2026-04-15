@@ -299,10 +299,15 @@ function MainApp() {
         if (win.SpessaSynth) {
             try {
                 toast.info("Loading custom e-piano soundfont...");
-                // Try local first, then fallback to a reliable CDN if local fails
+                // Try local first, then fallback to your specific GitHub raw URL
                 let sfResponse = await fetch('/epiano.sf2');
                 if (!sfResponse.ok) {
-                    console.warn("Local epiano.sf2 not found, trying CDN fallback...");
+                    console.warn("Local epiano.sf2 not found, trying your GitHub raw URL...");
+                    sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+                }
+                
+                if (!sfResponse.ok) {
+                    console.warn("GitHub raw URL failed, trying general CDN fallback...");
                     sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
                 }
                 
@@ -800,10 +805,15 @@ function MainApp() {
         if (win.SpessaSynth) {
           try {
             toast.info("Loading custom e-piano soundfont...");
-            // Try local first, then fallback to a reliable CDN if local fails
+            // Try local first, then fallback to your specific GitHub raw URL
             let sfResponse = await fetch('/epiano.sf2');
             if (!sfResponse.ok) {
-              console.warn("Local epiano.sf2 not found, trying CDN fallback...");
+              console.warn("Local epiano.sf2 not found, trying your GitHub raw URL...");
+              sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+            }
+            
+            if (!sfResponse.ok) {
+              console.warn("GitHub raw URL failed, trying general CDN fallback...");
               sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
             }
             
