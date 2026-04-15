@@ -58,7 +58,6 @@ const formatTime = (seconds: number) => {
 };
 
 const AUDIO_BLOB_URL_CLEANUP_DELAY_MS = 60_000;
-const DOWNLOAD_BLOB_CLEANUP_DELAY_MS = 1_500;
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -157,15 +156,16 @@ function MainApp() {
     }
   };
 
-  const scheduleBlobCleanup = (blobUrl: string, delayMs: number = AUDIO_BLOB_URL_CLEANUP_DELAY_MS) => {
+  const setPlayableAudioFromBlob = (blob: Blob) => {
     clearBlobCleanupTimeout();
-    blobCleanupTimeoutRef.current = window.setTimeout(() => {
-      if (audioBlobUrlRef.current === blobUrl) {
-        audioBlobUrlRef.current = null;
-      }
-      URL.revokeObjectURL(blobUrl);
-      blobCleanupTimeoutRef.current = null;
-    }, delayMs);
+    releaseDownloadedAudioBlobUrl();
+    const blobUrl = URL.createObjectURL(blob);
+    audioBlobUrlRef.current = blobUrl;
+    setAudioUrl(blobUrl);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    setIsPlaying(false);
+    return blobUrl;
   };
 
   useEffect(() => {
@@ -592,8 +592,13 @@ function MainApp() {
         const response = await axios.post("/api/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
+        const uploadedAudioResponse = await axios.get(response.data.url, { responseType: "blob" });
+        const uploadedContentType = String(uploadedAudioResponse.headers["content-type"] || "").toLowerCase();
+        if (uploadedContentType.includes("text/html")) {
+          throw new Error("Server returned HTML instead of expected audio data.");
+        }
+        setPlayableAudioFromBlob(uploadedAudioResponse.data);
         setUploadedFilename(response.data.filename);
-        setAudioUrl(response.data.url);
         setVideoInfo({
           title: response.data.originalName,
           uploader: "Local File",
@@ -638,7 +643,7 @@ function MainApp() {
       if (contentType.includes("text/html")) {
         throw new Error("Server returned HTML instead of expected audio data.");
       }
-      const blobUrl = URL.createObjectURL(fileResponse.data);
+      const blobUrl = setPlayableAudioFromBlob(fileResponse.data);
       
       const link = document.createElement("a");
       link.href = blobUrl;
@@ -650,16 +655,6 @@ function MainApp() {
       
       toast.success(`Download started for ${format.toUpperCase()}`);
       
-      if (format === "wav" || format === "flac") {
-        clearBlobCleanupTimeout();
-        releaseDownloadedAudioBlobUrl();
-        audioBlobUrlRef.current = blobUrl;
-        setAudioUrl(blobUrl);
-        setAudioCurrentTime(0);
-        setIsPlaying(false);
-      } else {
-        scheduleBlobCleanup(blobUrl, DOWNLOAD_BLOB_CLEANUP_DELAY_MS);
-      }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
     } finally {
@@ -1566,6 +1561,12 @@ function MainApp() {
                           onEnded={() => setIsPlaying(false)}
                           onPlay={() => setIsPlaying(true)}
                           onPause={() => setIsPlaying(false)}
+                        />
+                        <iframe
+                          src={audioUrl}
+                          className="hidden"
+                          aria-hidden="true"
+                          tabIndex={-1}
                         />
                       </div>
                     )}
