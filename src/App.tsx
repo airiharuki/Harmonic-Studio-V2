@@ -104,6 +104,7 @@ function MainApp() {
   const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const downloadedAudioBlobUrlRef = useRef<string | null>(null);
+  const blobCleanupTimeoutRef = useRef<number | null>(null);
 
   const [stemVolumes, setStemVolumes] = useState({
     vocals: 80,
@@ -141,6 +142,13 @@ function MainApp() {
   const currentMidiRef = useRef<any>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
 
+  const clearBlobCleanupTimeout = () => {
+    if (blobCleanupTimeoutRef.current !== null) {
+      window.clearTimeout(blobCleanupTimeoutRef.current);
+      blobCleanupTimeoutRef.current = null;
+    }
+  };
+
   const releaseDownloadedAudioBlobUrl = () => {
     if (downloadedAudioBlobUrlRef.current) {
       URL.revokeObjectURL(downloadedAudioBlobUrlRef.current);
@@ -165,6 +173,7 @@ function MainApp() {
 
   useEffect(() => {
     return () => {
+      clearBlobCleanupTimeout();
       releaseDownloadedAudioBlobUrl();
     };
   }, []);
@@ -630,13 +639,18 @@ function MainApp() {
       toast.success(`Download started for ${format.toUpperCase()}`);
       
       if (format === "wav" || format === "flac") {
+        clearBlobCleanupTimeout();
         releaseDownloadedAudioBlobUrl();
         downloadedAudioBlobUrlRef.current = blobUrl;
         setAudioUrl(blobUrl);
         setAudioCurrentTime(0);
         setIsPlaying(false);
       } else {
-        setTimeout(() => URL.revokeObjectURL(blobUrl), BLOB_URL_CLEANUP_DELAY_MS);
+        clearBlobCleanupTimeout();
+        blobCleanupTimeoutRef.current = window.setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+          blobCleanupTimeoutRef.current = null;
+        }, BLOB_URL_CLEANUP_DELAY_MS);
       }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
