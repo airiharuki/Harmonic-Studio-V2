@@ -232,3 +232,5 @@ If this helped you make something cool, that's dope. Drop a star ⭐ if you're f
 **Made with ❤️, ☕, and questionable life choices**
 
 ---
+
+*“Eight years on, and I’m still drifting in your orbit. Just a satellite transmitting old melodies into the dark, hoping the signal somehow finds its way back to your universe.”* 💫

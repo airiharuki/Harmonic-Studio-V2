@@ -160,6 +160,7 @@ function MainApp() {
       midiAudioCtxRef.current.close().catch(console.error);
       midiAudioCtxRef.current = null;
     }
+    setSynth(null);
   };
 
   const pauseMidi = () => {
@@ -298,8 +299,14 @@ function MainApp() {
         if (win.SpessaSynth) {
             try {
                 toast.info("Loading custom e-piano soundfont...");
-                const sfResponse = await fetch('/epiano.sf2');
-                if (!sfResponse.ok) throw new Error("SF2 file not found");
+                // Try local first, then fallback to a reliable CDN if local fails
+                let sfResponse = await fetch('/epiano.sf2');
+                if (!sfResponse.ok) {
+                    console.warn("Local epiano.sf2 not found, trying CDN fallback...");
+                    sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
+                }
+                
+                if (!sfResponse.ok) throw new Error("Soundfont not found");
                 const sfArrayBuffer = await sfResponse.arrayBuffer();
                 currentSynth = new win.SpessaSynth.Synthetizer(audioCtx, sfArrayBuffer);
                 
@@ -793,8 +800,14 @@ function MainApp() {
         if (win.SpessaSynth) {
           try {
             toast.info("Loading custom e-piano soundfont...");
-            const sfResponse = await fetch('/epiano.sf2');
-            if (!sfResponse.ok) throw new Error("SF2 file not found");
+            // Try local first, then fallback to a reliable CDN if local fails
+            let sfResponse = await fetch('/epiano.sf2');
+            if (!sfResponse.ok) {
+              console.warn("Local epiano.sf2 not found, trying CDN fallback...");
+              sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
+            }
+            
+            if (!sfResponse.ok) throw new Error("Soundfont not found");
             const sfArrayBuffer = await sfResponse.arrayBuffer();
             currentSynth = new win.SpessaSynth.Synthetizer(audioCtx, sfArrayBuffer);
             
