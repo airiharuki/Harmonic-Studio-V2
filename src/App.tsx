@@ -58,6 +58,7 @@ const formatTime = (seconds: number) => {
 };
 
 const BLOB_URL_CLEANUP_DELAY_MS = 60_000;
+const DOWNLOAD_BLOB_CLEANUP_DELAY_MS = 1_500;
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -156,12 +157,15 @@ function MainApp() {
     }
   };
 
-  const scheduleBlobCleanup = (blobUrl: string) => {
+  const scheduleBlobCleanup = (blobUrl: string, delayMs: number = BLOB_URL_CLEANUP_DELAY_MS) => {
     clearBlobCleanupTimeout();
     blobCleanupTimeoutRef.current = window.setTimeout(() => {
+      if (audioBlobUrlRef.current === blobUrl) {
+        audioBlobUrlRef.current = null;
+      }
       URL.revokeObjectURL(blobUrl);
       blobCleanupTimeoutRef.current = null;
-    }, BLOB_URL_CLEANUP_DELAY_MS);
+    }, delayMs);
   };
 
   useEffect(() => {
@@ -654,7 +658,7 @@ function MainApp() {
         setAudioCurrentTime(0);
         setIsPlaying(false);
       } else {
-        scheduleBlobCleanup(blobUrl);
+        scheduleBlobCleanup(blobUrl, DOWNLOAD_BLOB_CLEANUP_DELAY_MS);
       }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
