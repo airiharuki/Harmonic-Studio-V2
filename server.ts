@@ -8,7 +8,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
-import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
 import ffmpegStatic from "ffmpeg-static";
 import ffmpeg from "fluent-ffmpeg";
@@ -270,63 +269,6 @@ async function startServer() {
       res.download(filepath);
     } else {
       res.status(404).send("File not found");
-    }
-  });
-
-  app.post("/api/chords", async (req, res) => {
-    try {
-      const { key, scale, mood, bpm } = req.body;
-      if (!key || !scale) {
-        return res.status(400).json({ error: "Key and scale are required" });
-      }
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${key} ${scale}. The mood is ${mood || 'neutral'} and the BPM is ${bpm || 120}. 
-      Return ONLY a raw JSON array of 4 strings representing the chords (e.g., ["Cmaj7", "Am7", "Dm7", "G7"]). Do not include markdown formatting, backticks, or any other text.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt,
-      });
-      
-      let text = response.text || "[]";
-      // Clean up potential markdown formatting if Gemini ignores the instruction
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      const chords = JSON.parse(text);
-      res.json({ chords });
-    } catch (error: any) {
-      console.error("Chord generation error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/loop", async (req, res) => {
-    try {
-      const { key, scale, bars, timeSignature, bpm } = req.body;
-      if (!key || !scale || !bars) {
-        return res.status(400).json({ error: "Key, scale, and bars are required" });
-      }
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a professional music producer. Generate a ${bars}-bar chord progression for a loop in the key of ${key} ${scale}. 
-      The time signature is ${timeSignature || '4/4'} and the BPM is ${bpm || 120}.
-      Return ONLY a raw JSON array of ${bars} strings representing the chords (one chord per bar). Do not include markdown formatting, backticks, or any other text.
-      Example for 4 bars: ["Cmaj7", "Am7", "Dm7", "G7"]`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt,
-      });
-      
-      let text = response.text || "[]";
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      const chords = JSON.parse(text);
-      res.json({ chords });
-    } catch (error: any) {
-      console.error("Loop generation error:", error);
-      res.status(500).json({ error: error.message });
     }
   });
 

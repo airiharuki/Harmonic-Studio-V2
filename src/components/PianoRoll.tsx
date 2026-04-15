@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 
 interface Note {
@@ -25,6 +25,7 @@ const TRACK_COLORS = [
 ];
 
 export const PianoRoll: React.FC<PianoRollProps> = ({ tracks, duration, currentTime = 0 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const minMidi = 21; // A0
   const maxMidi = 108; // C8
   const pitchRange = maxMidi - minMidi + 1;
@@ -35,8 +36,22 @@ export const PianoRoll: React.FC<PianoRollProps> = ({ tracks, duration, currentT
   const height = 300;
   const noteHeight = height / pitchRange;
 
+  // Auto-scroll to follow playhead
+  useEffect(() => {
+    if (containerRef.current) {
+      const playheadPos = currentTime * timeScale;
+      const containerWidth = containerRef.current.clientWidth;
+      const scrollPos = playheadPos - containerWidth / 2;
+      
+      containerRef.current.scrollLeft = Math.max(0, scrollPos);
+    }
+  }, [currentTime, timeScale]);
+
   return (
-    <div className="overflow-x-auto border border-foreground/20 rounded-xl bg-black/40 p-4 relative shadow-inner">
+    <div 
+      ref={containerRef}
+      className="overflow-x-auto border border-foreground/20 rounded-xl bg-black/40 p-4 relative shadow-inner"
+    >
       <div style={{ width: `${width}px`, height: `${height}px` }} className="relative bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTE5LjUgMEwxOS41IDIwTTAgMTkuNUwyMCAxOS41IiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiIGZpbGw9Im5vbmUiLz48L3N2Zz4=')]">
         
         {/* Playhead */}

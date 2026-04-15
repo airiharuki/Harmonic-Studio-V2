@@ -45,6 +45,7 @@ import { PitchShifter } from "./PitchShifter";
 import { Chord, Note } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
+import { GoogleGenAI } from "@google/genai";
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -124,6 +125,7 @@ function MainApp() {
   const [midiTimeSig, setMidiTimeSig] = useState<string | null>(null);
   const [midiMode, setMidiMode] = useState<'soundfont' | 'sine'>('soundfont');
   const [parsedLyrics, setParsedLyrics] = useState<{time: number, text: string}[]>([]);
+  const [activeLyricIndex, setActiveLyricIndex] = useState(-1);
   const midiIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const midiAudioCtxRef = useRef<AudioContext | null>(null);
   const midiStartTimeRef = useRef<number>(0);
@@ -133,10 +135,19 @@ function MainApp() {
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
+    const index = parsedLyrics.findIndex((lyric, idx) => 
+      midiCurrentTime >= lyric.time && (idx === parsedLyrics.length - 1 || midiCurrentTime < parsedLyrics[idx + 1].time)
+    );
+    if (index !== activeLyricIndex) {
+      setActiveLyricIndex(index);
+    }
+  }, [midiCurrentTime, parsedLyrics, activeLyricIndex]);
+
+  useEffect(() => {
     if (activeLyricRef.current) {
       activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [midiCurrentTime]);
+  }, [activeLyricIndex]);
 
   const stopMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
@@ -145,6 +156,10 @@ function MainApp() {
     setIsMidiPlaying(false);
     setIsMidiPaused(false);
     setMidiCurrentTime(0);
+    if (midiAudioCtxRef.current) {
+      midiAudioCtxRef.current.close().catch(console.error);
+      midiAudioCtxRef.current = null;
+    }
   };
 
   const pauseMidi = () => {
@@ -280,14 +295,59 @@ function MainApp() {
     let currentSynth = synth;
     if (!currentSynth) {
         const win = window as any;
-        if (!win.Soundfont) {
+        if (win.SpessaSynth) {
+            try {
+                toast.info("Loading custom e-piano soundfont...");
+                const sfResponse = await fetch('/epiano.sf2');
+                if (!sfResponse.ok) throw new Error("SF2 file not found");
+                const sfArrayBuffer = await sfResponse.arrayBuffer();
+                currentSynth = new win.SpessaSynth.Synthetizer(audioCtx, sfArrayBuffer);
+                
+                // Add compatibility layer for soundfont-player's play method
+                currentSynth.play = (noteName: string, time: number, options: any) => {
+                    const midiNote = Note.midi(noteName);
+                    if (midiNote === undefined) return { stop: () => {} };
+                    const velocity = options.gain || 0.8;
+                    const duration = options.duration || 1;
+                    const delay = Math.max(0, (time - audioCtx.currentTime) * 1000);
+                    
+                    let timeoutOn: any;
+                    let timeoutOff: any;
+                    
+                    timeoutOn = setTimeout(() => {
+                        currentSynth.noteOn(0, midiNote, velocity * 127);
+                        timeoutOff = setTimeout(() => {
+                            currentSynth.noteOff(0, midiNote);
+                        }, duration * 1000);
+                    }, delay);
+
+                    return {
+                        stop: () => {
+                            clearTimeout(timeoutOn);
+                            clearTimeout(timeoutOff);
+                            currentSynth.noteOff(0, midiNote);
+                        }
+                    };
+                };
+                
+                setSynth(currentSynth);
+            } catch (e) {
+                console.error("SpessaSynth load error:", e);
+                toast.error("Failed to load epiano.sf2, falling back to default piano.");
+                if (win.Soundfont) {
+                    currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+                    setSynth(currentSynth);
+                }
+            }
+        } else if (win.Soundfont) {
+            toast.info("Loading default piano soundfont...");
+            currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+            setSynth(currentSynth);
+        } else {
             toast.error("Synth library not loaded yet. Please refresh.");
             setIsMidiPlaying(false);
             return;
         }
-        toast.info("Loading high-quality piano soundfont...");
-        currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
-        setSynth(currentSynth);
     }
 
     midiStartTimeRef.current = audioCtx.currentTime + 0.5;
@@ -649,16 +709,23 @@ function MainApp() {
     if (!analysis) return;
     setGeneratingChords(true);
     try {
-      const response = await axios.post("/api/chords", {
-        key: analysis.key,
-        scale: analysis.scale,
-        mood: analysis.mood,
-        bpm: analysis.bpm
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${analysis.key} ${analysis.scale}. The mood is ${analysis.mood || 'neutral'} and the BPM is ${analysis.bpm || 120}. 
+      Return ONLY a raw JSON array of 4 strings representing the chords (e.g., ["Cmaj7", "Am7", "Dm7", "G7"]). Do not include markdown formatting, backticks, or any other text.`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
       });
-      setChords(response.data.chords);
+      
+      let text = response.text || "[]";
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const chords = JSON.parse(text);
+      setChords(chords);
       toast.success("AI generated chords based on the vibe!");
     } catch (error: any) {
-      toast.error("Failed to generate chords: " + (error.response?.data?.error || error.message));
+      toast.error("Failed to generate chords: " + error.message);
     } finally {
       setGeneratingChords(false);
     }
@@ -675,17 +742,25 @@ function MainApp() {
     }
     setGeneratingLoop(true);
     try {
-      const response = await axios.post("/api/loop", {
-        key: loopKey,
-        scale: loopScale,
-        bars: loopBars,
-        timeSignature: loopTimeSig,
-        bpm: loopBpm
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `You are a professional music producer. Generate a ${loopBars}-bar chord progression for a loop in the key of ${loopKey} ${loopScale}. 
+      The time signature is ${loopTimeSig || '4/4'} and the BPM is ${loopBpm || 120}.
+      Return ONLY a raw JSON array of ${loopBars} strings representing the chords (one chord per bar). Do not include markdown formatting, backticks, or any other text.
+      Example for 4 bars: ["Cmaj7", "Am7", "Dm7", "G7"]`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
       });
-      setLoopChords(response.data.chords);
+      
+      let text = response.text || "[]";
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const chords = JSON.parse(text);
+      setLoopChords(chords);
       toast.success(`Generated ${loopBars}-bar loop in ${loopKey} ${loopScale}!`);
     } catch (error: any) {
-      toast.error("Failed to generate loop: " + (error.response?.data?.error || error.message));
+      toast.error("Failed to generate loop: " + error.message);
     } finally {
       setGeneratingLoop(false);
     }
@@ -715,15 +790,59 @@ function MainApp() {
       let currentSynth = synth;
       if (!currentSynth) {
         const win = window as any;
-        if (!win.Soundfont) {
+        if (win.SpessaSynth) {
+          try {
+            toast.info("Loading custom e-piano soundfont...");
+            const sfResponse = await fetch('/epiano.sf2');
+            if (!sfResponse.ok) throw new Error("SF2 file not found");
+            const sfArrayBuffer = await sfResponse.arrayBuffer();
+            currentSynth = new win.SpessaSynth.Synthetizer(audioCtx, sfArrayBuffer);
+            
+            // Add compatibility layer
+            currentSynth.play = (noteName: string, time: number, options: any) => {
+                const midiNote = Note.midi(noteName);
+                if (midiNote === undefined) return { stop: () => {} };
+                const velocity = options.gain || 0.8;
+                const duration = options.duration || 1;
+                const delay = Math.max(0, (time - audioCtx.currentTime) * 1000);
+                
+                let timeoutOn: any;
+                let timeoutOff: any;
+                
+                timeoutOn = setTimeout(() => {
+                    currentSynth.noteOn(0, midiNote, velocity * 127);
+                    timeoutOff = setTimeout(() => {
+                        currentSynth.noteOff(0, midiNote);
+                    }, duration * 1000);
+                }, delay);
+
+                return {
+                    stop: () => {
+                        clearTimeout(timeoutOn);
+                        clearTimeout(timeoutOff);
+                        currentSynth.noteOff(0, midiNote);
+                    }
+                };
+            };
+            
+            setSynth(currentSynth);
+          } catch (e) {
+            console.error("SpessaSynth load error:", e);
+            toast.error("Failed to load epiano.sf2, falling back to default piano.");
+            if (win.Soundfont) {
+              currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+              setSynth(currentSynth);
+            }
+          }
+        } else if (win.Soundfont) {
+          toast.info("Loading default piano soundfont...");
+          currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+          setSynth(currentSynth);
+        } else {
           toast.error("Synth library not loaded yet. Please refresh.");
           setIsLoopPlaying(false);
           return;
         }
-
-        toast.info("Loading high-quality piano soundfont...");
-        currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
-        setSynth(currentSynth);
       }
 
       const barDuration = (60 / loopBpm) * 4; // Assuming 4/4 for now
