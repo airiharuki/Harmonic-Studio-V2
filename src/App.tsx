@@ -57,6 +57,8 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+const BLOB_URL_CLEANUP_DELAY_MS = 60_000;
+
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
   state = { hasError: false, error: null };
@@ -634,7 +636,7 @@ function MainApp() {
         setAudioCurrentTime(0);
         setIsPlaying(false);
       } else {
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), BLOB_URL_CLEANUP_DELAY_MS);
       }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
