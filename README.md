@@ -104,7 +104,7 @@ We have included a `Dockerfile` and `docker-compose.yml` to make this easy.
 - 🎨 **Tailwind CSS 4** (utility classes go brrrr)
 - 🤖 **Google Gemini API** (for the AI chords)
 - 🧠 **Essentia.js** (for the math)
-- 🎹 **SpessaSynth + Tonal** (for high-quality soundfont playback and theory)
+- 🎹 **sf2-synth-audio-worklet + Tonal** (for high-performance soundfont playback and theory)
 - 🐍 **Python, `yt-dlp`, and splitting engines** (for the heavy lifting)
 - 🎬 **`ffmpeg-static`** (because raw audio needs to be converted properly)
 - 📺 **VHS Grain Overlay** (because 1995 called and we answered)

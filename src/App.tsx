@@ -46,6 +46,10 @@ import { Chord, Note } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
 import { GoogleGenAI } from "@google/genai";
+import { 
+  createSoundFont2SynthNode, 
+  type SoundFont2SynthNode 
+} from 'sf2-synth-audio-worklet';
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -295,60 +299,49 @@ function MainApp() {
     
     let currentSynth = synth;
     if (!currentSynth) {
-        const win = window as any;
-        if (win.SpessaSynth) {
-            try {
+        try {
+            let sfArrayBuffer = sfData;
+            if (!sfArrayBuffer) {
                 toast.info("Loading custom e-piano soundfont...");
-                // Try local first, then fallback to your specific GitHub raw URL
                 let sfResponse = await fetch('/epiano.sf2');
                 if (!sfResponse.ok) {
-                    console.warn("Local epiano.sf2 not found, trying your GitHub raw URL...");
                     sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
                 }
-                
                 if (!sfResponse.ok) {
-                    console.warn("GitHub raw URL failed, trying general CDN fallback...");
                     sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
                 }
-                
                 if (!sfResponse.ok) throw new Error("Soundfont not found");
-                const sfArrayBuffer = await sfResponse.arrayBuffer();
-                currentSynth = new win.SpessaSynth.Synthetizer(audioCtx, sfArrayBuffer);
-                
-                // Add compatibility layer for soundfont-player's play method
-                currentSynth.play = (noteName: string, time: number, options: any) => {
-                    const midiNote = Note.midi(noteName);
-                    if (midiNote === undefined) return { stop: () => {} };
-                    const velocity = options.gain || 0.8;
-                    const duration = options.duration || 1;
-                    
-                    // Use SpessaSynth's native scheduling for precision
-                    currentSynth.noteOn(0, midiNote, velocity * 127, time);
-                    currentSynth.noteOff(0, midiNote, time + duration);
-
-                    return {
-                        stop: () => {
-                            currentSynth.noteOff(0, midiNote, audioCtx.currentTime);
-                        }
-                    };
-                };
-                
-                setSynth(currentSynth);
-            } catch (e) {
-                console.error("SpessaSynth load error:", e);
-                toast.error("Failed to load epiano.sf2. Using fallback.");
-                if (win.Soundfont) {
-                    currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
-                    setSynth(currentSynth);
-                }
+                sfArrayBuffer = await sfResponse.arrayBuffer();
+                setSfData(sfArrayBuffer);
             }
-        } else if (win.Soundfont) {
-            toast.info("Loading default piano soundfont...");
-            currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+            
+            const blob = new Blob([sfArrayBuffer], { type: 'application/octet-stream' });
+            const sfUrl = URL.createObjectURL(blob);
+            currentSynth = await createSoundFont2SynthNode(audioCtx, sfUrl);
+            currentSynth.connect(audioCtx.destination);
+            
+            // Add compatibility layer for the app's play method
+            (currentSynth as any).play = (noteName: string, time: number, options: any) => {
+                const midiNote = Note.midi(noteName);
+                if (midiNote === undefined) return { stop: () => {} };
+                const velocity = Math.floor((options.gain || 0.8) * 127);
+                const duration = options.duration || 1;
+                const delay = Math.max(0, time - audioCtx.currentTime);
+                
+                currentSynth!.noteOn(0, midiNote, velocity, delay);
+                currentSynth!.noteOff(0, midiNote, delay + duration);
+
+                return {
+                    stop: () => {
+                        currentSynth!.noteOff(0, midiNote, 0);
+                    }
+                };
+            };
+            
             setSynth(currentSynth);
-        } else {
-            toast.error("Synth library not loaded yet. Please refresh.");
-            setIsMidiPlaying(false);
+        } catch (e) {
+            console.error("SF2 Synth load error:", e);
+            toast.error("Failed to load soundfont.");
             return;
         }
     }
@@ -484,7 +477,35 @@ function MainApp() {
   const [loopChords, setLoopChords] = useState<string[] | null>(null);
   const [generatingLoop, setGeneratingLoop] = useState(false);
   const [isLoopPlaying, setIsLoopPlaying] = useState(false);
-  const [synth, setSynth] = useState<any>(null);
+  const [synth, setSynth] = useState<SoundFont2SynthNode | null>(null);
+  const [sfData, setSfData] = useState<ArrayBuffer | null>(null);
+  const [isSfLoading, setIsSfLoading] = useState(false);
+
+  useEffect(() => {
+    const preloadSF = async () => {
+      setIsSfLoading(true);
+      try {
+        let sfResponse = await fetch('/epiano.sf2');
+        if (!sfResponse.ok) {
+          sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+        }
+        if (!sfResponse.ok) {
+          sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
+        }
+        if (sfResponse.ok) {
+          const buffer = await sfResponse.arrayBuffer();
+          setSfData(buffer);
+          console.log("Soundfont preloaded successfully");
+        }
+      } catch (e) {
+        console.error("Failed to preload soundfont:", e);
+      } finally {
+        setIsSfLoading(false);
+      }
+    };
+    preloadSF();
+  }, []);
+
   const [bpmError, setBpmError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -792,59 +813,49 @@ function MainApp() {
     try {
       let currentSynth = synth;
       if (!currentSynth) {
-        const win = window as any;
-        if (win.SpessaSynth) {
-          try {
+        try {
+          let sfArrayBuffer = sfData;
+          if (!sfArrayBuffer) {
             toast.info("Loading custom e-piano soundfont...");
-            // Try local first, then fallback to your specific GitHub raw URL
             let sfResponse = await fetch('/epiano.sf2');
             if (!sfResponse.ok) {
-              console.warn("Local epiano.sf2 not found, trying your GitHub raw URL...");
               sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
             }
-            
             if (!sfResponse.ok) {
-              console.warn("GitHub raw URL failed, trying general CDN fallback...");
               sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
             }
-            
             if (!sfResponse.ok) throw new Error("Soundfont not found");
-            const sfArrayBuffer = await sfResponse.arrayBuffer();
-            currentSynth = new win.SpessaSynth.Synthetizer(audioCtx, sfArrayBuffer);
-            
-            // Add compatibility layer
-            currentSynth.play = (noteName: string, time: number, options: any) => {
-                const midiNote = Note.midi(noteName);
-                if (midiNote === undefined) return { stop: () => {} };
-                const velocity = options.gain || 0.8;
-                const duration = options.duration || 1;
-                
-                // Use SpessaSynth's native scheduling for precision
-                currentSynth.noteOn(0, midiNote, velocity * 127, time);
-                currentSynth.noteOff(0, midiNote, time + duration);
-
-                return {
-                    stop: () => {
-                        currentSynth.noteOff(0, midiNote, audioCtx.currentTime);
-                    }
-                };
-            };
-            
-            setSynth(currentSynth);
-          } catch (e) {
-            console.error("SpessaSynth load error:", e);
-            toast.error("Failed to load epiano.sf2. Using fallback.");
-            if (win.Soundfont) {
-              currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
-              setSynth(currentSynth);
-            }
+            sfArrayBuffer = await sfResponse.arrayBuffer();
+            setSfData(sfArrayBuffer);
           }
-        } else if (win.Soundfont) {
-          toast.info("Loading default piano soundfont...");
-          currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+          
+          const blob = new Blob([sfArrayBuffer], { type: 'application/octet-stream' });
+          const sfUrl = URL.createObjectURL(blob);
+          currentSynth = await createSoundFont2SynthNode(audioCtx, sfUrl);
+          currentSynth.connect(audioCtx.destination);
+          
+          // Add compatibility layer
+          (currentSynth as any).play = (noteName: string, time: number, options: any) => {
+              const midiNote = Note.midi(noteName);
+              if (midiNote === undefined) return { stop: () => {} };
+              const velocity = Math.floor((options.gain || 0.8) * 127);
+              const duration = options.duration || 1;
+              const delay = Math.max(0, time - audioCtx.currentTime);
+              
+              currentSynth!.noteOn(0, midiNote, velocity, delay);
+              currentSynth!.noteOff(0, midiNote, delay + duration);
+
+              return {
+                  stop: () => {
+                      currentSynth!.noteOff(0, midiNote, 0);
+                  }
+              };
+          };
+          
           setSynth(currentSynth);
-        } else {
-          toast.error("Synth library not loaded yet. Please refresh.");
+        } catch (e) {
+          console.error("SF2 Synth load error:", e);
+          toast.error("Failed to load soundfont.");
           setIsLoopPlaying(false);
           return;
         }
