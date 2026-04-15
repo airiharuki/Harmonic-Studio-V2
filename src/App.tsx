@@ -1563,7 +1563,6 @@ function MainApp() {
                           onPause={() => setIsPlaying(false)}
                         />
                         <iframe
-                          title="hidden-audio-fallback"
                           src={audioUrl}
                           className="hidden"
                           aria-hidden="true"
