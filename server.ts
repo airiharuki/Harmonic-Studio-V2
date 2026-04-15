@@ -9,6 +9,7 @@ import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
 import multer from "multer";
+import axios from "axios";
 import ffmpegStatic from "ffmpeg-static";
 import ffmpeg from "fluent-ffmpeg";
 
@@ -90,19 +91,53 @@ async function startServer() {
       originalName: req.file.originalname
     });
   });
+  // Helper for yt-dlp options
+  const getDlOptions = (output: string, extra: any = {}) => {
+    const cookiePath = path.join(currentDir, 'cookies.txt');
+    const hasCookies = fs.existsSync(cookiePath);
+    
+    return {
+      noCheckCertificates: true,
+      noPlaylist: true,
+      geoBypass: true,
+      forceIpv4: true,
+      ffmpegLocation: ffmpegStatic,
+      output,
+      cookies: hasCookies ? cookiePath : undefined,
+      addHeader: [
+        'referer:https://www.google.com/',
+        'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'accept-language:en-US,en;q=0.9'
+      ],
+      ...extra
+    };
+  };
+
   app.get("/api/info", async (req, res) => {
     const url = req.query.url as string;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
     try {
-      const info = await youtubedl(url, {
-        dumpSingleJson: true,
-        noCheckCertificates: true,
-        noWarnings: true,
-        noPlaylist: true,
-        preferFreeFormats: true,
-        addHeader: ['referer:soundcloud.com', 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36']
-      });
+      let info;
+      let attempts = 0;
+      const maxAttempts = 2;
+      
+      while (attempts < maxAttempts) {
+        try {
+          info = await youtubedl(url, getDlOptions('', { dumpSingleJson: true }));
+          break;
+        } catch (err: any) {
+          attempts++;
+          const isConnectionReset = err.message?.includes('Remote end closed connection') || err.message?.includes('EPIPE');
+          if (isConnectionReset && attempts < maxAttempts) {
+            console.warn(`Info connection reset on attempt ${attempts}. Retrying...`);
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          throw err;
+        }
+      }
       res.json(info);
     } catch (error: any) {
       console.error("Info error:", error);
@@ -114,34 +149,57 @@ async function startServer() {
     const { url, format, title } = req.body;
     if (!url || !format) return res.status(400).json({ error: "URL and format are required" });
 
-    const safeTitle = title ? title.replace(/[^a-zA-Z0-9 \-_]/g, '').replace(/ /g, '_') : `audio_${Date.now()}`;
-    const filename = `${safeTitle}.${format}`;
-    const filepath = path.join(downloadsDir, filename);
-
     try {
-      const cookiePath = path.join(currentDir, 'cookies.txt');
-      const hasCookies = fs.existsSync(cookiePath);
-
-      // Use a temporary output template for the initial download
-      const outputTemplate = path.join(downloadsDir, `temp_dl_${Date.now()}.%(ext)s`);
-
-      const options: any = {
-        format: 'bestaudio/best',
-        output: outputTemplate,
-        noCheckCertificates: true,
-        noPlaylist: true,
-        ffmpegLocation: ffmpegStatic,
-        addHeader: ['referer:soundcloud.com', 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36']
+      // 1. Fetch metadata first
+      console.log(`Fetching metadata for: ${url}`);
+      const info = await youtubedl(url, getDlOptions('', { dumpSingleJson: true })) as any;
+      
+      const metadata = {
+        title: info.title || title || 'Unknown Title',
+        artist: info.uploader || info.artist || 'Unknown Artist',
+        thumbnail: info.thumbnail,
+        duration: info.duration
       };
 
-      if (hasCookies) {
-        options.cookies = cookiePath;
+      const safeTitle = metadata.title.replace(/[^a-zA-Z0-9 \-_]/g, '').replace(/ /g, '_');
+      const filename = `${safeTitle}.${format}`;
+      const filepath = path.join(downloadsDir, filename);
+
+      // 2. Download thumbnail if available
+      let thumbnailPath: string | null = null;
+      if (metadata.thumbnail && (format === 'mp3' || format === 'flac')) {
+        try {
+          const thumbResponse = await axios.get(metadata.thumbnail, { responseType: 'arraybuffer' });
+          thumbnailPath = path.join(downloadsDir, `thumb_${Date.now()}.jpg`);
+          fs.writeFileSync(thumbnailPath, thumbResponse.data);
+        } catch (e) {
+          console.warn("Failed to download thumbnail:", e);
+        }
       }
 
-      console.log(`Downloading: ${url} for conversion to ${format}`);
-      await youtubedl(url, options);
+      // 3. Download best audio
+      const outputTemplate = path.join(downloadsDir, `temp_dl_${Date.now()}.%(ext)s`);
+      console.log(`Downloading audio: ${url}`);
       
-      // Find the file that was actually created
+      let attempts = 0;
+      const maxAttempts = 2;
+      while (attempts < maxAttempts) {
+        try {
+          await youtubedl(url, getDlOptions(outputTemplate, { format: 'bestaudio/best' }));
+          break;
+        } catch (err: any) {
+          attempts++;
+          const isConnectionReset = err.message?.includes('Remote end closed connection') || err.message?.includes('EPIPE');
+          if (isConnectionReset && attempts < maxAttempts) {
+            console.warn(`Download connection reset on attempt ${attempts}. Retrying...`);
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      // Find the downloaded file
       const files = fs.readdirSync(downloadsDir);
       const tempBase = `temp_dl_${path.basename(outputTemplate).split('.')[0].split('_')[2]}`;
       const downloadedFile = files.find(f => f.startsWith(tempBase));
@@ -152,25 +210,36 @@ async function startServer() {
 
       const sourcePath = path.join(downloadsDir, downloadedFile);
       
-      console.log(`Converting ${sourcePath} to ${filepath} (${format})...`);
+      // 4. Convert and embed metadata
+      console.log(`Converting and embedding metadata: ${filename}`);
       
       await new Promise((resolve, reject) => {
-        ffmpeg(sourcePath)
+        let command = ffmpeg(sourcePath)
           .toFormat(format)
+          .outputOptions('-id3v2_version', '3')
+          .outputOptions('-metadata', `title=${metadata.title}`)
+          .outputOptions('-metadata', `artist=${metadata.artist}`);
+
+        if (thumbnailPath && (format === 'mp3' || format === 'flac')) {
+          command = command.input(thumbnailPath).outputOptions('-map', '0:0', '-map', '1:0', '-c:a', format === 'mp3' ? 'libmp3lame' : 'flac', '-c:v', 'copy', '-metadata:s:v', 'title="Album cover"', '-metadata:s:v', 'comment="Cover (front)"');
+        }
+
+        command
           .on('end', () => {
             if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+            if (thumbnailPath && fs.existsSync(thumbnailPath)) fs.unlinkSync(thumbnailPath);
             resolve(true);
           })
           .on('error', (err) => {
-            console.error("FFmpeg conversion error:", err);
+            console.error("FFmpeg error:", err);
             if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+            if (thumbnailPath && fs.existsSync(thumbnailPath)) fs.unlinkSync(thumbnailPath);
             reject(err);
           })
           .save(filepath);
       });
 
-      console.log(`Successfully converted and prepared file: ${filename}`);
-      res.json({ filename, url: `/api/files/${filename}` });
+      res.json({ filename, url: `/api/files/${filename}`, metadata });
     } catch (error: any) {
       console.error("Download error:", error);
       res.status(500).json({ error: error.message });
@@ -191,18 +260,25 @@ async function startServer() {
 
     try {
       if (url) {
-        const cookiePath = path.join(currentDir, 'cookies.txt');
-        const hasCookies = fs.existsSync(cookiePath);
-
         console.log(`Downloading for splitting: ${url}`);
-        await youtubedl(url, {
-          format: 'bestaudio/best',
-          output: tempFile,
-          noCheckCertificates: true,
-          noPlaylist: true,
-          addHeader: ['referer:soundcloud.com', 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'],
-          cookies: hasCookies ? cookiePath : undefined,
-        });
+        
+        let attempts = 0;
+        const maxAttempts = 2;
+        while (attempts < maxAttempts) {
+          try {
+            await youtubedl(url, getDlOptions(tempFile, { format: 'bestaudio/best' }));
+            break;
+          } catch (err: any) {
+            attempts++;
+            const isConnectionReset = err.message?.includes('Remote end closed connection') || err.message?.includes('EPIPE');
+            if (isConnectionReset && attempts < maxAttempts) {
+              console.warn(`Split download connection reset on attempt ${attempts}. Retrying...`);
+              await new Promise(r => setTimeout(r, 2000));
+              continue;
+            }
+            throw err;
+          }
+        }
 
         console.log(`Converting to WAV for splitting...`);
         await new Promise((resolve, reject) => {
@@ -301,26 +377,40 @@ async function startServer() {
     const filename = req.params.filename;
     const filepath = path.join(downloadsDir, filename);
     
-    console.log(`Serving file: ${filename} from ${filepath}`);
+    // Disable timeout for large file downloads
+    req.setTimeout(0);
     
     if (fs.existsSync(filepath)) {
-      // Set correct content type for audio files
+      const stats = fs.statSync(filepath);
+      console.log(`Serving file: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+      
       const ext = path.extname(filename).toLowerCase();
       if (ext === '.wav') res.setHeader('Content-Type', 'audio/wav');
       else if (ext === '.flac') res.setHeader('Content-Type', 'audio/flac');
       else if (ext === '.mp3') res.setHeader('Content-Type', 'audio/mpeg');
       
-      res.download(filepath, filename, (err) => {
+      // Use sendFile for better performance and range support
+      res.sendFile(filepath, {
+        headers: {
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`
+        }
+      }, (err) => {
         if (err) {
-          console.error(`Error sending file ${filename}:`, err);
-          if (!res.headersSent) {
-            res.status(500).send("Error downloading file");
+          const error = err as any;
+          // Ignore common client-side cancellation errors
+          if (error.code === 'ECONNABORTED' || error.code === 'EPIPE' || error.message?.includes('aborted')) {
+            console.log(`Download of ${filename} was cancelled or interrupted by the client.`);
+          } else {
+            console.error(`Error sending file ${filename}:`, err);
+            if (!res.headersSent) {
+              res.status(500).send("Error downloading file");
+            }
           }
         }
       });
     } else {
       console.warn(`File not found: ${filepath}`);
-      res.status(404).send("File not found on server. It may have been cleaned up or failed to generate.");
+      res.status(404).send("File not found on server.");
     }
   });
 
