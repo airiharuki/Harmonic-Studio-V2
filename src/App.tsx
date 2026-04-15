@@ -103,7 +103,7 @@ function MainApp() {
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const downloadedAudioBlobUrlRef = useRef<string | null>(null);
+  const audioBlobUrlRef = useRef<string | null>(null);
   const blobCleanupTimeoutRef = useRef<number | null>(null);
 
   const [stemVolumes, setStemVolumes] = useState({
@@ -150,10 +150,18 @@ function MainApp() {
   };
 
   const releaseDownloadedAudioBlobUrl = () => {
-    if (downloadedAudioBlobUrlRef.current) {
-      URL.revokeObjectURL(downloadedAudioBlobUrlRef.current);
-      downloadedAudioBlobUrlRef.current = null;
+    if (audioBlobUrlRef.current) {
+      URL.revokeObjectURL(audioBlobUrlRef.current);
+      audioBlobUrlRef.current = null;
     }
+  };
+
+  const scheduleBlobCleanup = (blobUrl: string) => {
+    clearBlobCleanupTimeout();
+    blobCleanupTimeoutRef.current = window.setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+      blobCleanupTimeoutRef.current = null;
+    }, BLOB_URL_CLEANUP_DELAY_MS);
   };
 
   useEffect(() => {
@@ -624,7 +632,7 @@ function MainApp() {
       const fileResponse = await axios.get(downloadUrl, { responseType: "blob" });
       const contentType = String(fileResponse.headers["content-type"] || "").toLowerCase();
       if (contentType.includes("text/html")) {
-        throw new Error("Server returned HTML instead of audio data.");
+        throw new Error("Server returned HTML instead of audio data. The download URL may have expired or the server encountered an error.");
       }
       const blobUrl = URL.createObjectURL(fileResponse.data);
       
@@ -641,16 +649,12 @@ function MainApp() {
       if (format === "wav" || format === "flac") {
         clearBlobCleanupTimeout();
         releaseDownloadedAudioBlobUrl();
-        downloadedAudioBlobUrlRef.current = blobUrl;
+        audioBlobUrlRef.current = blobUrl;
         setAudioUrl(blobUrl);
         setAudioCurrentTime(0);
         setIsPlaying(false);
       } else {
-        clearBlobCleanupTimeout();
-        blobCleanupTimeoutRef.current = window.setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-          blobCleanupTimeoutRef.current = null;
-        }, BLOB_URL_CLEANUP_DELAY_MS);
+        scheduleBlobCleanup(blobUrl);
       }
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
