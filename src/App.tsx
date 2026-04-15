@@ -321,23 +321,14 @@ function MainApp() {
                     if (midiNote === undefined) return { stop: () => {} };
                     const velocity = options.gain || 0.8;
                     const duration = options.duration || 1;
-                    const delay = Math.max(0, (time - audioCtx.currentTime) * 1000);
                     
-                    let timeoutOn: any;
-                    let timeoutOff: any;
-                    
-                    timeoutOn = setTimeout(() => {
-                        currentSynth.noteOn(0, midiNote, velocity * 127);
-                        timeoutOff = setTimeout(() => {
-                            currentSynth.noteOff(0, midiNote);
-                        }, duration * 1000);
-                    }, delay);
+                    // Use SpessaSynth's native scheduling for precision
+                    currentSynth.noteOn(0, midiNote, velocity * 127, time);
+                    currentSynth.noteOff(0, midiNote, time + duration);
 
                     return {
                         stop: () => {
-                            clearTimeout(timeoutOn);
-                            clearTimeout(timeoutOff);
-                            currentSynth.noteOff(0, midiNote);
+                            currentSynth.noteOff(0, midiNote, audioCtx.currentTime);
                         }
                     };
                 };
@@ -345,7 +336,7 @@ function MainApp() {
                 setSynth(currentSynth);
             } catch (e) {
                 console.error("SpessaSynth load error:", e);
-                toast.error("Failed to load epiano.sf2, falling back to default piano.");
+                toast.error("Failed to load epiano.sf2. Using fallback.");
                 if (win.Soundfont) {
                     currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
                     setSynth(currentSynth);
@@ -827,23 +818,14 @@ function MainApp() {
                 if (midiNote === undefined) return { stop: () => {} };
                 const velocity = options.gain || 0.8;
                 const duration = options.duration || 1;
-                const delay = Math.max(0, (time - audioCtx.currentTime) * 1000);
                 
-                let timeoutOn: any;
-                let timeoutOff: any;
-                
-                timeoutOn = setTimeout(() => {
-                    currentSynth.noteOn(0, midiNote, velocity * 127);
-                    timeoutOff = setTimeout(() => {
-                        currentSynth.noteOff(0, midiNote);
-                    }, duration * 1000);
-                }, delay);
+                // Use SpessaSynth's native scheduling for precision
+                currentSynth.noteOn(0, midiNote, velocity * 127, time);
+                currentSynth.noteOff(0, midiNote, time + duration);
 
                 return {
                     stop: () => {
-                        clearTimeout(timeoutOn);
-                        clearTimeout(timeoutOff);
-                        currentSynth.noteOff(0, midiNote);
+                        currentSynth.noteOff(0, midiNote, audioCtx.currentTime);
                     }
                 };
             };
@@ -851,7 +833,7 @@ function MainApp() {
             setSynth(currentSynth);
           } catch (e) {
             console.error("SpessaSynth load error:", e);
-            toast.error("Failed to load epiano.sf2, falling back to default piano.");
+            toast.error("Failed to load epiano.sf2. Using fallback.");
             if (win.Soundfont) {
               currentSynth = await win.Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
               setSynth(currentSynth);
