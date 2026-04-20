@@ -24,6 +24,7 @@ import {
   Piano,
   Moon,
   Sun,
+  Monitor,
   Sparkles,
   Repeat,
   ChevronDown
@@ -45,7 +46,7 @@ import { PitchShifter } from "./PitchShifter";
 import { Chord, Note } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { 
   createSoundFont2SynthNode, 
   type SoundFont2SynthNode 
@@ -56,8 +57,6 @@ const formatTime = (seconds: number) => {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
-
-const AUDIO_BLOB_URL_CLEANUP_DELAY_MS = 60_000;
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -104,7 +103,6 @@ function MainApp() {
   const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioBlobUrlRef = useRef<string | null>(null);
-  const blobCleanupTimeoutRef = useRef<number | null>(null);
 
   const [stemVolumes, setStemVolumes] = useState({
     vocals: 80,
@@ -142,13 +140,6 @@ function MainApp() {
   const currentMidiRef = useRef<any>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
 
-  const clearBlobCleanupTimeout = () => {
-    if (blobCleanupTimeoutRef.current !== null) {
-      window.clearTimeout(blobCleanupTimeoutRef.current);
-      blobCleanupTimeoutRef.current = null;
-    }
-  };
-
   const releaseDownloadedAudioBlobUrl = () => {
     if (audioBlobUrlRef.current) {
       URL.revokeObjectURL(audioBlobUrlRef.current);
@@ -157,7 +148,6 @@ function MainApp() {
   };
 
   const setPlayableAudioFromBlob = (blob: Blob) => {
-    clearBlobCleanupTimeout();
     releaseDownloadedAudioBlobUrl();
     const blobUrl = URL.createObjectURL(blob);
     audioBlobUrlRef.current = blobUrl;
@@ -185,7 +175,6 @@ function MainApp() {
 
   useEffect(() => {
     return () => {
-      clearBlobCleanupTimeout();
       releaseDownloadedAudioBlobUrl();
     };
   }, []);
@@ -582,7 +571,6 @@ function MainApp() {
     setLoading(true);
     setVideoInfo(null);
     setAnalysis(null);
-    releaseDownloadedAudioBlobUrl();
     setAudioUrl(null);
     try {
       if (file) {
@@ -611,6 +599,18 @@ function MainApp() {
       } else {
         const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
         setVideoInfo(response.data);
+        
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          let videoId = '';
+          if (url.includes('youtu.be/')) {
+            videoId = url.split('youtu.be/')[1].split('?')[0];
+          } else if (url.includes('v=')) {
+            videoId = url.split('v=')[1].split('&')[0];
+          }
+          if (videoId) {
+            setAudioUrl(`https://www.youtube.com/embed/${videoId}?autoplay=1`);
+          }
+        }
         
         toast.success("Video info fetched!");
       }
@@ -654,7 +654,6 @@ function MainApp() {
       document.body.removeChild(link);
       
       toast.success(`Download started for ${format.toUpperCase()}`);
-      
     } catch (error: any) {
       toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
     } finally {
@@ -772,19 +771,33 @@ function MainApp() {
     setGeneratingChords(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${analysis.key} ${analysis.scale}. The mood is ${analysis.mood || 'neutral'} and the BPM is ${analysis.bpm || 120}. 
-      Return ONLY a raw JSON array of 4 strings representing the chords (e.g., ["Cmaj7", "Am7", "Dm7", "G7"]). Do not include markdown formatting, backticks, or any other text.`;
+      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${analysis.key} ${analysis.scale}. The mood is ${analysis.mood || 'neutral'} and the BPM is ${analysis.bpm || 120}.
+      Make the progression interesting, perhaps using some 7th chords, 9ths, or passing chords if it fits the mood.`;
       
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.STRING,
+              description: "A musical chord symbol (e.g., Cmaj7, Am9, Dm7, G7b9)"
+            },
+            description: "An array of exactly 4 chord strings representing a 4-bar progression."
+          }
+        }
       });
       
       let text = response.text || "[]";
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
       const chords = JSON.parse(text);
-      setChords(chords);
+      
+      // Ensure we have exactly 4 chords
+      const finalChords = Array.isArray(chords) ? chords.slice(0, 4) : ["C", "Am", "F", "G"];
+      while (finalChords.length < 4) finalChords.push(finalChords[finalChords.length - 1] || "C");
+      
+      setChords(finalChords);
       toast.success("AI generated chords based on the vibe!");
     } catch (error: any) {
       toast.error("Failed to generate chords: " + error.message);
@@ -807,19 +820,32 @@ function MainApp() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const prompt = `You are a professional music producer. Generate a ${loopBars}-bar chord progression for a loop in the key of ${loopKey} ${loopScale}. 
       The time signature is ${loopTimeSig || '4/4'} and the BPM is ${loopBpm || 120}.
-      Return ONLY a raw JSON array of ${loopBars} strings representing the chords (one chord per bar). Do not include markdown formatting, backticks, or any other text.
-      Example for 4 bars: ["Cmaj7", "Am7", "Dm7", "G7"]`;
+      Make the progression musical and interesting, suitable for a modern track.`;
       
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.STRING,
+              description: "A musical chord symbol (e.g., Cmaj7, Am7, Dm7, G7)"
+            },
+            description: `An array of exactly ${loopBars} chord strings representing the progression.`
+          }
+        }
       });
       
       let text = response.text || "[]";
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
       const chords = JSON.parse(text);
-      setLoopChords(chords);
+      
+      // Ensure we have the correct number of chords
+      const finalChords = Array.isArray(chords) ? chords.slice(0, loopBars) : new Array(loopBars).fill("C");
+      while (finalChords.length < loopBars) finalChords.push(finalChords[finalChords.length - 1] || "C");
+      
+      setLoopChords(finalChords);
       toast.success(`Generated ${loopBars}-bar loop in ${loopKey} ${loopScale}!`);
     } catch (error: any) {
       toast.error("Failed to generate loop: " + error.message);
@@ -944,10 +970,17 @@ function MainApp() {
           <Button 
             variant="outline" 
             size="icon" 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => {
+              if (theme === 'system') setTheme('dark');
+              else if (theme === 'dark') setTheme('light');
+              else setTheme('system');
+            }}
             className="rounded-full bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/10 backdrop-blur-md hover:bg-black/10 dark:hover:bg-black/40"
+            title={`Current theme: ${theme}. Click to change.`}
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5 text-orange-400" /> : <Moon className="w-5 h-5 text-blue-400" />}
+            {theme === 'system' ? <Monitor className="w-5 h-5 text-gray-500 dark:text-gray-400" /> :
+             theme === 'dark' ? <Moon className="w-5 h-5 text-blue-400" /> : 
+             <Sun className="w-5 h-5 text-orange-400" />}
           </Button>
         </div>
         <div className="max-w-5xl mx-auto px-6 py-12">
@@ -1562,12 +1595,6 @@ function MainApp() {
                           onPlay={() => setIsPlaying(true)}
                           onPause={() => setIsPlaying(false)}
                         />
-                        <iframe
-                          src={audioUrl}
-                          className="hidden"
-                          aria-hidden="true"
-                          tabIndex={-1}
-                        />
                       </div>
                     )}
                   </CardContent>
@@ -1598,18 +1625,23 @@ function MainApp() {
                         <div className="p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 space-y-4">
                           <h4 className="text-sm font-bold opacity-60 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
                           <div className="grid grid-cols-2 gap-3">
-                            {['demucs', 'mdx', 'spleeter', 'bs-roformer'].map((model) => (
+                            {[
+                              { id: 'demucs', name: 'Demucs' },
+                              { id: 'mdx', name: 'MDX-Net' },
+                              { id: 'spleeter', name: 'Spleeter' },
+                              { id: 'bs-roformer', name: 'BS-Roformer' }
+                            ].map((modelObj) => (
                               <div 
-                                key={model}
-                                onClick={() => setSplittingModel(model as any)}
+                                key={modelObj.id}
+                                onClick={() => setSplittingModel(modelObj.id as any)}
                                 className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border cursor-pointer transition-all ${
-                                  splittingModel === model 
+                                  splittingModel === modelObj.id 
                                     ? "bg-foreground/10 border-foreground/30 text-foreground" 
                                     : "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 text-black/40 dark:text-white/40 hover:bg-black/10 dark:hover:bg-white/10"
                                 }`}
                               >
-                                <span className="text-sm font-medium capitalize">{model}</span>
-                                {model !== 'demucs' && <span className="text-[10px] opacity-50">(BETA)</span>}
+                                <span className="text-sm font-medium">{modelObj.name}</span>
+                                {modelObj.id !== 'demucs' && <span className="text-[10px] opacity-50">(BETA)</span>}
                               </div>
                             ))}
                           </div>
@@ -1871,7 +1903,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       {/* @ts-ignore */}
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <MainApp />
       </ThemeProvider>
     </ErrorBoundary>

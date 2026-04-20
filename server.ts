@@ -1,7 +1,5 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import cors from "cors";
 import fs from "fs";
 import { exec } from "child_process";
@@ -17,12 +15,8 @@ if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
 }
 
-// Safe __dirname fallback for both ESM (dev) and CJS (prod bundle)
-const currentDir = typeof __dirname !== 'undefined' 
-  ? __dirname 
-  : (typeof import.meta !== 'undefined' && import.meta.url 
-      ? path.dirname(fileURLToPath(import.meta.url)) 
-      : process.cwd());
+// Project root directory
+const projectRoot = process.cwd();
 
 const execAsync = promisify(exec);
 
@@ -35,17 +29,31 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 async function startServer() {
-  const app = express();
+  try {
+    const app = express();
   const PORT = 3000;
 
   app.use(cors());
   app.use(express.json());
 
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Request logging middleware
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api')) {
+      console.log(`[API] ${req.method} ${req.url}`);
+    }
+    next();
+  });
+
   // Ensure directories exist
-  const downloadsDir = path.join(currentDir, "downloads");
-  const outputDir = path.join(currentDir, "output");
-  if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir);
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+  const downloadsDir = path.join(projectRoot, "downloads");
+  const outputDir = path.join(projectRoot, "output");
+  if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   function cleanupDirectories() {
     console.log("Running scheduled cleanup of processed files...");
@@ -92,17 +100,16 @@ async function startServer() {
     });
   });
   // Helper for yt-dlp options
-  const getDlOptions = (output: string, extra: any = {}) => {
-    const cookiePath = path.join(currentDir, 'cookies.txt');
+  const getDlOptions = (output?: string, extra: any = {}) => {
+    const cookiePath = path.join(projectRoot, 'cookies.txt');
     const hasCookies = fs.existsSync(cookiePath);
     
-    return {
+    const options: any = {
       noCheckCertificates: true,
       noPlaylist: true,
       geoBypass: true,
       forceIpv4: true,
       ffmpegLocation: ffmpegStatic,
-      output,
       cookies: hasCookies ? cookiePath : undefined,
       addHeader: [
         'referer:https://www.google.com/',
@@ -112,6 +119,12 @@ async function startServer() {
       ],
       ...extra
     };
+
+    if (output) {
+      options.output = output;
+    }
+
+    return options;
   };
 
   app.get("/api/info", async (req, res) => {
@@ -125,7 +138,7 @@ async function startServer() {
       
       while (attempts < maxAttempts) {
         try {
-          info = await youtubedl(url, getDlOptions('', { dumpSingleJson: true }));
+          info = await youtubedl(url, getDlOptions(undefined, { dumpSingleJson: true }));
           break;
         } catch (err: any) {
           attempts++;
@@ -152,7 +165,7 @@ async function startServer() {
     try {
       // 1. Fetch metadata first
       console.log(`Fetching metadata for: ${url}`);
-      const info = await youtubedl(url, getDlOptions('', { dumpSingleJson: true })) as any;
+      const info = await youtubedl(url, getDlOptions(undefined, { dumpSingleJson: true })) as any;
       
       const metadata = {
         title: info.title || title || 'Unknown Title',
@@ -178,8 +191,9 @@ async function startServer() {
       }
 
       // 3. Download best audio
-      const outputTemplate = path.join(downloadsDir, `temp_dl_${Date.now()}.%(ext)s`);
-      console.log(`Downloading audio: ${url}`);
+      const downloadId = `dl_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const outputTemplate = path.join(downloadsDir, `${downloadId}.%(ext)s`);
+      console.log(`[Download] Starting audio download for: ${url} (ID: ${downloadId})`);
       
       let attempts = 0;
       const maxAttempts = 2;
@@ -191,7 +205,7 @@ async function startServer() {
           attempts++;
           const isConnectionReset = err.message?.includes('Remote end closed connection') || err.message?.includes('EPIPE');
           if (isConnectionReset && attempts < maxAttempts) {
-            console.warn(`Download connection reset on attempt ${attempts}. Retrying...`);
+            console.warn(`[Download] Connection reset on attempt ${attempts}. Retrying...`);
             await new Promise(r => setTimeout(r, 2000));
             continue;
           }
@@ -201,37 +215,52 @@ async function startServer() {
 
       // Find the downloaded file
       const files = fs.readdirSync(downloadsDir);
-      const tempBase = `temp_dl_${path.basename(outputTemplate).split('.')[0].split('_')[2]}`;
-      const downloadedFile = files.find(f => f.startsWith(tempBase));
+      const downloadedFile = files.find(f => f.startsWith(downloadId));
 
       if (!downloadedFile) {
         throw new Error("Downloaded file not found after yt-dlp execution");
       }
 
       const sourcePath = path.join(downloadsDir, downloadedFile);
+      console.log(`[Download] Audio downloaded to: ${sourcePath}`);
       
       // 4. Convert and embed metadata
-      console.log(`Converting and embedding metadata: ${filename}`);
+      console.log(`[Download] Starting FFmpeg conversion to ${format} for: ${filename}`);
       
       await new Promise((resolve, reject) => {
-        let command = ffmpeg(sourcePath)
-          .toFormat(format)
-          .outputOptions('-id3v2_version', '3')
+        let command = ffmpeg(sourcePath).toFormat(format);
+
+        // Add basic metadata
+        command = command
           .outputOptions('-metadata', `title=${metadata.title}`)
           .outputOptions('-metadata', `artist=${metadata.artist}`);
 
+        // Format-specific metadata handling
+        if (format === 'mp3') {
+          command = command.outputOptions('-id3v2_version', '3');
+        }
+
+        // Handle thumbnail embedding
         if (thumbnailPath && (format === 'mp3' || format === 'flac')) {
-          command = command.input(thumbnailPath).outputOptions('-map', '0:0', '-map', '1:0', '-c:a', format === 'mp3' ? 'libmp3lame' : 'flac', '-c:v', 'copy', '-metadata:s:v', 'title="Album cover"', '-metadata:s:v', 'comment="Cover (front)"');
+          command = command
+            .input(thumbnailPath)
+            .outputOptions('-map', '0:a', '-map', '1:0')
+            .outputOptions('-disposition:v', 'attached_pic');
+          
+          if (format === 'mp3') {
+            command = command.outputOptions('-c:v', 'copy');
+          }
         }
 
         command
           .on('end', () => {
+            console.log(`[Download] FFmpeg conversion finished: ${filename}`);
             if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
             if (thumbnailPath && fs.existsSync(thumbnailPath)) fs.unlinkSync(thumbnailPath);
             resolve(true);
           })
           .on('error', (err) => {
-            console.error("FFmpeg error:", err);
+            console.error("[Download] FFmpeg error:", err);
             if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
             if (thumbnailPath && fs.existsSync(thumbnailPath)) fs.unlinkSync(thumbnailPath);
             reject(err);
@@ -373,6 +402,15 @@ async function startServer() {
     }
   });
 
+  app.get("/api/files/output/:filename", (req, res) => {
+    const filepath = path.join(outputDir, req.params.filename);
+    if (fs.existsSync(filepath)) {
+      res.download(filepath);
+    } else {
+      res.status(404).send("File not found");
+    }
+  });
+
   app.get("/api/files/:filename", (req, res) => {
     const filename = req.params.filename;
     const filepath = path.join(downloadsDir, filename);
@@ -414,17 +452,15 @@ async function startServer() {
     }
   });
 
-  app.get("/api/files/output/:filename", (req, res) => {
-    const filepath = path.join(outputDir, req.params.filename);
-    if (fs.existsSync(filepath)) {
-      res.download(filepath);
-    } else {
-      res.status(404).send("File not found");
-    }
+  // Catch-all for missing API routes to prevent falling through to SPA
+  app.all("/api/*", (req, res) => {
+    console.warn(`[API] 404 Not Found: ${req.method} ${req.url}`);
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -441,6 +477,13 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("Startup error:", err);
+  process.exit(1);
+});

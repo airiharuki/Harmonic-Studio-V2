@@ -1,6 +1,6 @@
 # Oracle Cloud Deployment Guide
 
-This guide explains how to deploy VibeCoded to an Oracle Cloud "Always Free" ARM instance.
+This guide explains how to deploy VibeCoded to an Oracle Cloud instance. Since you are using trial credits, standard Intel/AMD (x86_64) shapes are highly recommended to bypass ARM availability limits and ensure smooth Docker compatibility!
 
 ## 1. Create Your Oracle Cloud Account & Instance
 
@@ -10,8 +10,10 @@ This guide explains how to deploy VibeCoded to an Oracle Cloud "Always Free" ARM
 4. **Image and Shape (CRITICAL STEP):**
    - Click **Edit** on Image and Shape.
    - **Image:** Select **Ubuntu** (e.g., Ubuntu 22.04 or 24.04).
-   - **Shape:** Click "Change Shape", select **Ampere**, and choose the **VM.Standard.A1.Flex** shape.
-   - **Resources:** Drag the sliders to **4 OCPUs** and **24 GB Memory**. (This is the maximum allowed on the free tier and is perfect for Demucs).
+   - **Shape:** Click "Change Shape". 
+     - **Free Tier alternative:** Select **Specialty and Previous Generation** -> **VM.Standard.E2.1.Micro** (This is an AMD x86_64 "Always Free" instance).
+     - **Trial Credits alternative (Recommended for performance):** Select **Intel** or **AMD** and choose a standard Flex shape like **VM.Standard.E3.Flex** or **VM.Standard3.Flex**.
+   - **Resources:** If using a flexible shape and your $300 credits, allocate **2-4 OCPUs** and **8-16 GB Memory**. (Note: If using the free E2.1.Micro, resources are locked to 1/8 OCPU and 1 GB Memory, which may be too slow for intense audio splitting tasks).
 5. **Networking:** Leave as default (creates a new VCN and public subnet).
 6. **Add SSH Keys:** 
    - Select "Generate a key pair for me".
@@ -94,4 +96,4 @@ Wait a few minutes for the Docker build to finish. Once it's running, open your 
 
 `http://YOUR_PUBLIC_IP:3000`
 
-Your app is now live, private, and running on a powerful 24GB RAM server for free!
+Your app is now live, private, and running on your active Oracle deployment! If you are using trial credits, remember to monitor your billing dashboard over time.

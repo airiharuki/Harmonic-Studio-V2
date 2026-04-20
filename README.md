@@ -101,15 +101,56 @@ We support over 1000+ sites including:
 ### 📝 Lyrics Management
 We've added a `public/lyrics.txt` file. You can paste lyrics from the web into this file. The app is designed to parse this format for future dynamic lyric support.
 
-## 🚀 Deployment (Oracle Cloud Free Tier)
+## Installation & Setup 🛠️
 
-This app requires significant RAM (2GB+) to run the Demucs AI stem splitter, meaning standard free tiers on Render or Netlify will crash. 
+### The "I Just Need to Use It" Setup (Cloud Deployment)
+If you just want to run this somewhere permanently, use our **Oracle Cloud** deployment guide. This app requires significant RAM (2GB+) to run the Demucs AI stem splitter, meaning standard free tiers on Render or Netlify will crash. 
+**See the full step-by-step cloud guide in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md).**
 
-The best way to host this for free is using **Oracle Cloud's "Always Free" ARM instance** (which gives you 24GB of RAM for free).
+### The "I Want It Now" Install (Automatic / Local Audio Lab Mode)
+We wrote automated scripts to instantly bootstrap your local environment, install FFmpeg, Python, Node, and properly configure all the heavy-lifting local AI audio manipulation models (**Demucs, MDX-Net, Spleeter, BS-Roformer**). 
 
-We have included a `Dockerfile` and `docker-compose.yml` to make this easy. 
+**Windows (Run in PowerShell as Administrator):**
+```powershell
+.\install.ps1
+```
+*(Note: If you haven't cloned the repo, you can run `irm https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.ps1 | iex` directly, assuming you update the URL to your fork).*
 
-**See the full step-by-step guide in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md).**
+**macOS (Requires Terminal):**
+```bash
+chmod +x install_mac.sh
+./install_mac.sh
+```
+
+**Linux (Debian/Ubuntu):**
+```bash
+chmod +x install_linux.sh
+./install_linux.sh
+```
+
+### The "I Like Doing Things the Hard Way" Install (Manual)
+
+**Step 1: Grab the code**
+```bash
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+cd YOUR_REPO_NAME
+```
+
+**Step 2: OS-Specific Dependencies**
+You must install exactly: Node.js (v20+), Python 3.11, and FFmpeg natively for your OS.
+
+**Step 3: Model Dependencies**
+```bash
+python3 -m pip install --upgrade pip
+pip3 install -U demucs spleeter "audio-separator[cpu]"
+```
+*(Windows users with dedicated GPUs can use `audio-separator[gpu]` instead).*
+
+**Step 4: Build & Run**
+```bash
+npm install
+npm run dev
+```
 
 ## 🛠️ What's It Made With?
 
