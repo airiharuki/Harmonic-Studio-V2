@@ -104,49 +104,50 @@ We've added a `public/lyrics.txt` file. You can paste lyrics from the web into t
 ## Installation & Setup 🛠️
 
 ### The "I Just Need to Use It" Setup (Cloud Deployment)
-If you just want to run this somewhere permanently, use our **Oracle Cloud** deployment guide. This app requires significant RAM (2GB+) to run the Demucs AI stem splitter, meaning standard free tiers on Render or Netlify will crash. 
+If you just want to run this somewhere permanently without draining your local system, use our **Oracle Cloud** deployment guide. Standard free tiers on Render or Netlify will crash due to the high RAM (2GB+) required by the audio models. 
 **See the full step-by-step cloud guide in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md).**
 
-### The "I Want It Now" Install (Automatic / Local Audio Lab Mode)
-We wrote automated scripts to instantly bootstrap your local environment, install FFmpeg, Python, Node, and properly configure all the heavy-lifting local AI audio manipulation models (**Demucs, MDX-Net, Spleeter, BS-Roformer**). 
+### The "Zero Setup" Install (Fully Automated)
+We wrote scripts that handle *literally everything*. They will fetch Git if you don't have it, clone the repo, install FFmpeg/Python/Node.js, download the AI models, and set up the app. Just open your terminal and paste the command for your OS:
 
 **Windows (Run in PowerShell as Administrator):**
 ```powershell
-.\install.ps1
+irm https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/main/install.ps1 | iex
 ```
-*(Note: If you haven't cloned the repo, you can run `irm https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.ps1 | iex` directly, assuming you update the URL to your fork).*
 
-**macOS (Requires Terminal):**
+**macOS (Run in Terminal):**
 ```bash
-chmod +x install_mac.sh
-./install_mac.sh
+curl -fsSL https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/main/install_mac.sh | bash
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-chmod +x install_linux.sh
-./install_linux.sh
+curl -fsSL https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/main/install_linux.sh | bash
 ```
 
 ### The "I Like Doing Things the Hard Way" Install (Manual)
+Don't trust our scripts? Fair enough. Here is the manual, step-by-step process.
 
-**Step 1: Grab the code**
+**1. Clone the repository**
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-cd YOUR_REPO_NAME
+git clone https://github.com/airiharuki/Harmonic-Studio-V2.git
+cd Harmonic-Studio-V2
 ```
 
-**Step 2: OS-Specific Dependencies**
-You must install exactly: Node.js (v20+), Python 3.11, and FFmpeg natively for your OS.
+**2. Install Core Dependencies**
+You must natively install the following pieces of software on your system:
+*   [Node.js](https://nodejs.org/) (v20+)
+*   [Python](https://www.python.org/downloads/) (v3.11 recommended)
+*   [FFmpeg](https://ffmpeg.org/download.html) (Crucial for audio processing)
 
-**Step 3: Model Dependencies**
+**3. Install AI Audio Models**
 ```bash
 python3 -m pip install --upgrade pip
 pip3 install -U demucs spleeter "audio-separator[cpu]"
 ```
-*(Windows users with dedicated GPUs can use `audio-separator[gpu]` instead).*
+*(Note for Windows users with NVIDIA GPUs: You can swap `"audio-separator[cpu]"` for `"audio-separator[gpu]"` to utilize CUDA).*
 
-**Step 4: Build & Run**
+**4. Build & Run the App**
 ```bash
 npm install
 npm run dev
