@@ -335,13 +335,13 @@ async function startServer() {
       let command = "";
       switch (model) {
         case 'mdx':
-          command = `mdx-net -o "${outputDirForJob}" "${inputPath}"`;
+          command = `audio-separator "${inputPath}" --model_filename UVR-MDX-NET-Inst_HQ_3.onnx --output_dir "${path.join(outputDirForJob, "htdemucs", "input")}"`;
+          break;
+        case 'bs-roformer':
+          command = `audio-separator "${inputPath}" --model_filename model_bs_roformer_ep_317_sdr_12.9755.ckpt --output_dir "${path.join(outputDirForJob, "htdemucs", "input")}"`;
           break;
         case 'spleeter':
           command = `spleeter separate -o "${outputDirForJob}" "${inputPath}"`;
-          break;
-        case 'bs-roformer':
-          command = `bs-roformer -o "${outputDirForJob}" "${inputPath}"`;
           break;
         case 'demucs':
         default:
@@ -351,6 +351,11 @@ async function startServer() {
       
       console.log(`Running splitting command: ${command}`);
       try {
+        if (model === 'mdx' || model === 'bs-roformer') {
+          // Pre-create the expected output dir for audio-separator so it doesn't fail
+          const mockStemsPath = path.join(outputDirForJob, "htdemucs", "input");
+          fs.mkdirSync(mockStemsPath, { recursive: true });
+        }
         await execAsync(command);
       } catch (error) {
         console.warn("Splitting failed or not installed. Falling back to mock splitting for demo purposes.");
