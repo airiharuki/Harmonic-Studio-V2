@@ -159,7 +159,7 @@ npm run dev
 - 🎹 **sf2-synth-audio-worklet + Tonal** (for high-performance soundfont playback and theory)
 - 🐍 **Python, `yt-dlp`, and splitting engines** (for the heavy lifting)
 - 🎬 **`ffmpeg-static`** (because raw audio needs to be converted properly)
-- 💾 **Various Open-Source Utilities** (Huge shoutout to the community for the inspiration on robust download and metadata logic!)
+- 💾 **[Cobalt](https://github.com/imputnet/cobalt)** (Shoutout for the inspo on their clean download design!)
 - 📺 **VHS Grain Overlay** (because 1995 called and we answered)
 
 ## 🌓 It Looks Pretty Too™
