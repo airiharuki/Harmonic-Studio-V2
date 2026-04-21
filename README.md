@@ -194,7 +194,9 @@ const playMidiSine = async (file: File) => {
 
 ## 🤝 Want to Contribute?
 
-Hell yeah! We love contributions. Here's how to get involved:
+Hell yeah! We love contributions. Want to help build the ultimate open-source music lab?
+
+**👉 [Check out our Friendly Contribution Guide (CONTRIBUTING.md) to get started!](CONTRIBUTING.md)** We wrote it because we'd love your help, whether you're squashing a bug, adding a new model, or just fixing a typo.
 
 ### 🐛 Found a Bug?
 
@@ -214,11 +216,13 @@ Hell yeah! We love contributions. Here's how to get involved:
 
 ### 🔧 Want to Submit Code?
 
+*(psst... read the [CONTRIBUTING.md](CONTRIBUTING.md) for how we format our awesome commit messages!)*
+
 1. Fork the repo
 2. Create a branch (`git checkout -b feature/cool-thing`)
 3. Make your changes
 4. Test that stuff actually works
-5. Commit with a decent message (`git commit -m "Add cool thing that does X"`)
+5. Commit with a **Conventional Commit** message (`feat: add cool thing that does X`)
 6. Push to your fork (`git push origin feature/cool-thing`)
 7. Open a Pull Request
 8. Wait for review (we're pretty chill)
