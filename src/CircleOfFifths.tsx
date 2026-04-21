@@ -57,14 +57,14 @@ export const CircleOfFifths = ({ onSetBaseKey, onSetTargetKey }: any) => {
             <React.Fragment key={i}>
               <div 
                 onClick={() => setSelectedKey({ key: k.maj, scale: 'Major' })}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm transition-all hover:scale-110 cursor-pointer ${isMajSelected ? 'bg-foreground text-background border-foreground scale-110 z-10' : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/20 hover:bg-black/10 dark:hover:bg-white/10'}`}
+                className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm transition-all hover:scale-110 cursor-pointer ${isMajSelected ? 'bg-foreground text-background border-foreground scale-110 z-10' : 'bg-black/5 dark:bg-white/10 border-black/10 dark:border-white/20 hover:bg-black/10 dark:hover:bg-white/10'}`}
                 style={{ left: `${outerX}%`, top: `${outerY}%` }}
               >
                 <span className="font-bold text-sm">{mode === 'musical' ? k.maj : k.camMaj}</span>
               </div>
               <div 
                 onClick={() => setSelectedKey({ key: k.min.replace('m', ''), scale: 'Minor' })}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full border flex items-center justify-center shadow-inner transition-all hover:scale-110 cursor-pointer ${isMinSelected ? 'bg-foreground/80 text-background border-foreground scale-110 z-10' : 'bg-black/10 dark:bg-black/20 border-black/5 dark:border-white/10 hover:bg-black/20 dark:hover:bg-black/30'}`}
+                className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full border flex items-center justify-center shadow-inner transition-all hover:scale-110 cursor-pointer ${isMinSelected ? 'bg-foreground/80 text-background border-foreground scale-110 z-10' : 'bg-black/10 dark:bg-white/10 border-black/5 dark:border-white/10 hover:bg-black/20 dark:hover:bg-white/20'}`}
                 style={{ left: `${innerX}%`, top: `${innerY}%` }}
               >
                 <span className="font-semibold text-xs opacity-80">{mode === 'musical' ? k.min : k.camMin}</span>
@@ -72,7 +72,7 @@ export const CircleOfFifths = ({ onSetBaseKey, onSetTargetKey }: any) => {
             </React.Fragment>
           );
         })}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center justify-center text-center shadow-xl">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 flex items-center justify-center text-center shadow-xl">
           <span className="text-[10px] font-medium opacity-60 leading-tight">Circle of<br/>Fifths</span>
         </div>
       </div>
@@ -80,14 +80,14 @@ export const CircleOfFifths = ({ onSetBaseKey, onSetTargetKey }: any) => {
       {/* Info Panels */}
       <div className="flex flex-col justify-center gap-4 w-full mt-8 lg:mt-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl p-5">
+          <div className="bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded-full bg-foreground"></div>
               <h3 className="font-bold text-sm">Major Keys</h3>
             </div>
             <p className="text-xs opacity-60">Outer ring - Brighter, uplifting sound</p>
           </div>
-          <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl p-5">
+          <div className="bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded-full bg-foreground/80"></div>
               <h3 className="font-bold text-sm">Minor Keys</h3>
@@ -96,7 +96,7 @@ export const CircleOfFifths = ({ onSetBaseKey, onSetTargetKey }: any) => {
           </div>
         </div>
 
-        <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl p-6 mt-2">
+        <div className="bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-2xl p-6 mt-2">
           <h3 className="font-bold text-sm mb-4">Harmonic Relationships</h3>
           <div className="space-y-3 text-xs">
             <div className="flex gap-2">
@@ -115,7 +115,7 @@ export const CircleOfFifths = ({ onSetBaseKey, onSetTargetKey }: any) => {
         </div>
 
         {selectedKey && (
-          <div className="bg-black/10 dark:bg-black/30 border border-black/20 dark:border-white/20 rounded-2xl p-6 mt-2 animate-in fade-in slide-in-from-bottom-4">
+          <div className="bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 rounded-2xl p-6 mt-2 animate-in fade-in slide-in-from-bottom-4">
             <h3 className="font-bold text-sm mb-4">Selected: {selectedKey.key} {selectedKey.scale}</h3>
             <div className="flex gap-3">
               <button 

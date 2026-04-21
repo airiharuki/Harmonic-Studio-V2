@@ -21,7 +21,7 @@ Have you ever listened to a song and thought, "Wow, this pitch is in a weird sca
 Paste a link or upload a file, get the audio, and extract the vibe. That's it. That's the feature.
 
 - 📥 **Universal Downloader (`yt-dlp`)**: We rip audio from the interwebs faster than you can say "copyright infringement". Files are automatically renamed to the actual track title.
-- 🚀 **Advanced Processing (Inspired by [Cobalt](https://github.com/imputnet/cobalt))**: Our download engine is heavily inspired by the robust techniques used in the Cobalt project, featuring automatic metadata extraction and cover art embedding.
+- 🚀 **High-Fidelity Audio Pre-processing**: Optimized retrieval workflows featuring automatic track title formatting and metadata detection.
 - 🎧 **Hidden Iframe Player**: Preview your downloaded tracks directly in the browser using our stealthy hidden iframe technique (because raw audio tags are so 2010).
 - 🧠 **Music Analysis (`essentia.js`)**: We use actual, literal math to tell you the BPM, Key, Scale, Energy, and Mood of a track. It's like having a tiny, very pedantic music major trapped in your browser.
 - 🎙️ **Stem Splitting (v2 Upgrade)**: Slice your audio into Vocals, Drums, Bass, and "Other". Now featuring multiple high-performance models: **Demucs**, **MDX-Net (BETA)**, **Spleeter (BETA)**, and **BS-Roformer (BETA)**. Plus, a quick "Vocals/Instrumental" toggle for faster workflows.
@@ -39,17 +39,14 @@ The ultimate playground for creating custom chord loops.
 - ⭕ **Synced Theory**: Automatically syncs with the Circle of Fifths so your loops are always in the right key.
 - 🚫 **BPM Validation**: "We’re not making extra tone today" — built-in protection against impossible tempos.
 
-## 🛠️ Technical Deep Dive: The "Cobalt" Fix
+## 🛠️ Technical Resilience
 
-We've significantly upgraded our download engine to ensure it's as robust as possible, drawing inspiration from the best-in-class [Cobalt](https://github.com/imputnet/cobalt) project.
+We've optimized our engine to ensure reliable track retrieval across various network conditions, focusing on metadata accuracy and stream stability.
 
-### How we fixed the "Remote End Closed Connection" errors:
-1.  **Anti-Bot Headers**: We implemented a centralized helper that uses browser-like headers (`User-Agent`, `Accept`, `Accept-Language`) and `geo-bypass` to minimize detection and blocking by platforms like YouTube and SoundCloud.
-2.  **Automatic Retries**: If a connection is reset or closed unexpectedly, the server now automatically waits 2 seconds and retries the operation (up to 2 attempts).
-3.  **Metadata-First Workflow**: Instead of just downloading a file, we now fetch full metadata first. This allows us to:
-    *   **Embed Cover Art**: We automatically download the track's thumbnail and embed it as the album cover in MP3 and FLAC files.
-    *   **Proper Tagging**: We use FFmpeg to write ID3 tags (Title, Artist) directly into the file, so it looks perfect in your music player.
-4.  **IPv4 Forcing**: We force `yt-dlp` to use IPv4, which resolves many common connection issues encountered in containerized environments.
+### Key Improvements:
+- **Connection Reliability**: Enhanced handling for intermittent network resets.
+- **Smart Metadata Retrieval**: Automatic extraction of track titles and artists to ensure your analyzed files are named correctly.
+- **Optimized Stream Handling**: Fine-tuned for containerized environments to ensure consistent performance.
 
 ## 🚨 THE GOLDEN RULE: WAV/FLAC ONLY 🚨
 
@@ -162,7 +159,7 @@ npm run dev
 - 🎹 **sf2-synth-audio-worklet + Tonal** (for high-performance soundfont playback and theory)
 - 🐍 **Python, `yt-dlp`, and splitting engines** (for the heavy lifting)
 - 🎬 **`ffmpeg-static`** (because raw audio needs to be converted properly)
-- 💾 **[Cobalt](https://github.com/imputnet/cobalt)** (Huge shoutout for the inspiration on robust download and metadata logic!)
+- 💾 **Various Open-Source Utilities** (Huge shoutout to the community for the inspiration on robust download and metadata logic!)
 - 📺 **VHS Grain Overlay** (because 1995 called and we answered)
 
 ## 🌓 It Looks Pretty Too™

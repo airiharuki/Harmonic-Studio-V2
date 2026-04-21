@@ -1001,7 +1001,7 @@ function MainApp() {
               else if (theme === 'dark') setTheme('light');
               else setTheme('system');
             }}
-            className="rounded-full bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/10 backdrop-blur-md hover:bg-black/10 dark:hover:bg-black/40"
+            className="rounded-full bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 backdrop-blur-md hover:bg-black/10 dark:hover:bg-white/10"
             title={`Current theme: ${theme}. Click to change.`}
           >
             {theme === 'system' ? <Monitor className="w-5 h-5 text-gray-500 dark:text-gray-400" /> :
@@ -1011,31 +1011,35 @@ function MainApp() {
         </div>
         <div className="max-w-5xl mx-auto px-6 py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-12 relative z-50">
-            {/* Mobile Liquid Glass Switcher */}
-            <div className="sm:hidden relative w-[240px]">
+          <div className="flex justify-center mb-12 relative z-[100]">
+            {/* Mobile Liquid Glass Switcher (Apple iOS/iPadOS 26 Style) */}
+            <div className="sm:hidden relative w-[240px] z-[100]">
               <motion.div 
-                className="bg-black/10 dark:bg-white/10 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col shadow-2xl absolute top-0 left-0 right-0 z-50"
+                className="bg-black/5 dark:bg-white/10 backdrop-blur-[40px] dark:backdrop-blur-[60px] backdrop-saturate-[150%] dark:backdrop-saturate-[100%] border border-black/10 dark:border-white/10 rounded-[32px] overflow-hidden flex flex-col shadow-[0_16px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.3)] absolute top-0 left-0 right-0 z-[100]"
                 animate={{ height: isNavExpanded ? 'auto' : '56px' }}
-                transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+                transition={{ type: "spring", damping: 22, stiffness: 280, mass: 0.8 }}
               >
                 <button 
                   onClick={() => setIsNavExpanded(!isNavExpanded)}
-                  className="h-[56px] px-6 flex items-center justify-between gap-4 font-medium text-lg text-primary w-full"
+                  className="h-[56px] px-6 flex items-center justify-between gap-4 font-semibold text-lg text-foreground w-full tracking-tight transition-colors"
                 >
                   <span>{activeTab === 'composer' ? 'Composer' : activeTab === 'loopstudio' ? 'Loop Studio' : 'Analyzer'}</span>
-                  <motion.div animate={{ rotate: isNavExpanded ? 180 : 0 }}>
-                    <ChevronDown className="w-5 h-5 opacity-50" />
+                  <motion.div 
+                    animate={{ rotate: isNavExpanded ? 180 : 0 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                  >
+                    <ChevronDown className="w-5 h-5 text-foreground/50" />
                   </motion.div>
                 </button>
                 
                 <AnimatePresence>
                   {isNavExpanded && (
                     <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="flex flex-col pb-2 px-2"
+                      initial={{ opacity: 0, filter: "blur(8px)", y: -10 }}
+                      animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                      exit={{ opacity: 0, filter: "blur(8px)", y: -10 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="flex flex-col pb-3 px-3 gap-1"
                     >
                       {['composer', 'loopstudio', 'analyzer'].filter(t => t !== activeTab).map(t => (
                         <button
@@ -1044,7 +1048,7 @@ function MainApp() {
                             setActiveTab(t);
                             setIsNavExpanded(false);
                           }}
-                          className="py-3 px-4 text-left rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 font-medium text-foreground/70 transition-colors"
+                          className="py-3 px-4 text-left rounded-[20px] hover:bg-black/10 dark:hover:bg-white/10 font-medium text-foreground/80 hover:text-foreground transition-all duration-300 active:scale-[0.97]"
                         >
                           {t === 'composer' ? 'Composer' : t === 'loopstudio' ? 'Loop Studio' : 'Analyzer'}
                         </button>
@@ -1091,16 +1095,16 @@ function MainApp() {
                     <Scissors className="w-5 h-5 text-foreground" />
                     Pitch Shift Calculator
                   </CardTitle>
-                  <CardDescription>Calculate semitone shifts for your DAW</CardDescription>
+                  <CardDescription className="opacity-80">Calculate semitone shifts for your DAW</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                      <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Base Key</p>
+                    <div className="p-4 rounded-xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                      <p className="text-[10px] uppercase font-bold opacity-70 mb-1">Base Key</p>
                       <p className="text-xl font-bold">{sourceKey} {sourceScale}</p>
                     </div>
-                    <div className="p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                      <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Target Key</p>
+                    <div className="p-4 rounded-xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                      <p className="text-[10px] uppercase font-bold opacity-70 mb-1">Target Key</p>
                       <p className="text-xl font-bold">{targetKey} {targetScale}</p>
                     </div>
                   </div>
@@ -1146,12 +1150,12 @@ function MainApp() {
                     <Repeat className="w-5 h-5 text-foreground" />
                     Loop Parameters
                   </CardTitle>
-                  <CardDescription>Configure your loop settings (Key is synced with Circle of Fifths)</CardDescription>
+                  <CardDescription className="opacity-80">Configure your loop settings (Key is synced with Circle of Fifths)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase opacity-50">Bars (4-16)</label>
+                      <label className="text-xs font-bold uppercase opacity-70">Bars (4-16)</label>
                       <select 
                         value={loopBars} 
                         onChange={(e) => setLoopBars(parseInt(e.target.value))}
@@ -1161,7 +1165,7 @@ function MainApp() {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase opacity-50">BPM</label>
+                      <label className="text-xs font-bold uppercase opacity-70">BPM</label>
                       <Input 
                         type="number" 
                         value={loopBpm} 
@@ -1179,7 +1183,7 @@ function MainApp() {
                       {bpmError && <p className="text-[10px] text-red-500 font-bold">{bpmError}</p>}
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase opacity-50">Time Signature</label>
+                      <label className="text-xs font-bold uppercase opacity-70">Time Signature</label>
                       <select 
                         value={loopTimeSig} 
                         onChange={(e) => setLoopTimeSig(e.target.value)}
@@ -1192,7 +1196,7 @@ function MainApp() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase opacity-50">Key</label>
+                      <label className="text-xs font-bold uppercase opacity-70">Key</label>
                       <select 
                         value={loopKey} 
                         onChange={(e) => setLoopKey(e.target.value)}
@@ -1202,7 +1206,7 @@ function MainApp() {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase opacity-50">Scale</label>
+                      <label className="text-xs font-bold uppercase opacity-70">Scale</label>
                       <select 
                         value={loopScale} 
                         onChange={(e) => setLoopScale(e.target.value)}
@@ -1215,7 +1219,7 @@ function MainApp() {
 
                   <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 flex items-center justify-between">
                     <div>
-                      <p className="text-xs uppercase font-bold opacity-50">Circle of Fifths Sync</p>
+                      <p className="text-xs uppercase font-bold opacity-70">Circle of Fifths Sync</p>
                       <p className="text-sm font-bold">Base Key: {sourceKey} {sourceScale}</p>
                     </div>
                     <Button 
@@ -1248,7 +1252,7 @@ function MainApp() {
                   </div>
                   
                   <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 space-y-4">
-                    <label className="text-xs font-bold uppercase opacity-50">MIDI Preview</label>
+                    <label className="text-xs font-bold uppercase opacity-70">MIDI Preview</label>
                     <Input 
                       type="file" 
                       accept=".mid" 
@@ -1264,7 +1268,7 @@ function MainApp() {
                       className="theme-input"
                     />
                     <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold uppercase opacity-50">Demo MIDI</label>
+                      <label className="text-xs font-bold uppercase opacity-70">Demo MIDI</label>
                       <a 
                         href="https://filebin.net/5fq1dfcwulxjlhtf/%E6%83%B3%E5%BF%B5%E4%BD%A0%E6%83%B3%E6%88%91_%E5%91%A8%E5%85%B4%E5%93%B2.mid" 
                         target="_blank" 
@@ -1431,7 +1435,7 @@ function MainApp() {
               transition={{ delay: 0.2 }}
               className="relative max-w-2xl mx-auto mb-8"
             >
-              <div className="flex flex-col gap-4 p-4 rounded-3xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 backdrop-blur-xl shadow-2xl">
+              <div className="flex flex-col gap-4 p-4 rounded-[32px] bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 backdrop-blur-[40px] dark:backdrop-blur-[60px] backdrop-saturate-[150%] dark:backdrop-saturate-[100%] shadow-[0_16px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
                 <div className="flex gap-2">
                   <Input 
                     placeholder="Paste URL here..." 
@@ -1440,12 +1444,12 @@ function MainApp() {
                       setUrl(e.target.value);
                       if (e.target.value) setFile(null);
                     }}
-                    className="bg-transparent border-black/20 dark:border-white/20 focus-visible:ring-foreground text-lg h-12 rounded-xl"
+                    className="bg-black/5 dark:bg-white/10 border-transparent focus-visible:ring-foreground focus-visible:border-black/20 dark:focus-visible:border-white/20 text-lg h-14 rounded-[20px] px-6 placeholder:text-foreground/40 transition-all font-medium"
                   />
                   <Button 
                     onClick={handleFetchInfo} 
                     disabled={loading || (!url && !file)}
-                    className="h-12 px-6 bg-foreground hover:bg-foreground/90 text-background rounded-xl transition-all active:scale-95"
+                    className="h-14 px-8 bg-foreground hover:bg-foreground/90 text-background rounded-[20px] transition-all active:scale-[0.97] font-bold text-lg shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                     <span className="ml-2">Load</span>
@@ -1453,14 +1457,14 @@ function MainApp() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex-1 h-px bg-black/10 dark:bg-white/10"></div>
-                  <span className="text-[10px] text-black/40 dark:text-white/40 uppercase tracking-widest font-bold">OR</span>
+                  <span className="text-[10px] opacity-40 uppercase tracking-widest font-bold">OR</span>
                   <div className="flex-1 h-px bg-black/10 dark:bg-white/10"></div>
                 </div>
                 <div className="flex items-center justify-center w-full">
-                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-black/10 dark:border-white/10 border-dashed rounded-2xl cursor-pointer bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-black/10 dark:border-white/10 border-dashed rounded-[24px] cursor-pointer bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors active:scale-[0.98]">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <p className="mb-1 text-sm text-black/60 dark:text-white/60"><span className="font-semibold">Click to upload</span> local audio</p>
-                          <p className="text-xs text-black/40 dark:text-white/40 font-mono">WAV, FLAC, or MP3</p>
+                          <p className="mb-1 text-sm opacity-60"><span className="font-semibold">Click to upload</span> local audio</p>
+                          <p className="text-xs opacity-40 font-mono">WAV, FLAC, or MP3</p>
                           {file && <p className="mt-2 text-sm text-foreground font-medium">{file.name}</p>}
                       </div>
                       <input id="dropzone-file" type="file" className="hidden" accept=".mp3,.wav,.flac,audio/*" onChange={handleFileChange} />
@@ -1468,8 +1472,8 @@ function MainApp() {
                 </div>
               </div>
               <div className="mt-4 text-center">
-                <p className="text-[10px] text-black/40 dark:text-white/40 uppercase tracking-widest font-bold mb-2">Supported Sites</p>
-                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-black/60 dark:text-white/60">
+                <p className="text-[10px] opacity-40 uppercase tracking-widest font-bold mb-2">Supported Sites</p>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs opacity-60">
                   <span>YouTube</span>
                   <span>SoundCloud</span>
                   <span>Bandcamp</span>
@@ -1513,28 +1517,28 @@ function MainApp() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
                         <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
                           <h3 className="font-bold text-lg line-clamp-2 text-white">{videoInfo.title}</h3>
-                          <p className="text-white/80 text-sm mt-1">{videoInfo.uploader}</p>
+                          <p className="text-white opacity-80 text-sm mt-1">{videoInfo.uploader}</p>
                         </div>
                       </>
                     )}
                   </div>
                   <CardContent className="p-6 space-y-6">
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 text-black/80 dark:text-white/80 border-none">
+                      <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
                         {Math.floor(videoInfo.duration / 60)}:{(videoInfo.duration % 60).toString().padStart(2, '0')}
                       </Badge>
-                      <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 text-black/80 dark:text-white/80 border-none">
+                      <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
                         {videoInfo.view_count?.toLocaleString()} views
                       </Badge>
                     </div>
 
                     {!videoInfo.isLocal && (
                       <div className="space-y-3">
-                        <h4 className="text-xs font-bold text-black/40 dark:text-white/40 uppercase tracking-wider">Download Raw Audio</h4>
+                        <h4 className="text-xs font-bold opacity-40 uppercase tracking-wider">Download Raw Audio</h4>
                         <div className="grid grid-cols-3 gap-3">
                           <Button 
                             variant="outline" 
-                            className="border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/80 dark:text-white/80"
+                            className="border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 opacity-80"
                             onClick={() => handleDownload("mp3")}
                             disabled={!!downloading}
                           >
@@ -1542,7 +1546,7 @@ function MainApp() {
                           </Button>
                           <Button 
                             variant="outline" 
-                            className="border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/80 dark:text-white/80"
+                            className="border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 opacity-80"
                             onClick={() => handleDownload("wav")}
                             disabled={!!downloading}
                           >
@@ -1550,7 +1554,7 @@ function MainApp() {
                           </Button>
                           <Button 
                             variant="outline" 
-                            className="border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/80 dark:text-white/80"
+                            className="border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 opacity-80"
                             onClick={() => handleDownload("flac")}
                             disabled={!!downloading}
                           >
@@ -1562,10 +1566,10 @@ function MainApp() {
 
                     {videoInfo.isLocal && (
                       <div className="space-y-3">
-                        <h4 className="text-xs font-bold text-black/40 dark:text-white/40 uppercase tracking-wider">Local File</h4>
+                        <h4 className="text-xs font-bold opacity-40 uppercase tracking-wider">Local File</h4>
                         <Button 
                           variant="outline" 
-                          className="w-full border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/80 dark:text-white/80"
+                          className="w-full border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 opacity-80"
                           onClick={() => {
                             if (audioUrl) {
                               const link = document.createElement("a");
@@ -1655,14 +1659,14 @@ function MainApp() {
                           <Scissors className="w-5 h-5 text-foreground" />
                           Stem Separation
                         </CardTitle>
-                        <CardDescription className="opacity-70">
+                        <CardDescription className="opacity-80">
                           Split the track into individual components.
-                          <p className="text-[10px] mt-1 font-bold opacity-60">Powered by {splittingModel.toUpperCase()} - Stem Separation</p>
+                          <p className="text-[10px] mt-1 font-bold opacity-70">Powered by {splittingModel.toUpperCase()} - Stem Separation</p>
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 space-y-4">
-                          <h4 className="text-sm font-bold opacity-60 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
+                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
+                          <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
                           <div className="grid grid-cols-2 gap-3">
                             {[
                               { id: 'demucs', name: 'Demucs' },
@@ -1676,7 +1680,7 @@ function MainApp() {
                                 className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border cursor-pointer transition-all ${
                                   splittingModel === modelObj.id 
                                     ? "bg-foreground/10 border-foreground/30 text-foreground" 
-                                    : "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 text-black/40 dark:text-white/40 hover:bg-black/10 dark:hover:bg-white/10"
+                                    : "bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
                                 }`}
                               >
                                 <span className="text-sm font-medium">{modelObj.name}</span>
@@ -1686,9 +1690,9 @@ function MainApp() {
                           </div>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 space-y-4">
+                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
                           <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-bold opacity-60 uppercase tracking-wider">Select Stems</h4>
+                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Stems</h4>
                             <div className="flex gap-2">
                               <Button 
                                 variant="ghost" 
@@ -1721,7 +1725,7 @@ function MainApp() {
                                 className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                                   selectedStems.includes(stem.id) 
                                     ? "bg-foreground/10 border-foreground/30 text-foreground" 
-                                    : "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 text-black/40 dark:text-white/40 hover:bg-black/10 dark:hover:bg-white/10"
+                                    : "bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
                                 }`}
                               >
                                 <stem.icon className="w-4 h-4" />
@@ -1762,19 +1766,19 @@ function MainApp() {
                           <BarChart3 className="w-5 h-5 text-foreground" />
                           Music Theory Analysis
                         </CardTitle>
-                        <CardDescription className="opacity-70">
+                        <CardDescription className="opacity-80">
                           Extract key, BPM, scale, and mood from the audio.
-                          <p className="text-[10px] mt-1 font-bold opacity-60">Powered by Essentia.js - Music Analysis</p>
+                          <p className="text-[10px] mt-1 font-bold opacity-70">Powered by Essentia.js - Music Analysis</p>
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         {!analysis ? (
                           <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
-                            <div className="w-20 h-20 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center border border-black/10 dark:border-white/10">
-                              <BarChart3 className="w-10 h-10 text-foreground opacity-50" />
+                            <div className="w-20 h-20 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center border border-black/10 dark:border-white/10">
+                              <BarChart3 className="w-10 h-10 text-foreground opacity-70" />
                             </div>
                             <div className="space-y-2">
-                              <p className="text-black/60 dark:text-white/60">Ready to analyze the harmonic and rhythmic structure.</p>
+                              <p className="opacity-80">Ready to analyze the harmonic and rhythmic structure.</p>
                               <Button 
                                 onClick={handleAnalyze} 
                                 disabled={analyzing || (!audioUrl && !url)}
@@ -1791,20 +1795,20 @@ function MainApp() {
                             animate={{ opacity: 1 }}
                             className="grid grid-cols-2 gap-4"
                           >
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] text-black/40 dark:text-white/40 uppercase font-bold mb-1">Tempo</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.bpm} <span className="text-sm font-normal text-black/40 dark:text-white/40">BPM</span></p>
+                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Tempo</p>
+                              <p className="text-3xl font-bold text-foreground">{analysis.bpm} <span className="text-sm font-normal opacity-40">BPM</span></p>
                             </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] text-black/40 dark:text-white/40 uppercase font-bold mb-1">Key & Scale</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.key} <span className="text-sm font-normal text-black/40 dark:text-white/40">{analysis.scale}</span></p>
+                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Key & Scale</p>
+                              <p className="text-3xl font-bold text-foreground">{analysis.key} <span className="text-sm font-normal opacity-40">{analysis.scale}</span></p>
                             </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] text-black/40 dark:text-white/40 uppercase font-bold mb-1">Mood</p>
+                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Mood</p>
                               <p className="text-3xl font-bold text-foreground">{analysis.mood}</p>
                             </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] text-black/40 dark:text-white/40 uppercase font-bold mb-1">Energy</p>
+                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Energy</p>
                               <div className="flex items-center gap-3 mt-2">
                                 <Progress value={analysis.energy * 100} className="h-2 bg-black/10 dark:bg-white/10" />
                                 <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
@@ -1814,8 +1818,8 @@ function MainApp() {
                         )}
 
                         <div className="space-y-4">
-                          <h4 className="text-xs font-bold text-black/40 dark:text-white/40 uppercase tracking-wider">Stem Preview (Mockup)</h4>
-                          <div className="space-y-4 p-5 bg-black/5 dark:bg-black/20 rounded-2xl border border-black/10 dark:border-white/10">
+                          <h4 className="text-xs font-bold opacity-40 uppercase tracking-wider">Stem Preview (Mockup)</h4>
+                          <div className="space-y-4 p-5 bg-black/5 dark:bg-white/10 rounded-2xl border border-black/10 dark:border-white/10">
                             {[
                               { id: "vocals", label: "Vocals", icon: Mic2, color: "text-blue-400" },
                               { id: "drums", label: "Drums", icon: Drum, color: "text-red-400" },
@@ -1848,7 +1852,7 @@ function MainApp() {
                           <Sparkles className="w-5 h-5 text-yellow-500" />
                           Vibe Studio
                         </CardTitle>
-                        <CardDescription className="opacity-70">
+                        <CardDescription className="opacity-80">
                           Generate AI chord progressions based on the track's vibe.
                         </CardDescription>
                       </CardHeader>
@@ -1862,18 +1866,18 @@ function MainApp() {
                           </div>
                         ) : (
                           <div className="space-y-6">
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10">
+                            <div className="flex items-center gap-4 p-4 rounded-xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
                               <div className="flex-1">
-                                <p className="text-xs uppercase font-bold opacity-50 mb-1">Current Vibe</p>
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Current Vibe</p>
                                 <p className="text-xl font-bold">{analysis.key} {analysis.scale} • {analysis.mood} • {analysis.bpm} BPM</p>
                               </div>
                             </div>
 
-                            <div className="p-6 rounded-xl bg-black/5 dark:bg-black/30 border border-black/10 dark:border-white/10">
+                            <div className="p-6 rounded-xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
                               <div className="flex justify-between items-center mb-6">
                                 <div>
                                   <h4 className="font-bold text-lg">AI Chord Progression</h4>
-                                  <p className="text-sm opacity-60">Powered by Gemini</p>
+                                  <p className="text-sm opacity-80">Powered by Gemini</p>
                                 </div>
                                 <Button 
                                   onClick={handleGenerateChords}
@@ -1898,8 +1902,8 @@ function MainApp() {
                                   ))}
                                 </motion.div>
                               ) : (
-                                <div className="h-32 flex items-center justify-center border-2 border-dashed border-black/20 dark:border-white/20 rounded-xl bg-black/5 dark:bg-black/10">
-                                  <p className="opacity-50 italic">Waiting for inspiration...</p>
+                                <div className="h-32 flex items-center justify-center border-2 border-dashed border-black/20 dark:border-white/20 rounded-xl bg-black/5 dark:bg-white/10">
+                                  <p className="opacity-70 italic">Waiting for inspiration...</p>
                                 </div>
                               )}
                             </div>
@@ -1919,12 +1923,12 @@ function MainApp() {
               exit={{ opacity: 0 }}
               className="flex flex-col items-center justify-center py-20 text-center space-y-6"
             >
-              <div className="w-24 h-24 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center border border-black/10 dark:border-white/10">
-                <Music className="w-12 h-12 opacity-20" />
+              <div className="w-24 h-24 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center border border-black/10 dark:border-white/10">
+                <Music className="w-12 h-12 opacity-40" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold opacity-40">No track loaded</h2>
-                <p className="text-black/40 dark:text-white/30 max-w-sm">Paste a URL or upload a file above to start your music analysis journey.</p>
+                <h2 className="text-2xl font-bold opacity-70">No track loaded</h2>
+                <p className="opacity-70 max-w-sm">Paste a URL or upload a file above to start your music analysis journey.</p>
               </div>
             </motion.div>
           )}

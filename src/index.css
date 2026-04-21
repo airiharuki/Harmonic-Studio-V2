@@ -85,47 +85,47 @@
     /* Custom Theme Variables */
     --bg-image: url('https://i.imgur.com/2y5CXtS.jpeg');
     --app-text: #4a3b3b;
-    --pill-bg: rgba(255, 255, 255, 0.4);
+    --pill-bg: rgba(0, 0, 0, 0.05);
     --pill-active: #b388ff;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #09090b;
+    --foreground: #ffffff;
+    --card: #0c0c0e;
+    --card-foreground: #ffffff;
+    --popover: #0c0c0e;
+    --popover-foreground: #ffffff;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --secondary: #18181b;
+    --secondary-foreground: #ffffff;
+    --muted: #18181b;
+    --muted-foreground: #d4d4d8; /* Brighter grey for better contrast on glass */
+    --accent: #18181b;
+    --accent-foreground: #ffffff;
+    --destructive: #7f1d1d;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.15);
+    --ring: #a855f7;
+    --chart-1: #3b82f6;
+    --chart-2: #10b981;
+    --chart-3: #f59e0b;
+    --chart-4: #8b5cf6;
+    --chart-5: #ef4444;
+    --sidebar: #09090b;
+    --sidebar-foreground: #ffffff;
+    --sidebar-primary: #a855f7;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #18181b;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgba(255, 255, 255, 0.1);
+    --sidebar-ring: #a855f7;
     
     /* Custom Theme Variables */
     --bg-image: url('https://i.imgur.com/71AmNm1.jpeg');
     --app-text: #f4f4f5;
-    --pill-bg: rgba(0, 0, 0, 0.3);
+    --pill-bg: rgba(255, 255, 255, 0.05);
     --pill-active: #9b59b6;
 }
 
@@ -195,18 +195,43 @@
 
 /* Pill Tab Switcher Styles */
 .pill-tabs-list {
-  @apply items-center p-1 rounded-full border border-black/10 dark:border-white/10 backdrop-blur-md;
+  @apply items-center p-1.5 rounded-full border border-black/10 dark:border-white/10;
   background: var(--pill-bg);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+}
+
+.dark .pill-tabs-list {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(60px) saturate(100%);
+  -webkit-backdrop-filter: blur(60px) saturate(100%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
 }
 
 .pill-tab-trigger {
-  @apply px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 data-[state=active]:text-background data-[state=active]:shadow-lg;
+  @apply px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 data-[state=active]:text-foreground data-[state=active]:font-bold;
 }
 
 .pill-tab-trigger[data-state="active"] {
   background: var(--pill-active);
+  box-shadow: 0 8px 20px -4px var(--pill-active);
+}
+
+.dark .pill-tab-trigger[data-state="active"] {
+  box-shadow: 0 0 25px -5px rgba(155, 89, 182, 0.3);
 }
 
 .theme-card {
-  @apply bg-black/5 dark:bg-black/20 border border-black/10 dark:border-white/10 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl;
+  @apply bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-[32px] overflow-hidden;
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.1);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dark .theme-card {
+  backdrop-filter: blur(60px) saturate(100%);
+  -webkit-backdrop-filter: blur(60px) saturate(100%);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.3);
 }
