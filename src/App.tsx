@@ -598,19 +598,20 @@ function MainApp() {
         toast.success("File uploaded successfully!");
       } else {
         const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
-        setVideoInfo(response.data);
         
+        let videoId = '';
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-          let videoId = '';
           if (url.includes('youtu.be/')) {
             videoId = url.split('youtu.be/')[1].split('?')[0];
           } else if (url.includes('v=')) {
             videoId = url.split('v=')[1].split('&')[0];
           }
-          if (videoId) {
-            setAudioUrl(`https://www.youtube.com/embed/${videoId}?autoplay=1`);
-          }
         }
+        
+        setVideoInfo({
+          ...response.data,
+          targetVideoId: videoId
+        });
         
         toast.success("Video info fetched!");
       }
@@ -709,10 +710,35 @@ function MainApp() {
   };
 
   const handleAnalyze = async () => {
-    if (!audioUrl) {
-      toast.info("Please download the WAV version first to analyze.");
-      return;
+    let targetBlobUrl = audioUrl;
+
+    if (!targetBlobUrl) {
+      if (!url) {
+        toast.info("Please provide a track or video URL to analyze.");
+        return;
+      }
+      
+      // Auto-fetch the MP3 for analysis so the user doesn't have to manually download it first.
+      setAnalyzing(true);
+      toast.info("Fetching raw audio (MP3) for analysis...");
+      try {
+        const response = await axios.post("/api/download", { url, format: 'mp3', title: videoInfo?.title });
+        const downloadUrl = response.data.url;
+        const fileResponse = await axios.get(downloadUrl, { responseType: "blob" });
+        const contentType = String(fileResponse.headers["content-type"] || "").toLowerCase();
+        
+        if (contentType.includes("text/html")) {
+            throw new Error("Server returned HTML. Failed to retrieve audio.");
+        }
+        
+        targetBlobUrl = setPlayableAudioFromBlob(fileResponse.data);
+      } catch (err: any) {
+        toast.error(`Failed to fetch raw audio: ${err.message}`);
+        setAnalyzing(false);
+        return;
+      }
     }
+
     setAnalyzing(true);
     try {
       // Try to use real Essentia if loaded
@@ -722,7 +748,7 @@ function MainApp() {
         const essentia = new win.Essentia(win.EssentiaWASM);
         
         // Fetch the audio file
-        const response = await fetch(audioUrl);
+        const response = await fetch(targetBlobUrl);
         const arrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -1465,19 +1491,32 @@ function MainApp() {
               className="grid grid-cols-1 lg:grid-cols-12 gap-8"
             >
               <div className="lg:col-span-5 space-y-6">
-                <Card className="theme-card">
-                  <div className="aspect-video relative group">
-                    <img 
-                      src={videoInfo.thumbnail} 
-                      alt={videoInfo.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h3 className="font-bold text-lg line-clamp-2 text-foreground">{videoInfo.title}</h3>
-                      <p className="text-black/60 dark:text-white/60 text-sm mt-1">{videoInfo.uploader}</p>
-                    </div>
+                <Card className="theme-card relative overflow-hidden">
+                  <div className="aspect-video relative group bg-black">
+                    {videoInfo.targetVideoId ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${videoInfo.targetVideoId}`}
+                        title="YouTube video player"
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <>
+                        <img 
+                          src={videoInfo.thumbnail} 
+                          alt={videoInfo.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
+                          <h3 className="font-bold text-lg line-clamp-2 text-white">{videoInfo.title}</h3>
+                          <p className="text-white/80 text-sm mt-1">{videoInfo.uploader}</p>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <CardContent className="p-6 space-y-6">
                     <div className="flex flex-wrap gap-2">
@@ -1738,7 +1777,7 @@ function MainApp() {
                               <p className="text-black/60 dark:text-white/60">Ready to analyze the harmonic and rhythmic structure.</p>
                               <Button 
                                 onClick={handleAnalyze} 
-                                disabled={analyzing || !audioUrl}
+                                disabled={analyzing || (!audioUrl && !url)}
                                 className="bg-foreground hover:bg-foreground/90 text-background font-bold px-8 h-12 rounded-xl"
                               >
                                 {analyzing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BarChart3 className="w-4 h-4 mr-2" />}
