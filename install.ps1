@@ -72,10 +72,10 @@ if ($refreshPath) {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
 
-# 3. Python AI Separator Dependencies
-Write-Host "`n🤖 Installing AI Audio Separation Models..." -ForegroundColor Cyan
+# 3. Python AI Separator & Downloader Dependencies
+Write-Host "`n🤖 Installing AI Audio Separators and yt-dlp..." -ForegroundColor Cyan
 python -m pip install --upgrade pip
-pip install -U demucs spleeter "audio-separator[gpu]"
+pip install -U demucs spleeter "audio-separator[gpu]" yt-dlp
 
 # 4. Node Dependencies
 Write-Host "`n📦 Installing Node dependencies..." -ForegroundColor Cyan

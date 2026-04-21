@@ -23,10 +23,10 @@ if [ ! -f "package.json" ]; then
     cd Harmonic-Studio-V2 || exit
 fi
 
-echo -e "\n🤖 Installing AI Audio Separation Models..."
+echo -e "\n🤖 Installing AI Audio Separators and yt-dlp..."
 python3 -m pip install --upgrade pip
 export PIP_BREAK_SYSTEM_PACKAGES=1
-pip3 install -U demucs spleeter "audio-separator[cpu]"
+pip3 install -U demucs spleeter "audio-separator[cpu]" yt-dlp
 
 echo -e "\n📦 Installing Node dependencies..."
 npm install

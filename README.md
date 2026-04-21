@@ -140,10 +140,10 @@ You must natively install the following pieces of software on your system:
 *   [Python](https://www.python.org/downloads/) (v3.11 recommended)
 *   [FFmpeg](https://ffmpeg.org/download.html) (Crucial for audio processing)
 
-**3. Install AI Audio Models**
+**3. Install AI Audio Models & Downloader**
 ```bash
 python3 -m pip install --upgrade pip
-pip3 install -U demucs spleeter "audio-separator[cpu]"
+pip3 install -U demucs spleeter "audio-separator[cpu]" yt-dlp
 ```
 *(Note for Windows users with NVIDIA GPUs: You can swap `"audio-separator[cpu]"` for `"audio-separator[gpu]"` to utilize CUDA).*
 
