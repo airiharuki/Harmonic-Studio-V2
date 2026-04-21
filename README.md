@@ -196,57 +196,7 @@ const playMidiSine = async (file: File) => {
 
 Hell yeah! We love contributions. Want to help build the ultimate open-source music lab?
 
-**👉 [Check out our Friendly Contribution Guide (CONTRIBUTING.md) to get started!](CONTRIBUTING.md)** We wrote it because we'd love your help, whether you're squashing a bug, adding a new model, or just fixing a typo.
-
-### 🐛 Found a Bug?
-
-1. Check if someone already reported it in Issues
-2. If not, open a new issue with:
-   - What you expected to happen
-   - What actually happened
-   - Steps to reproduce
-   - Screenshots if applicable
-   - Your browser/OS info
-
-### 💡 Got an Idea?
-
-1. Open an issue with the `enhancement` label
-2. Describe what you want and why it'd be cool
-3. We'll discuss it and maybe you can build it!
-
-### 🔧 Want to Submit Code?
-
-*(psst... read the [CONTRIBUTING.md](CONTRIBUTING.md) for how we format our awesome commit messages!)*
-
-1. Fork the repo
-2. Create a branch (`git checkout -b feature/cool-thing`)
-3. Make your changes
-4. Test that stuff actually works
-5. Commit with a **Conventional Commit** message (`feat: add cool thing that does X`)
-6. Push to your fork (`git push origin feature/cool-thing`)
-7. Open a Pull Request
-8. Wait for review (we're pretty chill)
-
-### 📋 Contribution Ideas
-
-Here's some stuff we'd love help with:
-
-- [ ] 🎹 Chord inversions for the AI generator
-- [ ] 🎵 Better stem separation models or GPU acceleration for faster processing
-- [ ] ⌨️ Keyboard shortcuts for power users
-- [ ] 💾 Save/load progressions to local storage
-- [ ] 🎨 More color themes (why stop at two?)
-- [ ] 📱 Better mobile responsiveness
-- [ ] 🧪 Unit tests (yeah yeah, we know)
-- [ ] Whatever you think would be cool
-
-### 📜 Code Style
-
-- We use TypeScript, so please type your stuff
-- Tailwind for styling (no CSS files please)
-- Keep components reasonably sized
-- Comment weird shit so the next person doesn't cry
-- Run `npm run lint` before submitting
+**👉 [Check out our Friendly Contribution Guide (CONTRIBUTING.md) to get started!](CONTRIBUTING.md)** We wrote it because we'd love your help, whether you're squashing a bug, submitting a Pull Request, or just fixing a typo.
 
 ### 🏆 Contributors
 
