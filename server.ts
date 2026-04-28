@@ -179,15 +179,37 @@ async function startServer() {
       const filename = `${safeTitle}.${format}`;
       const filepath = path.join(downloadsDir, filename);
 
-      // 2. Download thumbnail if available
+      // 2. Download + normalize thumbnail.
+      //    YouTube thumbnails sometimes come back as WebP, and even when they
+      //    are JPEG they can be progressive / 4:4:4 / carry alpha. iOS Music
+      //    silently drops cover art that isn't a baseline (non-progressive)
+      //    yuv420p JPEG, so we re-encode through ffmpeg before embedding to
+      //    guarantee one consistent, iOS-compatible cover format for both
+      //    MP3 (ID3v2 APIC) and FLAC (METADATA_BLOCK_PICTURE).
       let thumbnailPath: string | null = null;
       if (metadata.thumbnail && (format === 'mp3' || format === 'flac')) {
+        let rawThumbPath: string | null = null;
         try {
           const thumbResponse = await axios.get(metadata.thumbnail, { responseType: 'arraybuffer' });
-          thumbnailPath = path.join(downloadsDir, `thumb_${Date.now()}.jpg`);
-          fs.writeFileSync(thumbnailPath, thumbResponse.data);
+          rawThumbPath = path.join(downloadsDir, `thumb_raw_${Date.now()}.bin`);
+          fs.writeFileSync(rawThumbPath, thumbResponse.data);
+
+          const jpgPath = path.join(downloadsDir, `thumb_${Date.now()}.jpg`);
+          await new Promise<void>((resolve, reject) => {
+            ffmpeg(rawThumbPath as string)
+              .outputOptions('-frames:v', '1')        // single still image
+              .outputOptions('-vf', 'format=yuv420p') // baseline, drop alpha
+              .outputOptions('-q:v', '2')             // high quality JPEG
+              .toFormat('mjpeg')
+              .on('end', () => resolve())
+              .on('error', reject)
+              .save(jpgPath);
+          });
+          thumbnailPath = jpgPath;
         } catch (e) {
-          console.warn("Failed to download thumbnail:", e);
+          console.warn("Failed to download/convert thumbnail:", e);
+        } finally {
+          if (rawThumbPath && fs.existsSync(rawThumbPath)) fs.unlinkSync(rawThumbPath);
         }
       }
 
@@ -241,16 +263,17 @@ async function startServer() {
           command = command.outputOptions('-id3v2_version', '3');
         }
 
-        // Handle thumbnail embedding
+        // Handle thumbnail embedding.
+        // The thumbnail file on disk is already a baseline JPEG (see step 2),
+        // so we can `-c:v copy` for both MP3 and FLAC and avoid any re-encode.
+        // FLAC's METADATA_BLOCK_PICTURE accepts JPEG natively, which iOS Music
+        // and CarPlay parse correctly (PNG covers are flakier on iOS).
         if (thumbnailPath && (format === 'mp3' || format === 'flac')) {
           command = command
             .input(thumbnailPath)
             .outputOptions('-map', '0:a', '-map', '1:0')
+            .outputOptions('-c:v', 'copy')
             .outputOptions('-disposition:v', 'attached_pic');
-          
-          if (format === 'mp3') {
-            command = command.outputOptions('-c:v', 'copy');
-          }
         }
 
         command

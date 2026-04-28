@@ -26,6 +26,22 @@ See `.env.example`:
 - `GEMINI_API_KEY` — for Google Gemini features (optional for basic tools)
 - `APP_URL` — self-referential URL (optional)
 
+## Audio Cover Art Pipeline (`/api/download`)
+The download endpoint embeds the YouTube thumbnail as cover art for both MP3 and FLAC. To stay compatible with iOS Music / CarPlay (which silently drops non-baseline JPEG, alpha-channel, or PNG covers in FLAC), the thumbnail is normalized **before** ffmpeg embeds it:
+
+1. The raw thumbnail is downloaded from `info.thumbnail` (often WebP, sometimes progressive JPEG).
+2. ffmpeg re-encodes it to a single-frame baseline JPEG via:
+   `-frames:v 1 -vf format=yuv420p -q:v 2 -f mjpeg`
+3. The cleaned JPEG is then embedded with `-c:v copy -disposition:v attached_pic` for both MP3 (ID3v2 APIC) and FLAC (METADATA_BLOCK_PICTURE).
+4. All temp files (raw thumbnail + intermediate audio) are deleted on success and on error.
+
+Verifying a result locally:
+```bash
+ffprobe -v error -show_format -show_streams output.flac
+# Expect: codec_name=mjpeg, pix_fmt=yuvj420p, DISPOSITION:attached_pic=1
+#         TAG:title=..., TAG:artist=...
+```
+
 ## Deployment
 Configured for Autoscale:
 - Build: `npm run build`
