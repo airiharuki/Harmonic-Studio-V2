@@ -98,6 +98,20 @@ function MainApp() {
   const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
   const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
   const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
+  const [splitterAvailability, setSplitterAvailability] = useState<Record<string, boolean> | null>(null);
+  const [splitterRepoUrl, setSplitterRepoUrl] = useState<string>("https://github.com/airiharuki/Harmonic-Studio-V2");
+
+  // Ask the server which stem-splitter binaries are actually installed.
+  // Models the server can't run get greyed out in the picker and link to the
+  // local-install instructions on GitHub.
+  useEffect(() => {
+    axios.get("/api/splitters")
+      .then(r => {
+        setSplitterAvailability(r.data.available);
+        if (r.data.repoUrl) setSplitterRepoUrl(r.data.repoUrl);
+      })
+      .catch(() => setSplitterAvailability({ demucs: false, mdx: false, spleeter: false, "bs-roformer": false }));
+  }, []);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -668,6 +682,14 @@ function MainApp() {
       return;
     }
     
+    if (splitterAvailability && splitterAvailability[splittingModel] === false) {
+      toast.error(`${splittingModel.toUpperCase()} isn't installed on this server. Run the project locally to use it.`, {
+        action: { label: "Install guide", onClick: () => window.open(splitterRepoUrl, "_blank") },
+        duration: 6000,
+      });
+      return;
+    }
+
     setSplitting(true);
     try {
       const payload: any = { stemsToZip: selectedStems, model: splittingModel };
@@ -1666,28 +1688,68 @@ function MainApp() {
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
-                          <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
+                            {splitterAvailability && Object.values(splitterAvailability).every(v => !v) && (
+                              <span className="text-[10px] opacity-60">hosted: none installed</span>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 gap-3">
                             {[
                               { id: 'demucs', name: 'Demucs' },
                               { id: 'mdx', name: 'MDX-Net' },
                               { id: 'spleeter', name: 'Spleeter' },
                               { id: 'bs-roformer', name: 'BS-Roformer' }
-                            ].map((modelObj) => (
-                              <div 
-                                key={modelObj.id}
-                                onClick={() => setSplittingModel(modelObj.id as any)}
-                                className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border cursor-pointer transition-all ${
-                                  splittingModel === modelObj.id 
-                                    ? "bg-foreground/10 border-foreground/30 text-foreground" 
-                                    : "bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
-                                }`}
-                              >
-                                <span className="text-sm font-medium">{modelObj.name}</span>
-                                {modelObj.id !== 'demucs' && <span className="text-[10px] opacity-50">(BETA)</span>}
-                              </div>
-                            ))}
+                            ].map((modelObj) => {
+                              const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
+                              const isSelected = splittingModel === modelObj.id;
+                              const handleClick = () => {
+                                if (isAvailable) {
+                                  setSplittingModel(modelObj.id as any);
+                                } else {
+                                  toast.info(`${modelObj.name} isn't installed on this server. Run the project locally to use it.`, {
+                                    action: { label: "Install guide", onClick: () => window.open(splitterRepoUrl, "_blank") },
+                                    duration: 6000,
+                                  });
+                                }
+                              };
+                              return (
+                                <div
+                                  key={modelObj.id}
+                                  onClick={handleClick}
+                                  title={isAvailable ? modelObj.name : `${modelObj.name} requires a local install — click for setup`}
+                                  className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all ${
+                                    !isAvailable
+                                      ? "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-40 cursor-not-allowed hover:opacity-60"
+                                      : isSelected
+                                        ? "cursor-pointer bg-foreground/10 border-foreground/30 text-foreground"
+                                        : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
+                                  }`}
+                                >
+                                  <span className="text-sm font-medium">{modelObj.name}</span>
+                                  {!isAvailable ? (
+                                    <span className="text-[10px] opacity-70">Local install</span>
+                                  ) : (
+                                    modelObj.id !== 'demucs' && <span className="text-[10px] opacity-50">(BETA)</span>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
+                          {splitterAvailability && Object.values(splitterAvailability).every(v => !v) && (
+                            <p className="text-[11px] opacity-70 leading-relaxed">
+                              Stem splitting needs heavy ML runtimes (PyTorch / ONNX) that aren't on the hosted version.
+                              {" "}
+                              <a
+                                href={splitterRepoUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline hover:opacity-100 opacity-90"
+                              >
+                                Install locally from GitHub →
+                              </a>
+                            </p>
+                          )}
                         </div>
 
                         <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">

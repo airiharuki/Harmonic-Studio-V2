@@ -41,6 +41,41 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Repo URL used in error messages so the frontend / API consumers can point
+  // users at the local-install instructions when a stem splitter isn't on PATH.
+  const REPO_URL = "https://github.com/airiharuki/Harmonic-Studio-V2";
+
+  // Detect which stem-splitter CLIs are actually installed on this host.
+  // Used by the UI to grey out unavailable models and to fail /api/split honestly.
+  const splitterCommands: Record<string, string> = {
+    demucs: "demucs",
+    spleeter: "spleeter",
+    mdx: "audio-separator",
+    "bs-roformer": "audio-separator",
+  };
+  async function detectSplitters(): Promise<Record<string, boolean>> {
+    const entries = await Promise.all(
+      Object.entries(splitterCommands).map(async ([model, bin]) => {
+        try {
+          await execAsync(`command -v ${bin}`);
+          return [model, true] as const;
+        } catch {
+          return [model, false] as const;
+        }
+      })
+    );
+    return Object.fromEntries(entries);
+  }
+
+  app.get("/api/splitters", async (_req, res) => {
+    try {
+      const available = await detectSplitters();
+      res.json({ available, repoUrl: REPO_URL });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Request logging middleware
   app.use((req, res, next) => {
     if (req.url.startsWith('/api')) {
@@ -373,28 +408,30 @@ async function startServer() {
           break;
       }
       
-      console.log(`Running splitting command: ${command}`);
-      try {
-        if (model === 'mdx' || model === 'bs-roformer') {
-          // Pre-create the expected output dir for audio-separator so it doesn't fail
-          const mockStemsPath = path.join(outputDirForJob, "htdemucs", "input");
-          fs.mkdirSync(mockStemsPath, { recursive: true });
-        }
-        await execAsync(command);
-      } catch (error) {
-        console.warn("Splitting failed or not installed. Falling back to mock splitting for demo purposes.");
-        // Create mock stems if splitting fails
-        const mockStemsPath = path.join(outputDirForJob, "htdemucs", "input");
-        if (!fs.existsSync(mockStemsPath)) {
-          fs.mkdirSync(path.join(outputDirForJob, "htdemucs"), { recursive: true });
-          fs.mkdirSync(mockStemsPath, { recursive: true });
-          // Copy input to mock stems
-          const stems = ["vocals.wav", "drums.wav", "bass.wav", "other.wav"];
-          for (const stem of stems) {
-            fs.copyFileSync(inputPath, path.join(mockStemsPath, stem));
-          }
-        }
+      // Confirm the requested splitter is actually installed before running.
+      // This replaces the previous silent fallback that copied the input mix
+      // into four "mock stems" — that was misleading users into thinking the
+      // separation worked when it hadn't.
+      const available = await detectSplitters();
+      if (!available[model || "demucs"]) {
+        // Clean up the job dir so we don't leak the converted WAV.
+        try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch {}
+        return res.status(503).json({
+          error: `Stem splitter "${model}" is not installed on this server. ` +
+            `Stem splitting requires heavy ML runtimes (PyTorch / ONNX / TensorFlow) ` +
+            `that aren't available on the hosted version. Run the project locally ` +
+            `to use this feature — see ${REPO_URL} for install instructions.`,
+          model,
+          repoUrl: REPO_URL,
+        });
       }
+
+      console.log(`Running splitting command: ${command}`);
+      if (model === 'mdx' || model === 'bs-roformer') {
+        // audio-separator expects the output dir to already exist
+        fs.mkdirSync(path.join(outputDirForJob, "htdemucs", "input"), { recursive: true });
+      }
+      await execAsync(command);
 
       // 3. Zip the results
       const stemsPath = path.join(outputDirForJob, "htdemucs", "input");
