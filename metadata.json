@@ -1,0 +1,5 @@
+{
+  "name": "VibeCoded Music Lab",
+  "description": "Music analysis with essentia.js, audio downloading with yt-dlp, and stem splitting with demucs.",
+  "requestFramePermissions": []
+}
