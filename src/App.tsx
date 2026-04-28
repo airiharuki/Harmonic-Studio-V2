@@ -1730,7 +1730,7 @@ function MainApp() {
                                   {!isAvailable ? (
                                     <span className="text-[10px] opacity-70">Local install</span>
                                   ) : (
-                                    modelObj.id !== 'demucs' && <span className="text-[10px] opacity-50">(BETA)</span>
+                                    modelObj.id !== 'demucs' && modelObj.id !== 'mdx' && <span className="text-[10px] opacity-50">(BETA)</span>
                                   )}
                                 </div>
                               );
