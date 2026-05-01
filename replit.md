@@ -42,6 +42,23 @@ ffprobe -v error -show_format -show_streams output.flac
 #         TAG:title=..., TAG:artist=...
 ```
 
+## Secure File Tokens & Auto-Delete
+All processed output files (downloaded audio + stems ZIPs) are served via a one-time-use token URL, not a guessable filename path.
+
+- **Token**: `crypto.randomBytes(32).toString('hex')` — 64 hex chars, unguessable.
+- **TTL**: 4 hours from the moment the file is ready. Stored in an in-memory `Map<token, { filepath, originalName, expiresAt }>`.
+- **Endpoint**: `GET /api/files/token/:token` — validates token, checks expiry, serves file with correct MIME type and `Content-Disposition`.
+- **Sweep**: A `setInterval` runs every 30 minutes, deletes any file whose `expiresAt` has passed, and removes its entry from the map.
+- **On-access expiry**: If an expired token is hit, the file is deleted on the spot and a `410 Gone` is returned.
+- The old `/api/files/:filename` and `/api/files/output/:filename` routes remain for uploaded file preview (audio player in Loop Studio), but processed outputs never use those paths.
+
+## Stem Splitter (Demucs)
+- **Demucs 4.0.1** is installed and runs on CPU (torch 2.11.0+cpu + torchaudio 2.11.0+cpu).
+- Binary: `/home/runner/workspace/.pythonlibs/bin/demucs`, in Node's PATH.
+- `GET /api/splitters` detects available binaries via `command -v`; the UI greys out unavailable models with a "Local install" label.
+- First split downloads ~200MB HTDemucs model weights (cached after first run).
+- MDX-Net, BS-Roformer, Spleeter require ONNX/TensorFlow runtimes not available on hosted Replit.
+
 ## Deployment
 Configured for Autoscale:
 - Build: `npm run build`

@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import fs from "fs";
+import crypto from "crypto";
 import { exec } from "child_process";
 import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
@@ -90,31 +91,48 @@ async function startServer() {
   if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-  function cleanupDirectories() {
-    console.log("Running scheduled cleanup of processed files...");
-    const dirs = [downloadsDir, outputDir];
-    for (const dir of dirs) {
-      if (fs.existsSync(dir)) {
-        const files = fs.readdirSync(dir);
-        for (const file of files) {
-          const filePath = path.join(dir, file);
-          try {
-            if (fs.lstatSync(filePath).isDirectory()) {
-              fs.rmSync(filePath, { recursive: true, force: true });
+  // --- Secure file token store ---
+  // Each processed file gets a random 32-byte hex token.
+  // Files are auto-deleted 4 hours after creation.
+  const FILE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+  interface FileToken {
+    filepath: string;
+    originalName: string;
+    expiresAt: number;
+  }
+  const fileTokens = new Map<string, FileToken>();
+
+  function createFileToken(filepath: string, originalName: string): string {
+    const token = crypto.randomBytes(32).toString("hex");
+    fileTokens.set(token, { filepath, originalName, expiresAt: Date.now() + FILE_TTL_MS });
+    return token;
+  }
+
+  function sweepExpiredFiles() {
+    const now = Date.now();
+    for (const [token, entry] of fileTokens.entries()) {
+      if (now >= entry.expiresAt) {
+        try {
+          if (fs.existsSync(entry.filepath)) {
+            const stat = fs.lstatSync(entry.filepath);
+            if (stat.isDirectory()) {
+              fs.rmSync(entry.filepath, { recursive: true, force: true });
             } else {
-              fs.unlinkSync(filePath);
+              fs.unlinkSync(entry.filepath);
             }
-          } catch (err) {
-            console.error(`Error deleting ${filePath}:`, err);
+            console.log(`[cleanup] Deleted expired file: ${entry.filepath}`);
           }
+        } catch (err) {
+          console.error(`[cleanup] Error deleting ${entry.filepath}:`, err);
         }
-        console.log(`Cleaned up directory: ${dir}`);
+        fileTokens.delete(token);
       }
     }
   }
 
-  // Run cleanup every 24 hours
-  setInterval(cleanupDirectories, 24 * 60 * 60 * 1000);
+  // Sweep every 30 minutes
+  setInterval(sweepExpiredFiles, 30 * 60 * 1000);
 
   const upload = multer({ dest: downloadsDir });
 
@@ -327,7 +345,8 @@ async function startServer() {
           .save(filepath);
       });
 
-      res.json({ filename, url: `/api/files/${filename}`, metadata });
+      const token = createFileToken(filepath, filename);
+      res.json({ filename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS, metadata });
     } catch (error: any) {
       console.error("Download error:", error);
       res.status(500).json({ error: error.message });
@@ -441,7 +460,8 @@ async function startServer() {
       const archive = archiver("zip", { zlib: { level: 9 } });
 
       output.on("close", () => {
-        res.json({ filename: zipFilename, url: `/api/files/output/${zipFilename}` });
+        const token = createFileToken(zipPath, zipFilename);
+        res.json({ filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS });
       });
 
       archive.pipe(output);
@@ -466,6 +486,48 @@ async function startServer() {
       console.error("Split error:", error);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // Secure token-based file download — used for all processed outputs (downloads + stems zips).
+  // Token is a random 64-char hex string, valid for 4 hours.
+  app.get("/api/files/token/:token", (req, res) => {
+    const entry = fileTokens.get(req.params.token);
+    if (!entry) {
+      return res.status(404).json({ error: "File not found or link has expired." });
+    }
+    if (Date.now() >= entry.expiresAt) {
+      fileTokens.delete(req.params.token);
+      try {
+        if (fs.existsSync(entry.filepath)) fs.unlinkSync(entry.filepath);
+      } catch {}
+      return res.status(410).json({ error: "This download link has expired (4-hour limit)." });
+    }
+    if (!fs.existsSync(entry.filepath)) {
+      fileTokens.delete(req.params.token);
+      return res.status(404).json({ error: "File not found on server." });
+    }
+
+    const ext = path.extname(entry.originalName).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      ".mp3": "audio/mpeg",
+      ".flac": "audio/flac",
+      ".wav": "audio/wav",
+      ".zip": "application/zip",
+    };
+    if (mimeMap[ext]) res.setHeader("Content-Type", mimeMap[ext]);
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(entry.originalName)}"`);
+    req.setTimeout(0);
+    res.sendFile(entry.filepath, (err) => {
+      if (err) {
+        const e = err as any;
+        if (e.code === "ECONNABORTED" || e.code === "EPIPE" || e.message?.includes("aborted")) {
+          console.log(`[token] Download of ${entry.originalName} cancelled by client.`);
+        } else {
+          console.error(`[token] Error sending ${entry.originalName}:`, err);
+          if (!res.headersSent) res.status(500).send("Error sending file.");
+        }
+      }
+    });
   });
 
   app.get("/api/files/output/:filename", (req, res) => {
