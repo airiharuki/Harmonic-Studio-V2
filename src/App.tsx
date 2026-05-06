@@ -242,6 +242,7 @@ function MainApp() {
     }, 50);
 
     if (midiMode === 'soundfont' && synth) {
+      synth.setProgram(0, 0, 4);
       currentMidiRef.current.tracks.forEach(track => {
           track.notes.forEach(note => {
               if (note.time >= pausedTime) {
@@ -407,6 +408,7 @@ function MainApp() {
         }
     }, 50);
 
+    currentSynth.setProgram(0, 0, 4);
     midiActiveNotesRef.current = [];
     midi.tracks.forEach(track => {
         track.notes.forEach(note => {
@@ -979,6 +981,7 @@ function MainApp() {
         }
       }
 
+      currentSynth.setProgram(0, 0, 4);
       const barDuration = (60 / loopBpm) * 4; // Assuming 4/4 for now
       
       for (let i = 0; i < loopChords.length; i++) {
