@@ -209,24 +209,80 @@ function MainApp() {
 
   const pauseMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-    // Suspend the AudioContext — this freezes the audio clock so all
-    // already-scheduled notes pause in place without firing or doubling.
+    midiActiveNotesRef.current = [];
     if (midiAudioCtxRef.current) {
-      midiAudioCtxRef.current.suspend();
+      // Record how far through the MIDI we are before destroying the context.
+      midiPausedTimeRef.current = midiAudioCtxRef.current.currentTime - midiStartTimeRef.current;
+      // Close entirely — this kills the AudioWorklet node and cancels every
+      // note the Wasm engine had queued internally. suspend() is NOT enough
+      // because the sf2-synth schedules notes inside Wasm and they fire even
+      // while the AudioContext is "suspended".
+      midiAudioCtxRef.current.close().catch(console.error);
+      midiAudioCtxRef.current = null;
     }
+    setSynth(null);
     setIsMidiPaused(true);
   };
 
   const resumeMidi = async () => {
-    if (!midiAudioCtxRef.current || !currentMidiRef.current) return;
+    if (!currentMidiRef.current) return;
 
-    const audioCtx = midiAudioCtxRef.current;
-    // Unfreeze the clock — all previously scheduled notes resume exactly
-    // where they left off. No rescheduling needed, which was the cause of
-    // the duplicate-sound bug.
-    await audioCtx.resume();
+    const pausedTime = midiPausedTimeRef.current;
 
+    // Fresh AudioContext + synth — clean slate, nothing pre-scheduled.
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx = new AudioContextClass();
+    midiAudioCtxRef.current = audioCtx;
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    let currentSynth: SoundFont2SynthNode | null = null;
+    try {
+      let sfArrayBuffer = sfData;
+      if (!sfArrayBuffer) {
+        let sfResponse = await fetch('/epiano.sf2');
+        if (!sfResponse.ok) sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+        if (!sfResponse.ok) throw new Error("Soundfont not found");
+        sfArrayBuffer = await sfResponse.arrayBuffer();
+        setSfData(sfArrayBuffer);
+      }
+      const blob = new Blob([sfArrayBuffer], { type: 'application/octet-stream' });
+      const sfUrl = URL.createObjectURL(blob);
+      currentSynth = await createSoundFont2SynthNode(audioCtx, sfUrl);
+      currentSynth.connect(audioCtx.destination);
+
+      (currentSynth as any).play = (noteName: string, time: number, options: any) => {
+        const midiNote = Note.midi(noteName);
+        if (midiNote === undefined) return { stop: () => {} };
+        const velocity = Math.floor((options.gain || 0.8) * 127);
+        const duration = options.duration || 1;
+        const delay = Math.max(0, time - audioCtx.currentTime);
+        currentSynth!.noteOn(0, midiNote, velocity, delay);
+        currentSynth!.noteOff(0, midiNote, delay + duration);
+        return { stop: () => { currentSynth!.noteOff(0, midiNote, 0); } };
+      };
+
+      currentSynth.setProgram(0, 0, 4);
+      setSynth(currentSynth);
+    } catch (e) {
+      console.error("SF2 resume error:", e);
+      toast.error("Failed to resume soundfont.");
+      return;
+    }
+
+    // Schedule only notes that haven't played yet, offset to start now + small buffer.
+    midiStartTimeRef.current = audioCtx.currentTime + 0.15 - pausedTime;
     const startTime = midiStartTimeRef.current;
+
+    midiActiveNotesRef.current = [];
+    currentMidiRef.current.tracks.forEach((track: any) => {
+      track.notes.forEach((note: any) => {
+        if (note.time >= pausedTime) {
+          const node = (currentSynth as any).play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+          midiActiveNotesRef.current.push(() => { if (node?.stop) node.stop(); });
+        }
+      });
+    });
+
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiIntervalRef.current = setInterval(() => {
       const elapsed = audioCtx.currentTime - startTime;
