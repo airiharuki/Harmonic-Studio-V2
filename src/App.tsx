@@ -209,77 +209,36 @@ function MainApp() {
 
   const pauseMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-    midiActiveNotesRef.current.forEach(stop => stop && stop());
-    midiActiveNotesRef.current = [];
-    
+    // Suspend the AudioContext — this freezes the audio clock so all
+    // already-scheduled notes pause in place without firing or doubling.
     if (midiAudioCtxRef.current) {
-      midiPausedTimeRef.current = midiAudioCtxRef.current.currentTime - midiStartTimeRef.current;
+      midiAudioCtxRef.current.suspend();
     }
-    
     setIsMidiPaused(true);
   };
 
   const resumeMidi = async () => {
     if (!midiAudioCtxRef.current || !currentMidiRef.current) return;
-    
-    const audioCtx = midiAudioCtxRef.current;
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    
-    const pausedTime = midiPausedTimeRef.current;
-    midiStartTimeRef.current = audioCtx.currentTime - pausedTime;
-    const startTime = midiStartTimeRef.current;
 
+    const audioCtx = midiAudioCtxRef.current;
+    // Unfreeze the clock — all previously scheduled notes resume exactly
+    // where they left off. No rescheduling needed, which was the cause of
+    // the duplicate-sound bug.
+    await audioCtx.resume();
+
+    const startTime = midiStartTimeRef.current;
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiIntervalRef.current = setInterval(() => {
-        const elapsed = audioCtx.currentTime - startTime;
-        if (elapsed >= currentMidiRef.current.duration) {
-            if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-            setMidiCurrentTime(currentMidiRef.current.duration);
-            setIsMidiPlaying(false);
-        } else if (elapsed >= 0) {
-            setMidiCurrentTime(elapsed);
-        }
+      const elapsed = audioCtx.currentTime - startTime;
+      if (elapsed >= currentMidiRef.current.duration) {
+        if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+        setMidiCurrentTime(currentMidiRef.current.duration);
+        setIsMidiPlaying(false);
+      } else if (elapsed >= 0) {
+        setMidiCurrentTime(elapsed);
+      }
     }, 50);
 
-    if (midiMode === 'soundfont' && synth) {
-      synth.setProgram(0, 0, 4);
-      currentMidiRef.current.tracks.forEach(track => {
-          track.notes.forEach(note => {
-              if (note.time >= pausedTime) {
-                  const node = synth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
-                  midiActiveNotesRef.current.push(() => {
-                    if (node && typeof node.stop === 'function') node.stop();
-                  });
-              }
-          });
-      });
-    } else if (midiMode === 'sine') {
-      const A4 = 432;
-      currentMidiRef.current.tracks.forEach(track => {
-          track.notes.forEach(note => {
-              if (note.time >= pausedTime) {
-                  const osc = audioCtx.createOscillator();
-                  const gainNode = audioCtx.createGain();
-                  osc.type = 'sine';
-                  osc.frequency.value = A4 * Math.pow(2, (note.midi - 69) / 12);
-                  osc.connect(gainNode);
-                  gainNode.connect(audioCtx.destination);
-                  const noteStartTime = startTime + note.time;
-                  const noteEndTime = noteStartTime + note.duration;
-                  gainNode.gain.setValueAtTime(0, noteStartTime);
-                  gainNode.gain.linearRampToValueAtTime(note.velocity * 0.3, noteStartTime + 0.05);
-                  gainNode.gain.setValueAtTime(note.velocity * 0.3, Math.max(noteStartTime + 0.05, noteEndTime - 0.05));
-                  gainNode.gain.linearRampToValueAtTime(0, noteEndTime);
-                  osc.start(noteStartTime);
-                  osc.stop(noteEndTime);
-                  midiActiveNotesRef.current.push(() => {
-                    try { osc.stop(); } catch(e) {}
-                  });
-              }
-          });
-      });
-    }
-    
     setIsMidiPaused(false);
   };
 
