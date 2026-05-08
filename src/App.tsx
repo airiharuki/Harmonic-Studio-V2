@@ -1049,9 +1049,9 @@ function MainApp() {
              <Sun className="w-5 h-5 text-orange-400" />}
           </Button>
         </div>
-        <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-12 relative z-[100]">
+          <div className="flex justify-center mb-6 sm:mb-12 relative z-[100]">
             {/* Mobile Liquid Glass Switcher (Apple iOS/iPadOS 26 Style) */}
             <div className="sm:hidden relative w-[240px] z-[100]">
               <motion.div 
@@ -1109,12 +1109,12 @@ function MainApp() {
             </TabsList>
           </div>
 
-          <TabsContent value="composer" className="space-y-12 outline-none">
-            <header className="text-center mb-12">
+          <TabsContent value="composer" className="space-y-6 sm:space-y-12 outline-none">
+            <header className="text-center mb-6 sm:mb-12">
               <motion.h1 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md"
               >
                 Vibe Composer
               </motion.h1>
@@ -1122,7 +1122,7 @@ function MainApp() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-lg max-w-2xl mx-auto opacity-80"
+                className="text-base sm:text-lg max-w-2xl mx-auto opacity-80"
               >
                 Tools for the modern producer. Calculate shifts and explore harmonic relationships.
               </motion.p>
@@ -1164,12 +1164,12 @@ function MainApp() {
             </div>
           </TabsContent>
 
-          <TabsContent value="loopstudio" className="space-y-12 outline-none">
-            <header className="text-center mb-12">
+          <TabsContent value="loopstudio" className="space-y-6 sm:space-y-12 outline-none">
+            <header className="text-center mb-6 sm:mb-12">
               <motion.h1 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md"
               >
                 Loop Studio
               </motion.h1>
@@ -1177,7 +1177,7 @@ function MainApp() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-lg max-w-2xl mx-auto opacity-80"
+                className="text-base sm:text-lg max-w-2xl mx-auto opacity-80"
               >
                 Create custom chord loops. Set your parameters and let AI compose.
               </motion.p>
@@ -1450,12 +1450,12 @@ function MainApp() {
             </div>
           </TabsContent>
 
-          <TabsContent value="analyzer" className="space-y-8 outline-none">
-            <header className="text-center mb-8">
+          <TabsContent value="analyzer" className="space-y-6 sm:space-y-8 outline-none">
+            <header className="text-center mb-6 sm:mb-8">
               <motion.h1 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-5xl font-bold tracking-tight mb-4 drop-shadow-md"
+                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md"
               >
                 Music Analyzer
               </motion.h1>
@@ -1463,7 +1463,7 @@ function MainApp() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-lg max-w-2xl mx-auto opacity-80"
+                className="text-base sm:text-lg max-w-2xl mx-auto opacity-80"
               >
                 Extract stems, analyze theory, and download from anywhere.
               </motion.p>
