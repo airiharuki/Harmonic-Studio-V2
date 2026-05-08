@@ -26,8 +26,7 @@ import {
   Sun,
   Monitor,
   Sparkles,
-  Repeat,
-  ChevronDown
+  Repeat
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +82,6 @@ class ErrorBoundary extends React.Component<any, any> {
 function MainApp() {
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState("composer");
-  const [isNavExpanded, setIsNavExpanded] = useState(false);
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1052,53 +1050,42 @@ function MainApp() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6 sm:mb-12 relative z-[100]">
-            {/* Mobile Liquid Glass Switcher (Apple iOS/iPadOS 26 Style) */}
-            <div className="sm:hidden relative w-[240px] z-[100]">
-              <motion.div 
-                className="bg-black/5 dark:bg-white/10 backdrop-blur-[40px] dark:backdrop-blur-[60px] backdrop-saturate-[150%] dark:backdrop-saturate-[100%] border border-black/10 dark:border-white/10 rounded-[32px] overflow-hidden flex flex-col shadow-[0_16px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.3)] absolute top-0 left-0 right-0 z-[100]"
-                animate={{ height: isNavExpanded ? 'auto' : '56px' }}
-                transition={{ type: "spring", damping: 22, stiffness: 280, mass: 0.8 }}
-              >
-                <button 
-                  onClick={() => setIsNavExpanded(!isNavExpanded)}
-                  className="h-[56px] px-6 flex items-center justify-between gap-4 font-semibold text-lg text-foreground w-full tracking-tight transition-colors"
-                >
-                  <span>{activeTab === 'composer' ? 'Composer' : activeTab === 'loopstudio' ? 'Loop Studio' : 'Analyzer'}</span>
-                  <motion.div 
-                    animate={{ rotate: isNavExpanded ? 180 : 0 }}
-                    transition={{ type: "spring", damping: 20, stiffness: 300 }}
-                  >
-                    <ChevronDown className="w-5 h-5 text-foreground/50" />
-                  </motion.div>
-                </button>
-                
-                <AnimatePresence>
-                  {isNavExpanded && (
-                    <motion.div 
-                      initial={{ opacity: 0, filter: "blur(8px)", y: -10 }}
-                      animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
-                      exit={{ opacity: 0, filter: "blur(8px)", y: -10 }}
-                      transition={{ duration: 0.25, ease: "easeInOut" }}
-                      className="flex flex-col pb-3 px-3 gap-1"
+            {/* Mobile Camera-style sliding tab picker */}
+            <div className="sm:hidden w-full">
+              <div className="relative flex items-center justify-around px-2 py-1.5 rounded-full bg-black/5 dark:bg-white/10 backdrop-blur-[40px] backdrop-saturate-[150%] border border-black/10 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+                {[
+                  { id: 'composer',   label: 'Composer'    },
+                  { id: 'loopstudio', label: 'Loop Studio' },
+                  { id: 'analyzer',   label: 'Analyzer'    },
+                ].map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className="relative flex-1 flex items-center justify-center py-2.5 z-10 transition-all duration-200 active:scale-95"
                     >
-                      {['composer', 'loopstudio', 'analyzer'].filter(t => t !== activeTab).map(t => (
-                        <button
-                          key={t}
-                          onClick={() => {
-                            setActiveTab(t);
-                            setIsNavExpanded(false);
-                          }}
-                          className="py-3 px-4 text-left rounded-[20px] hover:bg-black/10 dark:hover:bg-white/10 font-medium text-foreground/80 hover:text-foreground transition-all duration-300 active:scale-[0.97]"
-                        >
-                          {t === 'composer' ? 'Composer' : t === 'loopstudio' ? 'Loop Studio' : 'Analyzer'}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-              {/* Spacer to prevent content jump when absolute positioned pill expands */}
-              <div className="h-[56px]"></div>
+                      {isActive && (
+                        <motion.div
+                          layoutId="cam-pill"
+                          className="absolute inset-0 rounded-full bg-black/10 dark:bg-white/15 backdrop-blur-md shadow-sm"
+                          transition={{ type: "spring", damping: 26, stiffness: 340 }}
+                        />
+                      )}
+                      <span
+                        className={`relative text-sm font-semibold tracking-tight transition-all duration-200 ${
+                          isActive
+                            ? 'text-foreground scale-105'
+                            : 'text-foreground/35 scale-95'
+                        }`}
+                        style={isActive ? { color: 'var(--pill-active)' } : {}}
+                      >
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Desktop Tabs */}
