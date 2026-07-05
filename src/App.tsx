@@ -1072,7 +1072,7 @@ function MainApp() {
         <RecentTracksPanel open={recentTracksOpen} onClose={() => setRecentTracksOpen(false)} />
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-6 sm:mb-12 relative z-[100]">
+          <div className="flex justify-center pt-14 sm:pt-0 mb-6 sm:mb-12 relative z-[100]">
             {/* Mobile Camera-style sliding tab picker */}
             <div className="sm:hidden w-full">
               <div className="relative flex items-center justify-around px-2 py-1.5 rounded-full bg-black/5 dark:bg-white/10 backdrop-blur-[40px] backdrop-saturate-[150%] border border-black/10 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
