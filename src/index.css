@@ -143,11 +143,28 @@
     color: var(--app-text);
     transition: background-image 0.7s ease-in-out, color 0.5s ease-in-out;
     overflow-x: hidden;
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
     }
   html {
     @apply font-sans;
     overflow-x: hidden;
+    background: var(--background);
+    height: 100%;
     }
+}
+
+/* Let the background bleed fully edge-to-edge (under the status bar / notch /
+   home indicator on iOS PWAs) while keeping tappable content inset from
+   those unsafe areas via padding on the app's root wrapper. */
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* VHS Grain & Scanlines Overlay */
