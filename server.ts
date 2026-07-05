@@ -79,6 +79,7 @@ async function startServer() {
     const app = express();
   const PORT = Number(process.env.PORT) || 5000;
 
+  app.set('trust proxy', true);
   app.use(cors());
   app.use(express.json());
 
@@ -137,9 +138,15 @@ async function startServer() {
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   // --- Secure file token store ---
-  // Each processed file gets a random 32-byte hex token.
+  // Each processed file gets a 12-character alphanumeric token (mixed-case +
+  // digits = 62 possibilities/char, ~3.2 sextillion combinations). That's
+  // short enough to type or share as a code, while still being effectively
+  // unbrute-forceable within the file's lifetime. Brute-force protection is
+  // layered on top via the rate limiter on the retrieval endpoint below.
   // Files are auto-deleted 4 hours after creation.
   const FILE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const TOKEN_LENGTH = 12;
+  const TOKEN_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
   interface FileToken {
     filepath: string;
@@ -148,11 +155,88 @@ async function startServer() {
   }
   const fileTokens = new Map<string, FileToken>();
 
+  function generateToken(length: number = TOKEN_LENGTH): string {
+    let token = "";
+    for (let i = 0; i < length; i++) {
+      token += TOKEN_ALPHABET[crypto.randomInt(0, TOKEN_ALPHABET.length)];
+    }
+    return token;
+  }
+
   function createFileToken(filepath: string, originalName: string): string {
-    const token = crypto.randomBytes(32).toString("hex");
+    let token = generateToken();
+    // Vanishingly unlikely, but guard against a live collision anyway.
+    while (fileTokens.has(token)) token = generateToken();
     fileTokens.set(token, { filepath, originalName, expiresAt: Date.now() + FILE_TTL_MS });
     return token;
   }
+
+  // --- Rate limiting for token retrieval ---
+  // Tokens are short enough that we cannot rely on entropy alone against a
+  // scripted attacker, so we throttle lookups per-IP: a generous "typo
+  // buffer" for legitimate users, a sliding-window cap against bursts, and a
+  // temporary lockout after repeated wrong guesses.
+  const RATE_WINDOW_MS = 60 * 1000; // 1 minute
+  const RATE_MAX_PER_WINDOW = 30;
+  const MAX_CONSECUTIVE_FAILS = 10;
+  const LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+  interface RateEntry {
+    windowStart: number;
+    count: number;
+    consecutiveFails: number;
+    lockedUntil: number;
+  }
+  const rateLimitStore = new Map<string, RateEntry>();
+
+  function checkTokenRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number } {
+    const now = Date.now();
+    let entry = rateLimitStore.get(ip);
+    if (!entry) {
+      entry = { windowStart: now, count: 0, consecutiveFails: 0, lockedUntil: 0 };
+      rateLimitStore.set(ip, entry);
+    }
+
+    if (entry.lockedUntil > now) {
+      return { allowed: false, retryAfterMs: entry.lockedUntil - now };
+    }
+
+    if (now - entry.windowStart > RATE_WINDOW_MS) {
+      entry.windowStart = now;
+      entry.count = 0;
+    }
+    entry.count++;
+
+    if (entry.count > RATE_MAX_PER_WINDOW) {
+      return { allowed: false, retryAfterMs: entry.windowStart + RATE_WINDOW_MS - now };
+    }
+
+    return { allowed: true };
+  }
+
+  function recordTokenAttempt(ip: string, success: boolean) {
+    const entry = rateLimitStore.get(ip);
+    if (!entry) return;
+    if (success) {
+      entry.consecutiveFails = 0;
+    } else {
+      entry.consecutiveFails++;
+      if (entry.consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
+        entry.lockedUntil = Date.now() + LOCKOUT_MS;
+      }
+    }
+  }
+
+  // Periodically forget IPs that have been quiet for a while so this map
+  // doesn't grow unbounded.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitStore.entries()) {
+      if (now - entry.windowStart > RATE_WINDOW_MS && entry.lockedUntil < now) {
+        rateLimitStore.delete(ip);
+      }
+    }
+  }, 10 * 60 * 1000);
 
   function sweepExpiredFiles() {
     const now = Date.now();
@@ -536,14 +620,25 @@ async function startServer() {
   });
 
   // Secure token-based file download — used for all processed outputs (downloads + stems zips).
-  // Token is a random 64-char hex string, valid for 4 hours.
+  // Token is a 12-character alphanumeric code, valid for 4 hours. Lookups are
+  // rate-limited per-IP since the code is short enough to type/share (see
+  // checkTokenRateLimit / recordTokenAttempt above).
   app.get("/api/files/token/:token", (req, res) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const rate = checkTokenRateLimit(ip);
+    if (!rate.allowed) {
+      res.setHeader("Retry-After", Math.ceil((rate.retryAfterMs || 0) / 1000));
+      return res.status(429).json({ error: "Too many attempts. Please wait before trying again." });
+    }
+
     const entry = fileTokens.get(req.params.token);
     if (!entry) {
+      recordTokenAttempt(ip, false);
       return res.status(404).json({ error: "File not found or link has expired." });
     }
     if (Date.now() >= entry.expiresAt) {
       fileTokens.delete(req.params.token);
+      recordTokenAttempt(ip, false);
       try {
         if (fs.existsSync(entry.filepath)) fs.unlinkSync(entry.filepath);
       } catch {}
@@ -551,9 +646,11 @@ async function startServer() {
     }
     if (!fs.existsSync(entry.filepath)) {
       fileTokens.delete(req.params.token);
+      recordTokenAttempt(ip, false);
       return res.status(404).json({ error: "File not found on server." });
     }
 
+    recordTokenAttempt(ip, true);
     const ext = path.extname(entry.originalName).toLowerCase();
     const mimeMap: Record<string, string> = {
       ".mp3": "audio/mpeg",

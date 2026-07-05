@@ -45,6 +45,8 @@ import { PitchShifter } from "./PitchShifter";
 import { Chord, Note } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
+import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
+import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   createSoundFont2SynthNode, 
@@ -98,6 +100,7 @@ function MainApp() {
   const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
   const [splitterAvailability, setSplitterAvailability] = useState<Record<string, boolean> | null>(null);
   const [splitterRepoUrl, setSplitterRepoUrl] = useState<string>("https://github.com/airiharuki/Harmonic-Studio-V2");
+  const [recentTracksOpen, setRecentTracksOpen] = useState(false);
 
   // Ask the server which stem-splitter binaries are actually installed.
   // Models the server can't run get greyed out in the picker and link to the
@@ -682,6 +685,15 @@ function MainApp() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      addRecentTrack({
+        title: videoInfo?.title || safeTitle,
+        type: "download",
+        format,
+        token: extractTokenFromUrl(downloadUrl),
+        url: downloadUrl,
+        expiresAt: Date.now() + response.data.expiresIn,
+      });
       
       toast.success(`Download started for ${format.toUpperCase()}`);
     } catch (error: any) {
@@ -723,6 +735,15 @@ function MainApp() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      addRecentTrack({
+        title: videoInfo?.title || uploadedFilename || "Stems",
+        type: "stems",
+        format: "zip",
+        token: extractTokenFromUrl(downloadUrl),
+        url: downloadUrl,
+        expiresAt: Date.now() + response.data.expiresIn,
+      });
       
       toast.success("Stem splitting complete! Download started.");
     } catch (error: any) {
@@ -1030,7 +1051,8 @@ function MainApp() {
     <>
       <div className="vhs-grain" />
       <div className="min-h-screen font-sans selection:bg-orange-500/30 relative z-10">
-        <div className="absolute top-6 right-6">
+        <div className="absolute top-6 right-6 flex items-center gap-2">
+          <RecentTracksButton onClick={() => setRecentTracksOpen(true)} />
           <Button 
             variant="outline" 
             size="icon" 
@@ -1047,6 +1069,7 @@ function MainApp() {
              <Sun className="w-5 h-5 text-orange-400" />}
           </Button>
         </div>
+        <RecentTracksPanel open={recentTracksOpen} onClose={() => setRecentTracksOpen(false)} />
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6 sm:mb-12 relative z-[100]">
