@@ -152,6 +152,13 @@ async function startServer() {
       originalName: req.file.originalname
     });
   });
+  // yt-dlp's EJS "n challenge" solver requires Deno 2.3.x-2.6.x. Nix's pinned
+  // deno package is too old ("unsupported"), so we download a compatible
+  // build into .bin/deno via scripts/setup-deno.sh. Fall back to node if
+  // that binary isn't present for some reason.
+  const denoBinPath = path.join(projectRoot, '.bin', 'deno');
+  const jsRuntime = fs.existsSync(denoBinPath) ? `deno:${denoBinPath}` : 'node';
+
   // Helper for yt-dlp options
   const getDlOptions = (output?: string, extra: any = {}) => {
     const cookiePath = path.join(projectRoot, 'cookies.txt');
@@ -163,7 +170,7 @@ async function startServer() {
       geoBypass: true,
       forceIpv4: true,
       ffmpegLocation: ffmpegStatic,
-      jsRuntimes: 'node',
+      jsRuntimes: jsRuntime,
       cookies: hasCookies ? cookiePath : undefined,
       addHeader: [
         'referer:https://www.google.com/',
