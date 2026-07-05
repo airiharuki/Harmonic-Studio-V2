@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import fs from "fs";
 import crypto from "crypto";
-import { exec } from "child_process";
+import { exec, execSync } from "child_process";
 import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
@@ -28,6 +28,51 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+// yt-dlp's EJS "n challenge" solver only works with Deno 2.3.x-2.6.x.
+// Nix's pinned deno package (2.2.x) is reported "unsupported" by yt-dlp, so
+// we keep a known-good build in .bin/deno. This check runs once at server
+// boot: if the binary is missing or the wrong version, it downloads a fresh
+// copy on the fly. Falls back to the "node" JS runtime if that also fails.
+function ensureDenoRuntime(): string | null {
+  const DENO_VERSION = "2.6.0";
+  const binDir = path.join(projectRoot, ".bin");
+  const denoBin = path.join(binDir, "deno");
+
+  const getVersion = (): string | null => {
+    try {
+      const out = execSync(`"${denoBin}" --version`, { encoding: "utf-8" });
+      return out.split("\n")[0].split(" ")[1] ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  if (fs.existsSync(denoBin) && getVersion() === DENO_VERSION) {
+    return denoBin;
+  }
+
+  console.log(`[deno] Compatible Deno (${DENO_VERSION}) not found, downloading...`);
+  try {
+    fs.mkdirSync(binDir, { recursive: true });
+    const url = `https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip`;
+    execSync(`curl -fsSL -o "${binDir}/deno.zip" "${url}"`, { stdio: "inherit" });
+    execSync(`unzip -o "${binDir}/deno.zip" -d "${binDir}"`, { stdio: "inherit" });
+    fs.chmodSync(denoBin, 0o755);
+    fs.unlinkSync(path.join(binDir, "deno.zip"));
+    if (getVersion() === DENO_VERSION) {
+      console.log(`[deno] Installed Deno ${DENO_VERSION} to ${denoBin}`);
+      return denoBin;
+    }
+    console.warn("[deno] Download succeeded but version check failed; falling back to node runtime");
+    return null;
+  } catch (err: any) {
+    console.warn(`[deno] Auto-install failed (${err.message}); falling back to node runtime for yt-dlp`);
+    return null;
+  }
+}
+
+const denoBinPath = ensureDenoRuntime();
 
 async function startServer() {
   try {
@@ -152,12 +197,7 @@ async function startServer() {
       originalName: req.file.originalname
     });
   });
-  // yt-dlp's EJS "n challenge" solver requires Deno 2.3.x-2.6.x. Nix's pinned
-  // deno package is too old ("unsupported"), so we download a compatible
-  // build into .bin/deno via scripts/setup-deno.sh. Fall back to node if
-  // that binary isn't present for some reason.
-  const denoBinPath = path.join(projectRoot, '.bin', 'deno');
-  const jsRuntime = fs.existsSync(denoBinPath) ? `deno:${denoBinPath}` : 'node';
+  const jsRuntime = denoBinPath ? `deno:${denoBinPath}` : 'node';
 
   // Helper for yt-dlp options
   const getDlOptions = (output?: string, extra: any = {}) => {
