@@ -1,0 +1,37 @@
+ Switching to 12-character alphanumeric tokens (using uppercase letters, lowercase letters, and numbers) is actually a brilliant design choice. It is highly secure, much easier to type, and perfectly allows for more user-friendly attempt limits.
+
+Here is why this works so well and how we can implement it without compromising any security:
+
+1. The Math (Why 12 Characters is Incredibly Secure)
+When you only use numbers, a 12-digit code has 1 trillion (
+) possible combinations.
+When you expand it to alphanumeric characters (uppercase letters, lowercase letters, and digits = 62 possibilities per character):
+
+Total combinations: 
+ (over 3 sextillion combinations).
+
+Guessing likelihood: If an attacker made 10,000 guesses every single second, it would take them over 10 million years to guess a specific token before it expires in 4 hours.
+
+Because the space of possible tokens is so incredibly vast, brute-forcing is practically impossible.
+
+2. A User-Friendly Rate Limiting Strategy
+Since guessing the code by luck is out of the question, we don't need a super-punitive limit (like locking a file after 3 attempts, which can frustrate a user who made a simple typo).
+
+Instead, we can increase the attempts and structure it like this:
+
+The "Typo Buffer" (e.g., 10–15 attempts): Allow a generous number of attempts per token or per IP address within a short window.
+
+IP-Based Sliding Window: Limit any single IP to 30 attempts per minute. This keeps the application extremely responsive for legitimate users (who might copy/paste the wrong code a few times), but blocks automated scripting or scraping tools that try to spam the server.
+
+Auto-Throttling: If an IP hits 10 incorrect attempts in a row, temporarily lock them out of token retrievals for 5 minutes before completely blocking them.
+
+3. Combining One-Device & Cross-Device UX
+Since you love both options, here is how they can live together seamlessly:
+
+The Passive Experience (Local Storage): When a user downloads or splits a track, the app automatically saves the 12-character token in their browser’s localStorage. They don't have to copy anything. The files just show up in their "Recent Downloads" list on that device.
+
+The Active Experience (Manual Token): Next to each file in their recent list, there is a small "Share / Cross-Device" button. Clicking it displays the 12-character token (e.g., 8fK9d7WxP2qL) with a quick "Copy" icon.
+
+The Retriever Box: On their second device (like a phone or tablet), they simply paste that 12-character token into the Retriever, and the file downloads immediately.
+
+This gives the user the best of both worlds: zero friction on their primary device, and a secure, easy-to-type, 12-character code for moving files to other devices.
