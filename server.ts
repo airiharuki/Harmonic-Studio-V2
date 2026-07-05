@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import fs from "fs";
 import crypto from "crypto";
-import { exec, execSync, spawn } from "child_process";
+import { exec, execSync } from "child_process";
 import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
@@ -11,7 +11,6 @@ import multer from "multer";
 import axios from "axios";
 import ffmpegStatic from "ffmpeg-static";
 import ffmpeg from "fluent-ffmpeg";
-import { safeJoin, validateStemName } from "./server/security";
 
 if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
@@ -36,7 +35,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // boot: if the binary is missing or the wrong version, it downloads a fresh
 // copy on the fly. Falls back to the "node" JS runtime if that also fails.
 function ensureDenoRuntime(): string | null {
-  const DENO_VERSION = "2.9.4";
+  const DENO_VERSION = "2.6.0";
   const binDir = path.join(projectRoot, ".bin");
   const denoBin = path.join(binDir, "deno");
 
@@ -137,8 +136,6 @@ async function startServer() {
   const outputDir = path.join(projectRoot, "output");
   if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-
-  // Path traversal guard lives in server/security.ts (shared with tests).
 
   // --- Secure file token store ---
   // Each processed file gets a 12-character alphanumeric token (mixed-case +
@@ -241,172 +238,8 @@ async function startServer() {
     }
   }, 10 * 60 * 1000);
 
-  // --- Rate limiting for stem-splitting jobs ---
-  // /api/split launches heavy ML processes (Demucs/Spleeter/audio-separator)
-  // that each take minutes of CPU. Without limits, a single client can spam
-  // requests and exhaust CPU/disk for everyone. Limits:
-  //   1. Per-IP: at most 1 active job at a time.
-  //   2. Per-IP: cooldown between job starts.
-  //   3. Global: cap on simultaneous jobs across all clients.
-  const SPLIT_MAX_ACTIVE_PER_IP = 1;
-  const SPLIT_COOLDOWN_MS = 60 * 1000; // 1 minute between job starts per IP
-  const SPLIT_MAX_GLOBAL_ACTIVE = 2;
-
-  interface SplitEntry {
-    active: number;
-    lastStart: number;
-  }
-  const splitLimitStore = new Map<string, SplitEntry>();
-  let splitGlobalActive = 0;
-
-  function checkSplitRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number; reason?: string } {
-    const now = Date.now();
-    const entry = splitLimitStore.get(ip);
-
-    if (entry && entry.active >= SPLIT_MAX_ACTIVE_PER_IP) {
-      return { allowed: false, retryAfterMs: SPLIT_COOLDOWN_MS, reason: "You already have a stem-splitting job running. Wait for it to finish." };
-    }
-    if (entry && now - entry.lastStart < SPLIT_COOLDOWN_MS) {
-      return { allowed: false, retryAfterMs: entry.lastStart + SPLIT_COOLDOWN_MS - now, reason: "Please wait a moment between stem-splitting jobs." };
-    }
-    if (splitGlobalActive >= SPLIT_MAX_GLOBAL_ACTIVE) {
-      return { allowed: false, retryAfterMs: SPLIT_COOLDOWN_MS, reason: "The server is busy processing other jobs. Please try again shortly." };
-    }
-    return { allowed: true };
-  }
-
-  function beginSplitJob(ip: string) {
-    const now = Date.now();
-    const entry = splitLimitStore.get(ip) ?? { active: 0, lastStart: 0 };
-    entry.active++;
-    entry.lastStart = now;
-    splitLimitStore.set(ip, entry);
-    splitGlobalActive++;
-  }
-
-  function endSplitJob(ip: string) {
-    const entry = splitLimitStore.get(ip);
-    if (entry) {
-      entry.active = Math.max(0, entry.active - 1);
-    }
-    splitGlobalActive = Math.max(0, splitGlobalActive - 1);
-  }
-
-  // Forget IPs with no active jobs whose cooldown has long passed.
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, entry] of splitLimitStore.entries()) {
-      if (entry.active <= 0 && now - entry.lastStart > SPLIT_COOLDOWN_MS) {
-        splitLimitStore.delete(ip);
-      }
-    }
-  }, 10 * 60 * 1000);
-
-  // --- Rate limiting for YouTube download jobs (/api/download) ---
-  // Each download runs yt-dlp + ffmpeg and can take 30-120 s of CPU/network.
-  // Limits mirror the split limiter:
-  //   1. Per-IP: at most 1 active download at a time.
-  //   2. Per-IP: 30-second cooldown between download starts.
-  //   3. Global:  cap of 3 simultaneous downloads across all clients.
-  const DL_MAX_ACTIVE_PER_IP = 1;
-  const DL_COOLDOWN_MS = 30 * 1000; // 30 s between download starts per IP
-  const DL_MAX_GLOBAL_ACTIVE = 3;
-
-  interface DlEntry {
-    active: number;
-    lastStart: number;
-  }
-  const dlLimitStore = new Map<string, DlEntry>();
-  let dlGlobalActive = 0;
-
-  function checkDlRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number; reason?: string } {
-    const now = Date.now();
-    const entry = dlLimitStore.get(ip);
-
-    if (entry && entry.active >= DL_MAX_ACTIVE_PER_IP) {
-      return { allowed: false, retryAfterMs: DL_COOLDOWN_MS, reason: "You already have a download in progress. Wait for it to finish." };
-    }
-    if (entry && now - entry.lastStart < DL_COOLDOWN_MS) {
-      return { allowed: false, retryAfterMs: entry.lastStart + DL_COOLDOWN_MS - now, reason: "Please wait a moment between downloads." };
-    }
-    if (dlGlobalActive >= DL_MAX_GLOBAL_ACTIVE) {
-      return { allowed: false, retryAfterMs: DL_COOLDOWN_MS, reason: "The server is busy with other downloads. Please try again shortly." };
-    }
-    return { allowed: true };
-  }
-
-  function beginDlJob(ip: string) {
-    const now = Date.now();
-    const entry = dlLimitStore.get(ip) ?? { active: 0, lastStart: 0 };
-    entry.active++;
-    entry.lastStart = now;
-    dlLimitStore.set(ip, entry);
-    dlGlobalActive++;
-  }
-
-  function endDlJob(ip: string) {
-    const entry = dlLimitStore.get(ip);
-    if (entry) {
-      entry.active = Math.max(0, entry.active - 1);
-    }
-    dlGlobalActive = Math.max(0, dlGlobalActive - 1);
-  }
-
-  // Forget IPs with no active downloads whose cooldown has long passed.
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, entry] of dlLimitStore.entries()) {
-      if (entry.active <= 0 && now - entry.lastStart > DL_COOLDOWN_MS) {
-        dlLimitStore.delete(ip);
-      }
-    }
-  }, 10 * 60 * 1000);
-
-  // --- Rate limiting for /api/info ---
-  // Info calls are cheaper (metadata-only, no file I/O) but still hit yt-dlp
-  // and cost real network/CPU. Allow a burst then throttle.
-  //   Per-IP: 5 requests per 30-second window.
-  const INFO_WINDOW_MS = 30 * 1000;
-  const INFO_MAX_PER_WINDOW = 5;
-
-  interface InfoEntry {
-    windowStart: number;
-    count: number;
-  }
-  const infoLimitStore = new Map<string, InfoEntry>();
-
-  function checkInfoRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number } {
-    const now = Date.now();
-    let entry = infoLimitStore.get(ip);
-    if (!entry) {
-      entry = { windowStart: now, count: 0 };
-      infoLimitStore.set(ip, entry);
-    }
-    if (now - entry.windowStart > INFO_WINDOW_MS) {
-      entry.windowStart = now;
-      entry.count = 0;
-    }
-    entry.count++;
-    if (entry.count > INFO_MAX_PER_WINDOW) {
-      return { allowed: false, retryAfterMs: entry.windowStart + INFO_WINDOW_MS - now };
-    }
-    return { allowed: true };
-  }
-
-  // Forget quiet IPs.
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, entry] of infoLimitStore.entries()) {
-      if (now - entry.windowStart > INFO_WINDOW_MS) {
-        infoLimitStore.delete(ip);
-      }
-    }
-  }, 10 * 60 * 1000);
-
   function sweepExpiredFiles() {
     const now = Date.now();
-
-    // 1. Sweep token-registered files that have passed their TTL.
     for (const [token, entry] of fileTokens.entries()) {
       if (now >= entry.expiresAt) {
         try {
@@ -425,117 +258,15 @@ async function startServer() {
         fileTokens.delete(token);
       }
     }
-
-    // 2. Sweep untracked files/dirs in downloads/ and output/.
-    //    Uploaded files (from /api/upload) and any leftover job artefacts from
-    //    crashed runs are never registered in fileTokens, so they would
-    //    accumulate forever without this second pass.
-    //    We use mtime so recently-created files are left alone even if they
-    //    haven't been registered yet (race window is tiny — multer writes are
-    //    synchronous before the route returns).
-    const trackedPaths = new Set<string>();
-    for (const entry of fileTokens.values()) {
-      trackedPaths.add(path.resolve(entry.filepath));
-    }
-
-    const sweepDir = (dir: string) => {
-      let entries: fs.Dirent[];
-      try {
-        entries = fs.readdirSync(dir, { withFileTypes: true });
-      } catch {
-        return; // directory doesn't exist or isn't readable — skip
-      }
-
-      for (const dirent of entries) {
-        const fullPath = path.join(dir, dirent.name);
-        if (trackedPaths.has(path.resolve(fullPath))) continue; // still live
-        try {
-          const stat = fs.lstatSync(fullPath);
-          const ageMs = now - stat.mtimeMs;
-          if (ageMs < FILE_TTL_MS) continue; // not old enough yet
-
-          if (stat.isDirectory()) {
-            fs.rmSync(fullPath, { recursive: true, force: true });
-          } else {
-            fs.unlinkSync(fullPath);
-          }
-          console.log(`[cleanup] Deleted untracked old path: ${fullPath} (age ${Math.round(ageMs / 60000)} min)`);
-        } catch (err) {
-          console.error(`[cleanup] Error deleting untracked path ${fullPath}:`, err);
-        }
-      }
-    };
-
-    sweepDir(downloadsDir);
-    sweepDir(outputDir);
   }
 
   // Sweep every 30 minutes
   setInterval(sweepExpiredFiles, 30 * 60 * 1000);
 
-  // --- Upload hardening ---
-  // Cap upload size and only accept audio files, so a malicious/buggy client
-  // can't fill the disk or stash arbitrary payloads in downloads/.
-  const UPLOAD_MAX_BYTES = 300 * 1024 * 1024; // 300 MB
-  const AUDIO_EXTENSIONS = new Set([
-    ".mp3", ".wav", ".flac", ".ogg", ".oga", ".opus", ".m4a", ".aac",
-    ".wma", ".aiff", ".aif", ".alac", ".mp4", ".webm", ".mkv",
-  ]);
-  const isAudioMime = (mime: string) =>
-    mime.startsWith("audio/") ||
-    // Some browsers report container/video MIME types for audio-bearing files.
-    mime === "video/mp4" || mime === "video/webm" || mime === "video/x-matroska" ||
-    mime === "application/octet-stream";
-
-  const upload = multer({
-    dest: downloadsDir,
-    limits: { fileSize: UPLOAD_MAX_BYTES, files: 1 },
-    fileFilter: (_req, file, cb) => {
-      const ext = path.extname(file.originalname || "").toLowerCase();
-      const mime = (file.mimetype || "").toLowerCase();
-      if (AUDIO_EXTENSIONS.has(ext) && isAudioMime(mime)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`Unsupported file type "${ext || file.mimetype}". Please upload an audio file (mp3, wav, flac, ogg, m4a, aac, ...).`));
-      }
-    },
-  });
-
-  // Wraps multer so its errors (size limit, rejected type) come back as clear
-  // JSON instead of a generic 500 / connection reset.
-  const uploadSingle = (field: string) => (req: any, res: any, next: any) => {
-    upload.single(field)(req, res, (err: any) => {
-      if (err) {
-        if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
-          return res.status(413).json({ error: `File is too large. Maximum upload size is ${UPLOAD_MAX_BYTES / (1024 * 1024)} MB.` });
-        }
-        return res.status(400).json({ error: err.message || "Upload rejected" });
-      }
-      next();
-    });
-  };
-
-  // --- Audio content validation via ffprobe ---
-  // Checks that the saved file is a real audio/container by probing it with
-  // ffprobe. Returns true when at least one audio stream is found.
-  // This runs AFTER multer writes the file so it cannot be fooled by a renamed
-  // non-audio payload.
-  function probeHasAudio(filePath: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      ffmpeg.ffprobe(filePath, (err: any, metadata: any) => {
-        if (err) {
-          // ffprobe itself errored — treat as invalid
-          return resolve(false);
-        }
-        const streams: any[] = metadata?.streams ?? [];
-        const hasAudio = streams.some((s: any) => s.codec_type === "audio");
-        resolve(hasAudio);
-      });
-    });
-  }
+  const upload = multer({ dest: downloadsDir });
 
   // API Routes
-  app.post("/api/upload", uploadSingle("file"), async (req: any, res) => {
+  app.post("/api/upload", upload.single("file"), (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     
     // Rename file to include original extension
@@ -543,17 +274,6 @@ async function startServer() {
     const filename = `${req.file.filename}${ext}`;
     const newPath = path.join(downloadsDir, filename);
     fs.renameSync(req.file.path, newPath);
-
-    // Validate the file content — extension/MIME alone are client-controlled.
-    // ffprobe reads actual container headers; a renamed image/text/etc. will
-    // fail here and be deleted immediately.
-    const isAudio = await probeHasAudio(newPath);
-    if (!isAudio) {
-      try { fs.unlinkSync(newPath); } catch { /* already gone */ }
-      return res.status(400).json({
-        error: "The uploaded file does not appear to be a valid audio file. Please upload a real audio file (mp3, wav, flac, ogg, m4a, aac, …).",
-      });
-    }
 
     res.json({ 
       filename, 
@@ -577,7 +297,7 @@ async function startServer() {
       jsRuntimes: jsRuntime,
       cookies: hasCookies ? cookiePath : undefined,
       addHeader: [
-        'referer:https://www.youtube.com/',
+        'referer:https://www.google.com/',
         'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'accept-language:en-US,en;q=0.9'
@@ -595,16 +315,6 @@ async function startServer() {
   app.get("/api/info", async (req, res) => {
     const url = req.query.url as string;
     if (!url) return res.status(400).json({ error: "URL is required" });
-
-    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
-    const infoRate = checkInfoRateLimit(clientIp);
-    if (!infoRate.allowed) {
-      res.setHeader("Retry-After", Math.ceil((infoRate.retryAfterMs || 0) / 1000));
-      return res.status(429).json({
-        error: "Too many info requests. Please wait before trying again.",
-        retryAfterMs: infoRate.retryAfterMs,
-      });
-    }
 
     try {
       let info;
@@ -636,17 +346,6 @@ async function startServer() {
   app.post("/api/download", async (req, res) => {
     const { url, format, title } = req.body;
     if (!url || !format) return res.status(400).json({ error: "URL and format are required" });
-
-    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
-    const dlRate = checkDlRateLimit(clientIp);
-    if (!dlRate.allowed) {
-      res.setHeader("Retry-After", Math.ceil((dlRate.retryAfterMs || 0) / 1000));
-      return res.status(429).json({
-        error: dlRate.reason || "Too many download requests. Please wait before trying again.",
-        retryAfterMs: dlRate.retryAfterMs,
-      });
-    }
-    beginDlJob(clientIp);
 
     try {
       // 1. Fetch metadata first
@@ -782,51 +481,25 @@ async function startServer() {
     } catch (error: any) {
       console.error("Download error:", error);
       res.status(500).json({ error: error.message });
-    } finally {
-      endDlJob(clientIp);
     }
   });
 
   app.post("/api/split", async (req, res) => {
-    const { url, filename, stemsToZip, model, modelVariant, title } = req.body;
+    const { url, filename, stemsToZip, model } = req.body;
     if (!url && !filename) return res.status(400).json({ error: "URL or filename is required" });
-
-    // Rate limit BEFORE opening the SSE stream so we can return a proper 429.
-    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
-    const splitRate = checkSplitRateLimit(clientIp);
-    if (!splitRate.allowed) {
-      res.setHeader("Retry-After", Math.ceil((splitRate.retryAfterMs || 0) / 1000));
-      return res.status(429).json({
-        error: splitRate.reason || "Too many stem-splitting requests. Please wait before trying again.",
-        retryAfterMs: splitRate.retryAfterMs,
-      });
-    }
-    beginSplitJob(clientIp);
-
-    // --- SSE setup ---
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    const send = (type: string, payload: Record<string, any>) => {
-      res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
-    };
-    const log = (line: string) => send("log", { line });
 
     const jobId = `job_${Date.now()}`;
     const jobDir = path.join(downloadsDir, jobId);
+    fs.mkdirSync(jobDir);
 
     const inputFilename = "input.wav";
     const inputPath = path.join(jobDir, inputFilename);
     const tempFile = path.join(jobDir, `temp_input.m4a`);
 
     try {
-      fs.mkdirSync(jobDir);
-
       if (url) {
-        log("Downloading audio from URL...");
-
+        console.log(`Downloading for splitting: ${url}`);
+        
         let attempts = 0;
         const maxAttempts = 2;
         while (attempts < maxAttempts) {
@@ -837,7 +510,7 @@ async function startServer() {
             attempts++;
             const isConnectionReset = err.message?.includes('Remote end closed connection') || err.message?.includes('EPIPE');
             if (isConnectionReset && attempts < maxAttempts) {
-              log(`Download connection reset — retrying (attempt ${attempts})...`);
+              console.warn(`Split download connection reset on attempt ${attempts}. Retrying...`);
               await new Promise(r => setTimeout(r, 2000));
               continue;
             }
@@ -845,7 +518,7 @@ async function startServer() {
           }
         }
 
-        log("Download complete. Converting to WAV...");
+        console.log(`Converting to WAV for splitting...`);
         await new Promise((resolve, reject) => {
           ffmpeg(tempFile)
             .toFormat('wav')
@@ -856,206 +529,93 @@ async function startServer() {
             .on('error', reject)
             .save(inputPath);
         });
-        log("WAV conversion done.");
       } else if (filename) {
-        const sourcePath = safeJoin(downloadsDir, filename);
-        if (!sourcePath || !fs.existsSync(sourcePath)) {
-          send("error", { message: "Uploaded file not found" });
-          res.end();
-          return;
+        // 1b. Use uploaded file
+        const sourcePath = path.join(downloadsDir, filename);
+        if (!fs.existsSync(sourcePath)) {
+          return res.status(404).json({ error: "Uploaded file not found" });
         }
+        // Copy to job dir
         fs.copyFileSync(sourcePath, inputPath);
-        log(`Using uploaded file: ${path.basename(sourcePath)}`);
       }
 
       // 2. Run Splitting
       const outputDirForJob = path.join(outputDir, jobId);
-
-      // Reusable helper — spawns a process and streams stdout/stderr as SSE log lines
-      const runProcess = (bin: string, args: string[]) => new Promise<void>((resolve, reject) => {
-        const proc = spawn(bin, args);
-        const pipe = (data: Buffer) =>
-          data.toString().split(/\r?\n/).forEach(l => { const t = l.trim(); if (t) log(t); });
-        proc.stdout.on("data", pipe);
-        proc.stderr.on("data", pipe);
-        proc.on("close", code => code === 0 ? resolve() : reject(new Error(`${bin} exited with code ${code}`)));
-        proc.on("error", reject);
-      });
-
-      // Backing Vocal Removal — 2-pass pipeline checkpoint config
-      // Pass 1: isolate all vocals from the full mix (standard vocal model)
-      // Pass 2: split isolated vocals into Lead vs Backing (karaoke fine-tuned checkpoint)
-      const BVR_MODELS: Record<string, { pass1: string; pass2: string }> = {
-        karaoke_bsr: {
-          pass1: "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
-          pass2: "model_bs_roformer_karaoke_ep_937_sdr_10.5765.ckpt",
-        },
-        karaoke_mel: {
-          pass1: "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
-          pass2: "mel_band_roformer_karaoke_by_becruily_ep_162_sdr_10.0772.ckpt",
-        },
-        bvr_mdx: {
-          pass1: "UVR-MDX-NET-Inst_HQ_3.onnx",
-          pass2: "UVR-BVE-BVR_MDX23C.onnx",
-        },
-      };
-      const isBvrMode = Object.keys(BVR_MODELS).includes(modelVariant || "");
-
-      let stemsPath: string;
-      let zipAllFromStemsPath = false; // if true, archive zips the whole dir as-is
-
-      if (isBvrMode) {
-        // ── BVR 2-pass pipeline ───────────────────────────────────────────────
-        const bvrCfg = BVR_MODELS[modelVariant!];
-        const pass1Dir = path.join(outputDirForJob, "bvr_pass1");
-        const pass2Dir = path.join(outputDirForJob, "bvr_pass2");
-        fs.mkdirSync(pass1Dir, { recursive: true });
-        fs.mkdirSync(pass2Dir, { recursive: true });
-
-        const available = await detectSplitters();
-        if (!available["bs-roformer"] && !available["mdx"]) {
-          send("error", {
-            message: `audio-separator is not installed on this server. BVR requires it for both passes. ` +
-              `Run the project locally — see ${REPO_URL}.`,
-            repoUrl: REPO_URL,
-          });
-          res.end(); return;
-        }
-
-        log("BVR — Pass 1: Isolating vocals from full mix...");
-        await runProcess("audio-separator", [inputPath, "--model_filename", bvrCfg.pass1, "--output_dir", pass1Dir]);
-
-        // audio-separator names output like "input_(Vocals)_model.ext" — find it
-        const pass1Files = fs.readdirSync(pass1Dir);
-        const vocalsFile = pass1Files.find(f => /vocal/i.test(f) && !/backing/i.test(f));
-        if (!vocalsFile)
-          throw new Error("BVR Pass 1 — vocals stem not found in output. " +
-            "Ensure the model produces a file with 'vocal' in its name.");
-        const vocalsPath = path.join(pass1Dir, vocalsFile);
-
-        log("BVR — Pass 2: Splitting lead vs backing vocals...");
-        await runProcess("audio-separator", [vocalsPath, "--model_filename", bvrCfg.pass2, "--output_dir", pass2Dir]);
-
-        stemsPath = pass2Dir;
-        zipAllFromStemsPath = true;
-        log("BVR — Both passes complete. Packaging stems...");
-
-      } else {
-        // ── Standard single-pass separation ──────────────────────────────────
-        let args: string[] = [];
-        let bin = "demucs";
-        const audioSepOutDir = path.join(outputDirForJob, "audio_sep_out");
-
-        switch (model) {
-          case "mdx":
-            bin = "audio-separator";
-            fs.mkdirSync(audioSepOutDir, { recursive: true });
-            args = [inputPath, "--model_filename", "UVR-MDX-NET-Inst_HQ_3.onnx", "--output_dir", audioSepOutDir];
-            break;
-          case "bs-roformer":
-            bin = "audio-separator";
-            fs.mkdirSync(audioSepOutDir, { recursive: true });
-            args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", audioSepOutDir];
-            break;
-          case "spleeter": {
-            const spleeterConfig = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : "4stems";
-            bin = "spleeter";
-            args = ["separate", "-p", `spleeter:${spleeterConfig}`, "-o", outputDirForJob, inputPath];
-            break;
-          }
-          case "demucs":
-          default: {
-            const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : "htdemucs";
-            bin = "demucs";
-            args = ["-n", demucsModel, "-o", outputDirForJob, inputPath];
-            break;
-          }
-        }
-
-        const available = await detectSplitters();
-        if (!available[model || "demucs"]) {
-          try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch {}
-          send("error", {
-            message: `Stem splitter "${model}" is not installed on this server. ` +
-              `Run the project locally to use this feature — see ${REPO_URL} for install instructions.`,
-            repoUrl: REPO_URL,
-          });
-          res.end();
-          return;
-        }
-
-        log(`Starting ${(model || "demucs").toUpperCase()} stem separation...`);
-        await runProcess(bin, args);
-        log("Separation complete. Packaging stems...");
-
-        const isAudioSep = (model === "mdx" || model === "bs-roformer");
-        if (isAudioSep) {
-          stemsPath = audioSepOutDir;
-          zipAllFromStemsPath = true;
-        } else if (model === "spleeter") {
-          stemsPath = path.join(outputDirForJob, path.basename(inputFilename, path.extname(inputFilename)));
-        } else {
-          const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : "htdemucs";
-          stemsPath = path.join(outputDirForJob, demucsModel, path.basename(inputFilename, path.extname(inputFilename)));
-        }
+      let command = "";
+      switch (model) {
+        case 'mdx':
+          command = `audio-separator "${inputPath}" --model_filename UVR-MDX-NET-Inst_HQ_3.onnx --output_dir "${path.join(outputDirForJob, "htdemucs", "input")}"`;
+          break;
+        case 'bs-roformer':
+          command = `audio-separator "${inputPath}" --model_filename model_bs_roformer_ep_317_sdr_12.9755.ckpt --output_dir "${path.join(outputDirForJob, "htdemucs", "input")}"`;
+          break;
+        case 'spleeter':
+          command = `spleeter separate -o "${outputDirForJob}" "${inputPath}"`;
+          break;
+        case 'demucs':
+        default:
+          command = `demucs -o "${outputDirForJob}" "${inputPath}"`;
+          break;
+      }
+      
+      // Confirm the requested splitter is actually installed before running.
+      // This replaces the previous silent fallback that copied the input mix
+      // into four "mock stems" — that was misleading users into thinking the
+      // separation worked when it hadn't.
+      const available = await detectSplitters();
+      if (!available[model || "demucs"]) {
+        // Clean up the job dir so we don't leak the converted WAV.
+        try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch {}
+        return res.status(503).json({
+          error: `Stem splitter "${model}" is not installed on this server. ` +
+            `Stem splitting requires heavy ML runtimes (PyTorch / ONNX / TensorFlow) ` +
+            `that aren't available on the hosted version. Run the project locally ` +
+            `to use this feature — see ${REPO_URL} for install instructions.`,
+          model,
+          repoUrl: REPO_URL,
+        });
       }
 
-      const safeTitle = title
-        ? title.replace(/[^a-zA-Z0-9 \-_]/g, "").replace(/ +/g, "_").slice(0, 60)
-        : jobId;
-      const zipFilename = `${safeTitle}_stems.zip`;
+      console.log(`Running splitting command: ${command}`);
+      if (model === 'mdx' || model === 'bs-roformer') {
+        // audio-separator expects the output dir to already exist
+        fs.mkdirSync(path.join(outputDirForJob, "htdemucs", "input"), { recursive: true });
+      }
+      await execAsync(command);
+
+      // 3. Zip the results
+      const stemsPath = path.join(outputDirForJob, "htdemucs", "input");
+      const zipFilename = `${jobId}_stems.zip`;
       const zipPath = path.join(outputDir, zipFilename);
-      const outputStream = fs.createWriteStream(zipPath);
+      const output = fs.createWriteStream(zipPath);
       const archive = archiver("zip", { zlib: { level: 9 } });
 
-      await new Promise<void>((resolve, reject) => {
-        outputStream.on("close", resolve);
-        archive.on("error", reject);
-        archive.pipe(outputStream);
-
-        if (zipAllFromStemsPath) {
-          // BVR 2-pass or audio-separator: output naming is model-defined — zip everything
-          archive.directory(stemsPath, false);
-        } else if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
-          // Whitelist of valid stem IDs — anything else (e.g. "../../.env")
-          // is rejected before it can reach the filesystem or the ZIP archive.
-          // (validateStemName lives in server/security.ts, shared with tests.)
-          for (const rawStem of stemsToZip) {
-              let stem: string;
-              try {
-                stem = validateStemName(rawStem);
-              } catch (e) {
-                reject(e as Error);
-                return;
-              }
-              // Spleeter 2stems uses "accompaniment" for what we call "other"
-              const spleeterVariant = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : '4stems';
-              const stemFilename = (model === 'spleeter' && spleeterVariant === '2stems' && stem === 'other')
-                ? 'accompaniment.wav'
-                : `${stem}.wav`;
-              const fullStemPath = path.join(stemsPath, stemFilename);
-              if (fs.existsSync(fullStemPath)) {
-                archive.file(fullStemPath, { name: `${stem}.wav` });
-              }
-            }
-        } else {
-          archive.directory(stemsPath, false);
-        }
-
-        archive.finalize();
+      output.on("close", () => {
+        const token = createFileToken(zipPath, zipFilename);
+        res.json({ filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS });
       });
 
-      const token = createFileToken(zipPath, zipFilename);
-      log("ZIP ready. Starting download...");
-      send("done", { filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS });
-      res.end();
+      archive.pipe(output);
+      
+      // If specific stems requested, only zip those
+      if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
+        for (const stem of stemsToZip) {
+          const stemFile = `${stem}.wav`;
+          const fullStemPath = path.join(stemsPath, stemFile);
+          if (fs.existsSync(fullStemPath)) {
+            archive.file(fullStemPath, { name: stemFile });
+          }
+        }
+      } else {
+        // Default: zip all
+        archive.directory(stemsPath, false);
+      }
+      
+      await archive.finalize();
 
     } catch (error: any) {
       console.error("Split error:", error);
-      send("error", { message: error.message });
-      res.end();
-    } finally {
-      endSplitJob(clientIp);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -1115,8 +675,8 @@ async function startServer() {
   });
 
   app.get("/api/files/output/:filename", (req, res) => {
-    const filepath = safeJoin(outputDir, req.params.filename);
-    if (filepath && fs.existsSync(filepath)) {
+    const filepath = path.join(outputDir, req.params.filename);
+    if (fs.existsSync(filepath)) {
       res.download(filepath);
     } else {
       res.status(404).send("File not found");
@@ -1125,15 +685,11 @@ async function startServer() {
 
   app.get("/api/files/:filename", (req, res) => {
     const filename = req.params.filename;
-    const filepath = safeJoin(downloadsDir, filename);
-
-    if (!filepath) {
-      return res.status(404).send("File not found");
-    }
-
+    const filepath = path.join(downloadsDir, filename);
+    
     // Disable timeout for large file downloads
     req.setTimeout(0);
-
+    
     if (fs.existsSync(filepath)) {
       const stats = fs.statSync(filepath);
       console.log(`Serving file: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
@@ -1165,48 +721,6 @@ async function startServer() {
     } else {
       console.warn(`File not found: ${filepath}`);
       res.status(404).send("File not found on server.");
-    }
-  });
-
-  // ── Gemini chord generation (server-side — key never exposed to browser) ──
-  app.post("/api/generate-chords", async (req, res) => {
-    const { key, scale, mood, bpm } = req.body;
-    if (!key || !scale) return res.status(400).json({ error: "key and scale are required" });
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server" });
-
-    try {
-      const { GoogleGenAI, Type } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-
-      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${key} ${scale}. The mood is ${mood || "neutral"} and the BPM is ${bpm || 120}. Make the progression interesting, perhaps using some 7th chords, 9ths, or passing chords if it fits the mood.`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.STRING,
-              description: "A musical chord symbol (e.g., Cmaj7, Am9, Dm7, G7b9)",
-            },
-            description: "An array of exactly 4 chord strings representing a 4-bar progression.",
-          },
-        },
-      });
-
-      const text = response.text || "[]";
-      const chords = JSON.parse(text);
-      const finalChords: string[] = Array.isArray(chords) ? chords.slice(0, 4) : ["C", "Am", "F", "G"];
-      while (finalChords.length < 4) finalChords.push(finalChords[finalChords.length - 1] || "C");
-
-      res.json({ chords: finalChords });
-    } catch (error: any) {
-      console.error("[generate-chords]", error.message);
-      res.status(500).json({ error: error.message });
     }
   });
 
