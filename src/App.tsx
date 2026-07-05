@@ -82,7 +82,7 @@ class ErrorBoundary extends React.Component<any, any> {
 }
 
 function MainApp() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState("composer");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -193,6 +193,16 @@ function MainApp() {
       releaseDownloadedAudioBlobUrl();
     };
   }, []);
+
+  // Keep the browser chrome (iOS status/toolbar tint, Android status bar)
+  // matched to whichever theme is actually active, since the user can force
+  // light/dark independently of the OS's prefers-color-scheme.
+  useEffect(() => {
+    const color = resolvedTheme === "dark" ? "#1c1620" : "#c9a3ab";
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.setAttribute("content", color);
+    });
+  }, [resolvedTheme]);
 
   const stopMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
