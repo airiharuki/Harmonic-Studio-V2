@@ -1,0 +1,54 @@
+To fill the status bar and notch area at the top, along with the address bar area at the bottom, you need to tell Safari to extend the background color into those native interfaces.
+## 1. Match the Status Bar and Notch Color
+To make your website background blend seamlessly into the status bar area, use the theme-color meta tag. [1] 
+Add this inside your <head> tag (replace #121212 with your exact top header background color):
+
+<meta name="theme-color" content="#121212">
+
+
+* Result: Modern iOS Safari will tint the status bar and notch background to match this exact hex code.
+
+## 2. Extend the Layout Edge-to-Edge
+To force the page content to physically slide underneath the notch and the bottom address bar area, configure the viewport fit.
+Update your viewport tag in the <head> to include viewport-fit=cover: [2] 
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+## 3. Apply Background Colors to Container Elements
+For Safari to fill these spaces, your root HTML and body elements must have a background color applied, and the inner content must be spaced out so text does not get clipped by the hardware.
+
+/* 1. Fill the entire canvas background */
+html, body {
+  background-color: #121212; /* Matches the theme-color tag */
+  margin: 0;
+  padding: 0;
+  min-height: 100dvh; /* Spans the dynamic height of the screen */
+}
+/* 2. Push text out from under the physical notch */
+header {
+  background-color: #121212;
+  padding-top: env(safe-area-inset-top); 
+}
+/* 3. Push text out from under the bottom address bar / home indicator */
+footer {
+  background-color: #121212; /* Or your footer color */
+  padding-bottom: env(safe-area-inset-bottom); 
+}
+
+## 4. Support Light and Dark Modes (Optional)
+If your site shifts colors based on the user's system appearance, you can specify different status bar colors for light and dark modes: [3, 4] 
+
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+
+To help you get the layout pixel-perfect, tell me:
+
+* What framework or platform are you using (e.g., Next.js, WordPress, raw HTML/CSS)?
+* Are you aiming for a solid background color across the whole page, or do you have a fixed header and footer?
+
+I can write the precise markup for your design.
+
+[1] [https://www.wpbeginner.com](https://www.wpbeginner.com/wp-tutorials/how-to-change-the-color-of-address-bar-in-mobile-browser-to-match-your-wordpress-site/)
+[2] [https://1ar.io](https://1ar.io/updates/safari-26-liquid-glass-web/)
+[3] [https://blog.logrocket.com](https://blog.logrocket.com/customizing-react-native-status-bar-route/)
+[4] [https://www.mathworks.com](https://www.mathworks.com/help/bugfinder/ref/polyspaceplatformsettings.html)
