@@ -780,6 +780,48 @@ async function startServer() {
     }
   });
 
+  // ── Gemini chord generation (server-side — key never exposed to browser) ──
+  app.post("/api/generate-chords", async (req, res) => {
+    const { key, scale, mood, bpm } = req.body;
+    if (!key || !scale) return res.status(400).json({ error: "key and scale are required" });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server" });
+
+    try {
+      const { GoogleGenAI, Type } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+
+      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${key} ${scale}. The mood is ${mood || "neutral"} and the BPM is ${bpm || 120}. Make the progression interesting, perhaps using some 7th chords, 9ths, or passing chords if it fits the mood.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.STRING,
+              description: "A musical chord symbol (e.g., Cmaj7, Am9, Dm7, G7b9)",
+            },
+            description: "An array of exactly 4 chord strings representing a 4-bar progression.",
+          },
+        },
+      });
+
+      const text = response.text || "[]";
+      const chords = JSON.parse(text);
+      const finalChords: string[] = Array.isArray(chords) ? chords.slice(0, 4) : ["C", "Am", "F", "G"];
+      while (finalChords.length < 4) finalChords.push(finalChords[finalChords.length - 1] || "C");
+
+      res.json({ chords: finalChords });
+    } catch (error: any) {
+      console.error("[generate-chords]", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Catch-all for missing API routes to prevent falling through to SPA
   app.all("/api/*", (req, res) => {
     console.warn(`[API] 404 Not Found: ${req.method} ${req.url}`);

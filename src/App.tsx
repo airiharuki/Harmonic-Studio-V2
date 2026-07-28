@@ -1123,34 +1123,22 @@ function MainApp() {
     if (!analysis) return;
     setGeneratingChords(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${analysis.key} ${analysis.scale}. The mood is ${analysis.mood || 'neutral'} and the BPM is ${analysis.bpm || 120}.
-      Make the progression interesting, perhaps using some 7th chords, 9ths, or passing chords if it fits the mood.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.STRING,
-              description: "A musical chord symbol (e.g., Cmaj7, Am9, Dm7, G7b9)"
-            },
-            description: "An array of exactly 4 chord strings representing a 4-bar progression."
-          }
-        }
+      const res = await fetch("/api/generate-chords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: analysis.key,
+          scale: analysis.scale,
+          mood: analysis.mood,
+          bpm: analysis.bpm,
+        }),
       });
-      
-      let text = response.text || "[]";
-      const chords = JSON.parse(text);
-      
-      // Ensure we have exactly 4 chords
-      const finalChords = Array.isArray(chords) ? chords.slice(0, 4) : ["C", "Am", "F", "G"];
-      while (finalChords.length < 4) finalChords.push(finalChords[finalChords.length - 1] || "C");
-      
-      setChords(finalChords);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+      }
+      const { chords } = await res.json();
+      setChords(chords);
       toast.success("AI generated chords based on the vibe!");
     } catch (error: any) {
       toast.error("Failed to generate chords: " + error.message);
