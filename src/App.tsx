@@ -1834,10 +1834,10 @@ function MainApp() {
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {[
-                              { id: 'demucs', name: 'Demucs' },
-                              { id: 'mdx', name: 'MDX-Net' },
-                              { id: 'spleeter', name: 'Spleeter' },
-                              { id: 'bs-roformer', name: 'BS-Roformer' }
+                              { id: 'demucs',      name: 'Demucs',      beta: false },
+                              { id: 'mdx',         name: 'MDX-Net',     beta: true  },
+                              { id: 'spleeter',    name: 'Spleeter',    beta: false },
+                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true  },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
                               const isSelected = splittingModel === modelObj.id;
@@ -1856,7 +1856,7 @@ function MainApp() {
                                   key={modelObj.id}
                                   onClick={handleClick}
                                   title={isAvailable ? modelObj.name : `${modelObj.name} requires a local install — click for setup`}
-                                  className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all ${
+                                  className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all overflow-hidden ${
                                     !isAvailable
                                       ? "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-40 cursor-not-allowed hover:opacity-60"
                                       : isSelected
@@ -1864,11 +1864,15 @@ function MainApp() {
                                         : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
                                   }`}
                                 >
+                                  {/* β corner ribbon for beta models */}
+                                  {modelObj.beta && isAvailable && (
+                                    <span className="absolute top-0 right-0 px-1.5 py-0.5 text-[8px] font-black tracking-widest uppercase rounded-bl-lg bg-violet-500/15 text-violet-500 dark:text-violet-300 border-b border-l border-violet-400/25 leading-tight select-none">
+                                      β
+                                    </span>
+                                  )}
                                   <span className="text-sm font-medium">{modelObj.name}</span>
-                                  {!isAvailable ? (
+                                  {!isAvailable && (
                                     <span className="text-[10px] opacity-70">Local install</span>
-                                  ) : (
-                                    modelObj.id !== 'demucs' && modelObj.id !== 'mdx' && <span className="text-[10px] opacity-50">(BETA)</span>
                                   )}
                                 </div>
                               );
