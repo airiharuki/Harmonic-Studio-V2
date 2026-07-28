@@ -4,7 +4,7 @@
  */
 
 import * as React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Download, 
@@ -29,7 +29,12 @@ import {
   Repeat,
   FlaskConical,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowRightLeft,
+  History,
+  Hand,
+  ChevronsUp,
+  ChevronsDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -649,6 +654,77 @@ function MainApp() {
   }, []);
 
   const [bpmError, setBpmError] = useState<string | null>(null);
+
+  // ── Tap Tempo ──────────────────────────────────────────────────────────────
+  const tapTimesRef = useRef<number[]>([]);
+  const tapResetRef = useRef<ReturnType<typeof setTimeout>>();
+  const [tapCount, setTapCount] = useState(0); // visual feedback only
+
+  const handleTapTempo = useCallback(() => {
+    const now = Date.now();
+    clearTimeout(tapResetRef.current);
+    tapTimesRef.current = [...tapTimesRef.current, now].slice(-8);
+    setTapCount(c => c + 1);
+    if (tapTimesRef.current.length >= 2) {
+      const intervals = tapTimesRef.current.slice(1).map((t, i) => t - tapTimesRef.current[i]);
+      const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const bpm = Math.round(60000 / avg);
+      if (bpm >= 30 && bpm <= 300) { setLoopBpm(bpm); setBpmError(null); }
+    }
+    tapResetRef.current = setTimeout(() => { tapTimesRef.current = []; setTapCount(0); }, 2000);
+  }, []);
+
+  // ── Chord History ──────────────────────────────────────────────────────────
+  const [chordHistory, setChordHistory] = useState<{ chords: string[]; key: string; scale: string; bpm: number }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('chord-history') || '[]'); } catch { return []; }
+  });
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (!loopChords || loopChords.length === 0) return;
+    const entry = { chords: loopChords, key: loopKey, scale: loopScale, bpm: loopBpm };
+    setChordHistory(prev => {
+      const next = [entry, ...prev].slice(0, 10);
+      try { localStorage.setItem('chord-history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loopChords]);
+
+  // ── Semitone Transpose ─────────────────────────────────────────────────────
+  const CHROMATIC = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const normaliseRoot = (r: string) =>
+    r.replace('Db','C#').replace('Eb','D#').replace('Gb','F#').replace('Ab','G#').replace('Bb','A#');
+
+  const transposeRoot = useCallback((root: string, semitones: number): string => {
+    const norm = normaliseRoot(root);
+    const idx = CHROMATIC.indexOf(norm);
+    if (idx === -1) return root;
+    return CHROMATIC[((idx + semitones) % 12 + 12) % 12];
+  }, []);
+
+  const transposeChords = useCallback((semitones: number) => {
+    if (!loopChords) return;
+    const transposed = loopChords.map(chord => {
+      const m = chord.match(/^[A-G][b#]?/);
+      if (!m) return chord;
+      return transposeRoot(m[0], semitones) + chord.slice(m[0].length);
+    });
+    setLoopChords(transposed);
+    setLoopKey(prev => transposeRoot(prev, semitones));
+    toast.success(`Transposed ${semitones > 0 ? '+' : ''}${semitones} semitone${Math.abs(semitones) !== 1 ? 's' : ''}`, { duration: 1500 });
+  }, [loopChords, transposeRoot]);
+
+  // ── Send to Loop Studio ───────────────────────────────────────────────────
+  const sendToLoopStudio = useCallback(() => {
+    if (!analysis) return;
+    setLoopKey(analysis.key);
+    setLoopScale(analysis.scale);
+    setLoopBpm(analysis.bpm);
+    setBpmError(null);
+    setActiveTab('loopstudio');
+    toast.success(`Sent ${analysis.key} ${analysis.scale} @ ${analysis.bpm} BPM → Loop Studio`);
+  }, [analysis]);
 
   useEffect(() => {
     // Initialize Eruda for mobile debugging
@@ -1447,20 +1523,32 @@ function MainApp() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-70">BPM</label>
-                      <Input 
-                        type="number" 
-                        value={loopBpm} 
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setLoopBpm(val);
-                          if (val > 300) {
-                            setBpmError("We’re not making extra tone today");
-                          } else {
-                            setBpmError(null);
-                          }
-                        }}
-                        className={`theme-input ${bpmError ? 'border-red-500' : ''}`}
-                      />
+                      <div className="flex gap-2">
+                        <Input 
+                          type="number" 
+                          value={loopBpm} 
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setLoopBpm(val);
+                            if (val > 300) {
+                              setBpmError("We're not making extra tone today");
+                            } else {
+                              setBpmError(null);
+                            }
+                          }}
+                          className={`theme-input ${bpmError ? 'border-red-500' : ''}`}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTapTempo}
+                          className={`shrink-0 h-10 px-3 font-bold text-xs border-foreground/20 transition-all duration-75 select-none ${tapCount > 0 ? 'bg-orange-500/20 border-orange-500/40 text-orange-500 scale-95' : ''}`}
+                          title="Tap to the beat to set BPM"
+                        >
+                          <Hand className="w-3.5 h-3.5 mr-1" />
+                          TAP
+                        </Button>
+                      </div>
                       {bpmError && <p className="text-[10px] text-red-500 font-bold">{bpmError}</p>}
                     </div>
                     <div className="space-y-2">
@@ -1675,17 +1763,87 @@ function MainApp() {
               </Card>
 
               {loopChords && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+                  className="space-y-4"
                 >
-                  {loopChords.map((chord, i) => (
-                    <div key={i} className="theme-card p-6 flex flex-col items-center justify-center gap-2 min-h-[120px] relative overflow-hidden group">
-                      <div className="absolute top-2 left-2 text-[10px] font-bold opacity-20">BAR {i + 1}</div>
-                      <span className="text-3xl font-bold tracking-tighter group-hover:scale-110 transition-transform">{chord}</span>
+                  {/* Transpose + History toolbar */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => transposeChords(-1)}
+                        className="h-8 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10"
+                        title="Transpose down 1 semitone"
+                      >
+                        <ChevronsDown className="w-3.5 h-3.5 mr-1" />−1 st
+                      </Button>
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => transposeChords(1)}
+                        className="h-8 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10"
+                        title="Transpose up 1 semitone"
+                      >
+                        <ChevronsUp className="w-3.5 h-3.5 mr-1" />+1 st
+                      </Button>
                     </div>
-                  ))}
+                    {chordHistory.length > 0 && (
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => setShowHistory(h => !h)}
+                        className="h-8 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10"
+                      >
+                        <History className="w-3.5 h-3.5 mr-1" />
+                        History ({chordHistory.length})
+                        {showHistory ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Chord History Panel */}
+                  <AnimatePresence>
+                    {showHistory && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-4 rounded-2xl border border-foreground/10 bg-foreground/5 space-y-2">
+                          <p className="text-[10px] font-bold uppercase opacity-50 tracking-wider mb-3">Recent Progressions</p>
+                          {chordHistory.map((entry, hi) => (
+                            <div
+                              key={hi}
+                              onClick={() => { setLoopChords(entry.chords); setLoopKey(entry.key); setLoopScale(entry.scale); setLoopBpm(entry.bpm); setShowHistory(false); toast.success('Loaded from history'); }}
+                              className="flex items-center gap-3 p-3 rounded-xl bg-background/50 border border-foreground/10 cursor-pointer hover:bg-foreground/10 transition-colors group"
+                            >
+                              <div className="text-[10px] font-bold opacity-40 w-4 shrink-0">#{hi + 1}</div>
+                              <div className="flex-1 flex flex-wrap gap-1.5">
+                                {entry.chords.map((c, ci) => (
+                                  <span key={ci} className="text-xs font-bold px-2 py-0.5 rounded-md bg-foreground/10">{c}</span>
+                                ))}
+                              </div>
+                              <div className="text-[10px] opacity-40 shrink-0 text-right">
+                                <div>{entry.key} {entry.scale}</div>
+                                <div>{entry.bpm} BPM</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Chord cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {loopChords.map((chord, i) => (
+                      <div key={i} className="theme-card p-6 flex flex-col items-center justify-center gap-2 min-h-[120px] relative overflow-hidden group">
+                        <div className="absolute top-2 left-2 text-[10px] font-bold opacity-20">BAR {i + 1}</div>
+                        <span className="text-3xl font-bold tracking-tighter group-hover:scale-110 transition-transform">{chord}</span>
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </div>
@@ -2282,6 +2440,16 @@ function MainApp() {
                                 <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Current Vibe</p>
                                 <p className="text-xl font-bold">{analysis.key} {analysis.scale} • {analysis.mood} • {analysis.bpm} BPM</p>
                               </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={sendToLoopStudio}
+                                className="shrink-0 font-bold border-foreground/20 hover:bg-foreground/10 gap-1.5"
+                                title="Copy key + BPM to Loop Studio and switch tabs"
+                              >
+                                <ArrowRightLeft className="w-3.5 h-3.5" />
+                                Loop Studio
+                              </Button>
                             </div>
 
                             <div className="p-6 rounded-xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
