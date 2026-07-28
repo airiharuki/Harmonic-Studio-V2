@@ -90,6 +90,8 @@ function MainApp() {
   const [videoInfo, setVideoInfo] = useState<any>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [splitting, setSplitting] = useState(false);
+  const [splitLogs, setSplitLogs] = useState<string[]>([]);
+  const splitLogRef = useRef<HTMLDivElement>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [chords, setChords] = useState<string[] | null>(null);
@@ -718,7 +720,7 @@ function MainApp() {
       toast.error("Please select at least one stem to download.");
       return;
     }
-    
+
     if (splitterAvailability && splitterAvailability[splittingModel] === false) {
       toast.error(`${splittingModel.toUpperCase()} isn't installed on this server. Run the project locally to use it.`, {
         action: { label: "Install guide", onClick: () => window.open(splitterRepoUrl, "_blank") },
@@ -728,6 +730,8 @@ function MainApp() {
     }
 
     setSplitting(true);
+    setSplitLogs([]);
+
     try {
       const payload: any = { stemsToZip: selectedStems, model: splittingModel };
       if (uploadedFilename) {
@@ -736,9 +740,52 @@ function MainApp() {
         payload.url = url;
       }
 
-      const response = await axios.post("/api/split", payload);
-      const downloadUrl = response.data.url;
-      
+      const response = await fetch("/api/split", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let downloadUrl = "";
+      let expiresIn = 0;
+      let downloadFilename = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "log") {
+              setSplitLogs(prev => [...prev, event.line]);
+            } else if (event.type === "done") {
+              downloadUrl = event.url;
+              expiresIn = event.expiresIn;
+              downloadFilename = event.filename;
+            } else if (event.type === "error") {
+              throw new Error(event.message);
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes("JSON")) throw parseErr;
+          }
+        }
+      }
+
+      if (!downloadUrl) throw new Error("No download URL received");
+
       const link = document.createElement("a");
       link.href = downloadUrl;
       link.setAttribute("download", "stems.zip");
@@ -752,16 +799,24 @@ function MainApp() {
         format: "zip",
         token: extractTokenFromUrl(downloadUrl),
         url: downloadUrl,
-        expiresAt: Date.now() + response.data.expiresIn,
+        expiresAt: Date.now() + expiresIn,
       });
-      
+
       toast.success("Stem splitting complete! Download started.");
     } catch (error: any) {
-      toast.error(`Splitting failed: ${error.response?.data?.error || error.message}`);
+      toast.error(`Splitting failed: ${error.message}`);
+      setSplitLogs(prev => [...prev, `ERROR: ${error.message}`]);
     } finally {
       setSplitting(false);
     }
   };
+
+  // Auto-scroll the split log to the bottom as new lines arrive
+  useEffect(() => {
+    if (splitLogRef.current) {
+      splitLogRef.current.scrollTop = splitLogRef.current.scrollHeight;
+    }
+  }, [splitLogs]);
 
   const toggleStem = (stem: string) => {
     setSelectedStems(prev => 
@@ -1855,6 +1910,36 @@ function MainApp() {
                         <p className="text-center text-[10px] opacity-40 italic">
                           Note: Processing takes 1-3 minutes. High-quality stems (WAV/FLAC) recommended.
                         </p>
+
+                        {/* Split log panel — visible while splitting or after it finishes */}
+                        {splitLogs.length > 0 && (
+                          <div className="rounded-2xl border border-black/10 dark:border-white/10 overflow-hidden">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-black/10 dark:bg-white/5 border-b border-black/10 dark:border-white/10">
+                              <span className={`w-2 h-2 rounded-full ${splitting ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+                              <span className="text-[11px] font-mono font-bold opacity-60 uppercase tracking-widest">
+                                {splitting ? 'Processing...' : 'Done'}
+                              </span>
+                            </div>
+                            <div
+                              ref={splitLogRef}
+                              className="font-mono text-[11px] leading-relaxed p-4 max-h-48 overflow-y-auto bg-black/5 dark:bg-black/30 space-y-0.5"
+                            >
+                              {splitLogs.map((line, i) => (
+                                <div
+                                  key={i}
+                                  className={`${line.startsWith('ERROR') ? 'text-red-400' : 'opacity-80'}`}
+                                >
+                                  <span className="opacity-40 mr-2 select-none">›</span>{line}
+                                </div>
+                              ))}
+                              {splitting && (
+                                <div className="opacity-40 animate-pulse">
+                                  <span className="mr-2 select-none">›</span>▌
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
