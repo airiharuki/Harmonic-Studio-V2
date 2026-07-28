@@ -9,6 +9,12 @@ A music theory tool that actually doesn't suck. Calculate pitch shifts, generate
 ![Vite + React](https://img.shields.io/badge/vite-react-black.svg)
 ![Vibes](https://img.shields.io/badge/vibes-immaculate-ff69b4.svg)
 
+## 🚀 Try It Live
+
+**👉 [harmonic-studio-v-2--aiharu.replit.app](https://harmonic-studio-v-2--aiharu.replit.app)**
+
+No install needed — just open it and vibe.
+
 ## ✨ What's This Thing Do?
 
 ### 🎹 Vibe Composer (Main Tab)
