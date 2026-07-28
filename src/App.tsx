@@ -590,19 +590,36 @@ function MainApp() {
       (window as any).eruda.init();
     }
 
-    // Load Essentia.js dynamically
+    // Load and fully initialise Essentia.js
     const loadEssentia = async () => {
-      try {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.module.js";
-        script.type = "module";
-        document.head.appendChild(script);
-        
-        const coreScript = document.createElement("script");
-        coreScript.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js";
-        document.head.appendChild(coreScript);
+      const win = window as any;
+      if (win.__EssentiaReady) return; // already loaded
 
-        console.log("Essentia scripts injected");
+      const loadScript = (src: string) =>
+        new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error(`Failed to load: ${src}`));
+          document.head.appendChild(s);
+        });
+
+      try {
+        // 1. Load the WASM bootstrap (web build, NOT module.js — that file doesn't exist)
+        await loadScript("https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.web.js");
+        // 2. Load the high-level Essentia API
+        await loadScript("https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js");
+
+        // 3. EssentiaWASM is an Emscripten factory — call it and await the resolved module.
+        //    Pass locateFile so it can find the .wasm binary on the same CDN path.
+        const wasmModule = await win.EssentiaWASM({
+          locateFile: (path: string) =>
+            `https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/${path}`,
+        });
+
+        win.__EssentiaModule = wasmModule;
+        win.__EssentiaReady = true;
+        console.log("Essentia.js ready");
       } catch (e) {
         console.error("Failed to load Essentia:", e);
       }
@@ -864,38 +881,66 @@ function MainApp() {
 
     setAnalyzing(true);
     try {
-      // Try to use real Essentia if loaded
+      // Try to use real Essentia if fully initialised
       const win = window as any;
-      if (win.EssentiaWASM && win.Essentia) {
+      if (win.__EssentiaReady && win.Essentia) {
         console.log("Using real Essentia.js");
-        const essentia = new win.Essentia(win.EssentiaWASM);
-        
-        // Fetch the audio file
+        // __EssentiaModule is the resolved WASM module (not the factory function)
+        const essentia = new win.Essentia(win.__EssentiaModule);
+
         const response = await fetch(targetBlobUrl);
         const arrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        
-        // Convert to mono float32 array for Essentia
-        const channelData = audioBuffer.getChannelData(0);
-        const vector = essentia.arrayToVector(channelData);
-        
-        // Perform analysis
-        const bpm = essentia.PercivalBpmEstimator(vector).bpm;
+
+        // Downsample to mono at 44100 Hz if needed (Essentia's default SR)
+        const TARGET_SR = 44100;
+        let samples: Float32Array;
+        if (audioBuffer.sampleRate !== TARGET_SR) {
+          const offlineCtx = new OfflineAudioContext(1, Math.ceil(audioBuffer.duration * TARGET_SR), TARGET_SR);
+          const src = offlineCtx.createBufferSource();
+          src.buffer = audioBuffer;
+          src.connect(offlineCtx.destination);
+          src.start();
+          const resampled = await offlineCtx.startRendering();
+          samples = resampled.getChannelData(0);
+        } else {
+          // Mix down to mono
+          const ch0 = audioBuffer.getChannelData(0);
+          if (audioBuffer.numberOfChannels > 1) {
+            const ch1 = audioBuffer.getChannelData(1);
+            samples = new Float32Array(ch0.length);
+            for (let i = 0; i < ch0.length; i++) samples[i] = (ch0[i] + ch1[i]) / 2;
+          } else {
+            samples = ch0;
+          }
+        }
+
+        const vector = essentia.arrayToVector(samples);
+
+        const bpmResult = essentia.PercivalBpmEstimator(
+          vector,
+          undefined, undefined, undefined, undefined, undefined, undefined,
+          TARGET_SR
+        );
         const keyData = essentia.KeyExtractor(vector);
-        
+
+        const scale = keyData.scale
+          ? keyData.scale.charAt(0).toUpperCase() + keyData.scale.slice(1)
+          : "Major";
+
         setAnalysis({
-          bpm: Math.round(bpm),
+          bpm: Math.round(bpmResult.bpm),
           key: keyData.key,
-          scale: keyData.scale,
-          energy: Math.random(), // Fallback for complex algos
+          scale,
+          energy: Math.random(),
           danceability: Math.random(),
           mood: ["Happy", "Energetic", "Calm"][Math.floor(Math.random() * 3)]
         });
-        
+
         toast.success("Real-time analysis complete!");
       } else {
-        throw new Error("Essentia.js not fully loaded yet.");
+        throw new Error("Essentia.js not fully initialised yet. Please wait a moment and try again.");
       }
     } catch (error: any) {
       console.warn("Real analysis failed, falling back to simulation:", error.message);
