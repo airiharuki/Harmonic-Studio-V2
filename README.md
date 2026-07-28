@@ -124,13 +124,16 @@ Build custom chord progressions and actually hear them. No DAW. No subscription.
 - 🎲 **Progression Generator** — 4–16 bars, any key, any scale. Pulls from a local pack of 128 real chord progressions — no API call, no wait, no cost. Instant every time.
 - ⏱️ **Full Parameter Control** — Custom BPM (30–300) and time signature. Yes, 7/8 is supported. We respect that about you.
 - 🔊 **SoundFont Playback** — Hear your progression with a high-quality electric piano instantly. No more staring at chord names wondering if they sound right. They do.
-- 🎹 **MIDI Preview + Piano Roll** — Upload a `.mid` file. See it rendered in a piano roll editor. Hear it played back with the soundfont. Supports multi-track MIDI. Yes, all of them.
+- 🎹 **MIDI Preview + Piano Roll** — Upload a `.mid` file. See it rendered in a piano roll editor. Hear it played back with the soundfont. Supports multi-track MIDI. Yes, all of them. Generated loops also get a live piano roll with a scrolling playhead.
 - 📝 **Lyrics Display** — Synchronized lyrics pulled from `public/lyrics.txt`. Update the file, update the display.
 
 **New in Labs 🧪**
 
 - 🎲 **Local Chord Pack (no Gemini)** — Loop Studio now pulls progressions from a port of [ldrolez/free-midi-chords](https://github.com/ldrolez/free-midi-chords) (MIT). 128 real progressions across Major, Minor, and Modal scales, each tagged with moods. Resolved locally via a custom Roman numeral engine — zero API calls, zero latency, works offline. The button is now **Roll Progression**. Roll it again if you don't like what you got.
 - 🎭 **Mood Filter** — a dropdown above the Roll button lets you filter by mood: Hopeful, Romantic, Sad, Dark, Mysterious, Triumphant, Nostalgic, Rebellious, and more. Leave it on "Any mood" for full chaos. After rolling, the raw Roman numeral pattern and mood tags appear below the button so you know exactly what you got.
+- 🎹 **Piano Roll for generated loops** — roll a progression and a live piano roll appears below the chord cards. The red playhead moves in real time while the loop plays. Every note of every chord, rendered exactly where it sits in time.
+- 💾 **MIDI Export** — an **Export MIDI** button lives in the piano roll header. One click builds a proper `.mid` file (correct tempo, one track, all chord notes timed to the bar) and downloads it as `{key}_{scale}_{bpm}bpm.mid`. Drop it straight into your DAW.
+- 🔧 **Loop playback fixed** — the old player had a stale-closure bug that made the stop button do nothing, and created a fresh `AudioContext` on every play (which disconnected the cached synth). Both fixed: playback control now uses a ref, and the audio context is reused across plays.
 - 🥁 **Tap Tempo** — a TAP button lives next to the BPM field. Hit it to the beat — up to 8 taps averaged — and the BPM field updates live. The button flashes orange while you're tapping, resets after 2 seconds of silence. No more guessing 128 vs 130.
 - 🎚️ **Semitone Transpose** — generated a killer progression but it's in the wrong key? `−1 st` / `+1 st` buttons above the chord cards shift every chord and update the key selector in one click. No regeneration, no lost work. Stack transpositions freely.
 - 📜 **Chord History** — every progression you generate gets saved automatically to localStorage (keeps the last 10). A **History** button appears above the chord cards once you have entries. Click any saved progression to reload it — chords, key, scale, and BPM all restore. Session-persistent. Close the tab, come back, it's still there.
@@ -230,6 +233,8 @@ For the fully automated install with scripts for Windows/macOS/Linux, the [main 
 
 A rough record of what's been brewing in here:
 
+- `feat` **Loop piano roll + MIDI export** — generated progressions render a live piano roll with scrolling playhead; one-click export to `.mid` with correct tempo and timing
+- `fix` **Loop playback** — stale-closure bug + AudioContext reuse; stop button now works reliably
 - `feat` **Local chord pack engine** — 128 progressions from ldrolez/free-midi-chords, Roman numeral resolver, mood filter, zero Gemini calls in Loop Studio
 - `feat` **Holographic aesthetic overhaul** — aurora layer, iridescent edges, deeper glass, scanlines, heading glow, lavender light mode
 - `feat` **Beta mode system** — flask toggle, violet banner, model tier labels, extended analysis panel, lab notes card
