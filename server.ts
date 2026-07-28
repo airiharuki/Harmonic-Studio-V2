@@ -485,7 +485,7 @@ async function startServer() {
   });
 
   app.post("/api/split", async (req, res) => {
-    const { url, filename, stemsToZip, model } = req.body;
+    const { url, filename, stemsToZip, model, title } = req.body;
     if (!url && !filename) return res.status(400).json({ error: "URL or filename is required" });
 
     // --- SSE setup ---
@@ -632,7 +632,10 @@ async function startServer() {
         stemsPath = path.join(outputDirForJob, "htdemucs", "input");
       }
 
-      const zipFilename = `${jobId}_stems.zip`;
+      const safeTitle = title
+        ? title.replace(/[^a-zA-Z0-9 \-_]/g, "").replace(/ +/g, "_").slice(0, 60)
+        : jobId;
+      const zipFilename = `${safeTitle}_stems.zip`;
       const zipPath = path.join(outputDir, zipFilename);
       const outputStream = fs.createWriteStream(zipPath);
       const archive = archiver("zip", { zlib: { level: 9 } });
