@@ -127,6 +127,13 @@ Build custom chord progressions and actually hear them. No DAW. No subscription.
 - 🎹 **MIDI Preview + Piano Roll** — Upload a `.mid` file. See it rendered in a piano roll editor. Hear it played back with the soundfont. Supports multi-track MIDI. Yes, all of them.
 - 📝 **Lyrics Display** — Synchronized lyrics pulled from `public/lyrics.txt`. Update the file, update the display.
 
+**New in Labs 🧪**
+
+- 🥁 **Tap Tempo** — a TAP button lives next to the BPM field. Hit it to the beat — up to 8 taps averaged — and the BPM field updates live. The button flashes orange while you're tapping, resets after 2 seconds of silence. No more guessing 128 vs 130.
+- 🎚️ **Semitone Transpose** — generated a killer progression but it's in the wrong key? `−1 st` / `+1 st` buttons above the chord cards shift every chord and update the key selector in one click. No regeneration, no lost work. Stack transpositions freely.
+- 📜 **Chord History** — every progression you generate gets saved automatically to localStorage (keeps the last 10). A **History** button appears above the chord cards once you have entries. Click any saved progression to reload it — chords, key, scale, and BPM all restore. Session-persistent. Close the tab, come back, it's still there.
+- ⚡ **Send to Loop Studio** — in the Analyzer's Vibe Studio tab, after analysis, an **→ Loop Studio** button copies the detected key, scale, and BPM across to the Loop Studio and switches tabs in one click. Detected a track in F# Minor at 95 BPM? You're in Loop Studio ready to generate in 2 seconds flat.
+
 ---
 
 ## 🤝 Contributing to Labs
