@@ -1482,7 +1482,10 @@ function MainApp() {
                     <Repeat className="w-5 h-5 text-foreground" />
                     Loop Parameters
                   </CardTitle>
-                  <CardDescription className="opacity-80">Configure your loop settings (Key is synced with Circle of Fifths)</CardDescription>
+                  <CardDescription className="opacity-80">
+                    Configure your loop settings (Key is synced with Circle of Fifths) · Progressions from{' '}
+                    <a href="https://github.com/ldrolez/free-midi-chords" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-100 transition-opacity">ldrolez/free-midi-chords</a>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
