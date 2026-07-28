@@ -121,7 +121,7 @@ Drop a link or a file. Get the audio. Get the data. It's fast and it doesn't nee
 
 Build custom chord progressions and actually hear them. No DAW. No subscription. No upsell. No monthly fee email.
 
-- 🤖 **AI Progression Generator** — 4–16 bars, any key, any scale. Powered by Gemini. Doesn't take requests for "something that slaps" but gives it a real shot anyway.
+- 🎲 **Progression Generator** — 4–16 bars, any key, any scale. Pulls from a local pack of 128 real chord progressions — no API call, no wait, no cost. Instant every time.
 - ⏱️ **Full Parameter Control** — Custom BPM (30–300) and time signature. Yes, 7/8 is supported. We respect that about you.
 - 🔊 **SoundFont Playback** — Hear your progression with a high-quality electric piano instantly. No more staring at chord names wondering if they sound right. They do.
 - 🎹 **MIDI Preview + Piano Roll** — Upload a `.mid` file. See it rendered in a piano roll editor. Hear it played back with the soundfont. Supports multi-track MIDI. Yes, all of them.
@@ -129,6 +129,8 @@ Build custom chord progressions and actually hear them. No DAW. No subscription.
 
 **New in Labs 🧪**
 
+- 🎲 **Local Chord Pack (no Gemini)** — Loop Studio now pulls progressions from a port of [ldrolez/free-midi-chords](https://github.com/ldrolez/free-midi-chords) (MIT). 128 real progressions across Major, Minor, and Modal scales, each tagged with moods. Resolved locally via a custom Roman numeral engine — zero API calls, zero latency, works offline. The button is now **Roll Progression**. Roll it again if you don't like what you got.
+- 🎭 **Mood Filter** — a dropdown above the Roll button lets you filter by mood: Hopeful, Romantic, Sad, Dark, Mysterious, Triumphant, Nostalgic, Rebellious, and more. Leave it on "Any mood" for full chaos. After rolling, the raw Roman numeral pattern and mood tags appear below the button so you know exactly what you got.
 - 🥁 **Tap Tempo** — a TAP button lives next to the BPM field. Hit it to the beat — up to 8 taps averaged — and the BPM field updates live. The button flashes orange while you're tapping, resets after 2 seconds of silence. No more guessing 128 vs 130.
 - 🎚️ **Semitone Transpose** — generated a killer progression but it's in the wrong key? `−1 st` / `+1 st` buttons above the chord cards shift every chord and update the key selector in one click. No regeneration, no lost work. Stack transpositions freely.
 - 📜 **Chord History** — every progression you generate gets saved automatically to localStorage (keeps the last 10). A **History** button appears above the chord cards once you have entries. Click any saved progression to reload it — chords, key, scale, and BPM all restore. Session-persistent. Close the tab, come back, it's still there.
@@ -214,7 +216,8 @@ For the fully automated install with scripts for Windows/macOS/Linux, the [main 
 |---|---|---|
 | Frontend | Vite + React + TypeScript | Living on the edge, touching grass never |
 | Styling | Tailwind CSS v4 + custom CSS | Utility classes go brrrr. Zero regrets. |
-| AI Chords | Google Gemini API | Smarter than us. We've made peace with that. |
+| Loop Progressions | ldrolez/free-midi-chords (local) | 128 progressions, zero API calls, works offline |
+| AI Chords (Analyzer) | Google Gemini API | Still earns its keep in the Vibe Studio |
 | Audio Analysis | Essentia.js | Does not judge your music taste. Unlike us. |
 | Soundfont | sf2-synth-audio-worklet + Tonal | Accurate enough to be almost annoying |
 | Audio Pipeline | Python + yt-dlp + FFmpeg | The heavy lifting department |
@@ -227,6 +230,7 @@ For the fully automated install with scripts for Windows/macOS/Linux, the [main 
 
 A rough record of what's been brewing in here:
 
+- `feat` **Local chord pack engine** — 128 progressions from ldrolez/free-midi-chords, Roman numeral resolver, mood filter, zero Gemini calls in Loop Studio
 - `feat` **Holographic aesthetic overhaul** — aurora layer, iridescent edges, deeper glass, scanlines, heading glow, lavender light mode
 - `feat` **Beta mode system** — flask toggle, violet banner, model tier labels, extended analysis panel, lab notes card
 - `feat` **Multiple secret unlock methods** — we put easter eggs in the live app. There are three of them. Happy hunting.
