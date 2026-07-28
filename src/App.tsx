@@ -26,7 +26,10 @@ import {
   Sun,
   Monitor,
   Sparkles,
-  Repeat
+  Repeat,
+  FlaskConical,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +106,14 @@ function MainApp() {
   const [splitterAvailability, setSplitterAvailability] = useState<Record<string, boolean> | null>(null);
   const [splitterRepoUrl, setSplitterRepoUrl] = useState<string>("https://github.com/airiharuki/Harmonic-Studio-V2");
   const [recentTracksOpen, setRecentTracksOpen] = useState(false);
+  const [betaMode, setBetaMode] = useState<boolean>(() => {
+    try { return localStorage.getItem('beta-mode') === 'true'; } catch { return false; }
+  });
+  const [betaLabOpen, setBetaLabOpen] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem('beta-mode', String(betaMode)); } catch {}
+  }, [betaMode]);
 
   // Ask the server which stem-splitter binaries are actually installed.
   // Models the server can't run get greyed out in the picker and link to the
@@ -929,12 +940,22 @@ function MainApp() {
           ? keyData.scale.charAt(0).toUpperCase() + keyData.scale.slice(1)
           : "Major";
 
+        // Compute RMS loudness in dBFS from the first 10 seconds of samples
+        const sampleSlice = samples.slice(0, Math.min(samples.length, TARGET_SR * 10));
+        let rms = 0;
+        for (let i = 0; i < sampleSlice.length; i++) rms += sampleSlice[i] * sampleSlice[i];
+        rms = Math.sqrt(rms / sampleSlice.length);
+        const loudnessDb = rms > 0 ? Math.round(20 * Math.log10(rms) * 10) / 10 : -60;
+
         setAnalysis({
           bpm: Math.round(bpmResult.bpm),
+          rawBpm: Math.round(bpmResult.bpm * 10) / 10,
           key: keyData.key,
           scale,
+          keyStrength: Math.round((keyData.strength ?? 0) * 100),
           energy: Math.random(),
           danceability: Math.random(),
+          loudness: loudnessDb,
           mood: ["Happy", "Energetic", "Calm"][Math.floor(Math.random() * 3)]
         });
 
@@ -946,12 +967,16 @@ function MainApp() {
       console.warn("Real analysis failed, falling back to simulation:", error.message);
       // Simulation fallback
       await new Promise(resolve => setTimeout(resolve, 2000));
+      const simBpm = Math.floor(Math.random() * (140 - 80) + 80);
       setAnalysis({
-        bpm: Math.floor(Math.random() * (140 - 80) + 80),
+        bpm: simBpm,
+        rawBpm: simBpm + Math.round(Math.random() * 9) / 10,
         key: ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"][Math.floor(Math.random() * 12)],
         scale: Math.random() > 0.5 ? "Major" : "Minor",
+        keyStrength: Math.round((Math.random() * 0.4 + 0.4) * 100),
         energy: Math.random(),
         danceability: Math.random(),
+        loudness: Math.round((-20 + Math.random() * 14) * 10) / 10,
         mood: ["Happy", "Sad", "Energetic", "Calm", "Aggressive"][Math.floor(Math.random() * 5)]
       });
       toast.success("Analysis complete (Simulated)!");
@@ -1161,8 +1186,47 @@ function MainApp() {
     <>
       <div className="vhs-grain" />
       <div className="min-h-screen font-sans selection:bg-orange-500/30 relative z-10">
-        <div className="absolute top-2 right-4 sm:top-6 sm:right-6 flex items-center gap-2">
+        {/* Beta mode banner */}
+        <AnimatePresence>
+          {betaMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -32 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -32 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="fixed top-0 left-0 right-0 z-[300] flex items-center justify-center gap-2 px-4 py-1.5 bg-violet-600/90 backdrop-blur-md text-white text-[10px] font-mono font-bold tracking-widest uppercase shadow-lg"
+            >
+              <FlaskConical className="w-3 h-3 animate-pulse" />
+              <span>BETA MODE ACTIVE — here be dragons. you asked for this.</span>
+              <button
+                onClick={() => setBetaMode(false)}
+                className="ml-4 opacity-60 hover:opacity-100 transition-opacity text-white leading-none"
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className={`absolute right-4 flex items-center gap-2 transition-all duration-300 ${betaMode ? 'top-9 sm:top-11' : 'top-2 sm:top-6'}`}>
           <RecentTracksButton onClick={() => setRecentTracksOpen(true)} />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              setBetaMode(b => !b);
+              if (!betaMode) toast.success("⚗️ Beta mode activated. Tread lightly.", { duration: 3000 });
+              else toast.info("Beta mode deactivated. Back to safety.", { duration: 2000 });
+            }}
+            className={`rounded-full backdrop-blur-md border transition-all duration-300 ${
+              betaMode
+                ? 'bg-violet-500/20 border-violet-400/50 hover:bg-violet-500/30 shadow-[0_0_14px_rgba(139,92,246,0.5)]'
+                : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10'
+            }`}
+            title={betaMode ? "Beta mode ON — click to disable" : "Enable beta mode"}
+          >
+            <FlaskConical className={`w-5 h-5 transition-colors duration-300 ${betaMode ? 'text-violet-400' : 'text-gray-500 dark:text-gray-400'}`} />
+          </Button>
           <Button 
             variant="outline" 
             size="icon" 
@@ -1825,22 +1889,29 @@ function MainApp() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
+                        <div className={`p-4 rounded-2xl bg-black/5 dark:bg-white/10 border transition-all duration-500 space-y-4 ${
+                          betaMode
+                            ? 'border-violet-400/30 shadow-[0_0_24px_rgba(139,92,246,0.12)]'
+                            : 'border-black/10 dark:border-white/10'
+                        }`}>
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
+                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">
+                              Select Model {betaMode && <span className="text-violet-400 ml-1">— Beta Tiers</span>}
+                            </h4>
                             {splitterAvailability && Object.values(splitterAvailability).every(v => !v) && (
                               <span className="text-[10px] opacity-60">hosted: none installed</span>
                             )}
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {[
-                              { id: 'demucs',      name: 'Demucs',      beta: false },
-                              { id: 'mdx',         name: 'MDX-Net',     beta: true  },
-                              { id: 'spleeter',    name: 'Spleeter',    beta: false },
-                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true  },
+                              { id: 'demucs',      name: 'Demucs',      beta: false, tier: 'stable'       },
+                              { id: 'mdx',         name: 'MDX-Net',     beta: true,  tier: 'experimental' },
+                              { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'experimental' },
+                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental' },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
                               const isSelected = splittingModel === modelObj.id;
+                              const showBeta = betaMode ? modelObj.tier !== 'stable' : modelObj.beta;
                               const handleClick = () => {
                                 if (isAvailable) {
                                   setSplittingModel(modelObj.id as any);
@@ -1859,18 +1930,27 @@ function MainApp() {
                                   className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all overflow-hidden ${
                                     !isAvailable
                                       ? "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-40 cursor-not-allowed hover:opacity-60"
-                                      : isSelected
-                                        ? "cursor-pointer bg-foreground/10 border-foreground/30 text-foreground"
-                                        : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
+                                      : isSelected && betaMode && modelObj.tier === 'experimental'
+                                        ? "cursor-pointer bg-violet-500/10 border-violet-400/40 text-foreground shadow-[0_0_12px_rgba(139,92,246,0.2)]"
+                                        : isSelected
+                                          ? "cursor-pointer bg-foreground/10 border-foreground/30 text-foreground"
+                                          : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
                                   }`}
                                 >
-                                  {/* β corner ribbon for beta models */}
-                                  {modelObj.beta && isAvailable && (
+                                  {/* β corner ribbon */}
+                                  {showBeta && isAvailable && (
                                     <span className="absolute top-0 right-0 px-1.5 py-0.5 text-[8px] font-black tracking-widest uppercase rounded-bl-lg bg-violet-500/15 text-violet-500 dark:text-violet-300 border-b border-l border-violet-400/25 leading-tight select-none">
                                       β
                                     </span>
                                   )}
                                   <span className="text-sm font-medium">{modelObj.name}</span>
+                                  {betaMode && isAvailable && (
+                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                                      modelObj.tier === 'stable' ? 'text-green-500 dark:text-green-400 opacity-70' : 'text-violet-400 opacity-80'
+                                    }`}>
+                                      {modelObj.tier === 'stable' ? '✓ stable' : '⚗ experimental'}
+                                    </span>
+                                  )}
                                   {!isAvailable && (
                                     <span className="text-[10px] opacity-70">Local install</span>
                                   )}
@@ -2027,27 +2107,67 @@ function MainApp() {
                           <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="grid grid-cols-2 gap-4"
+                            className="space-y-4"
                           >
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Tempo</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.bpm} <span className="text-sm font-normal opacity-40">BPM</span></p>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Key & Scale</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.key} <span className="text-sm font-normal opacity-40">{analysis.scale}</span></p>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Mood</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.mood}</p>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Energy</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <Progress value={analysis.energy * 100} className="h-2 bg-black/10 dark:bg-white/10" />
-                                <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Tempo</p>
+                                <p className="text-3xl font-bold text-foreground">
+                                  {betaMode ? analysis.rawBpm ?? analysis.bpm : analysis.bpm}{' '}
+                                  <span className="text-sm font-normal opacity-40">BPM</span>
+                                </p>
+                              </div>
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Key & Scale</p>
+                                <p className="text-3xl font-bold text-foreground">{analysis.key} <span className="text-sm font-normal opacity-40">{analysis.scale}</span></p>
+                              </div>
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Mood</p>
+                                <p className="text-3xl font-bold text-foreground">{analysis.mood}</p>
+                              </div>
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Energy</p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <Progress value={analysis.energy * 100} className="h-2 bg-black/10 dark:bg-white/10" />
+                                  <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
+                                </div>
                               </div>
                             </div>
+
+                            {/* Extended raw analysis — beta mode only */}
+                            <AnimatePresence>
+                              {betaMode && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="p-4 rounded-2xl border border-violet-400/25 bg-violet-500/5 space-y-3">
+                                    <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1.5">
+                                      <FlaskConical className="w-3 h-3" />
+                                      Raw Data — Extended Analysis
+                                    </p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div>
+                                        <p className="text-[9px] opacity-50 uppercase tracking-wider mb-0.5">Danceability</p>
+                                        <p className="text-xl font-bold font-mono text-foreground">{Math.round((analysis.danceability ?? 0) * 100)}<span className="text-xs font-normal opacity-40">%</span></p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] opacity-50 uppercase tracking-wider mb-0.5">Key Strength</p>
+                                        <p className="text-xl font-bold font-mono text-foreground">{analysis.keyStrength ?? '—'}<span className="text-xs font-normal opacity-40">%</span></p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] opacity-50 uppercase tracking-wider mb-0.5">Loudness</p>
+                                        <p className="text-xl font-bold font-mono text-foreground">{analysis.loudness ?? '—'}<span className="text-xs font-normal opacity-40"> dBFS</span></p>
+                                      </div>
+                                    </div>
+                                    <p className="text-[9px] opacity-40 italic">⚠ BPM + Key via real Essentia when available. Danceability, mood, and energy are estimated.</p>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </motion.div>
                         )}
 
@@ -2163,6 +2283,76 @@ function MainApp() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold opacity-70">No track loaded</h2>
                 <p className="opacity-70 max-w-sm">Paste a URL or upload a file above to start your music analysis journey.</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Beta Lab Notes — collapsible, only visible in beta mode */}
+        <AnimatePresence>
+          {betaMode && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ delay: 0.1 }}
+              className="mt-6"
+            >
+              <div className="rounded-2xl border border-violet-400/25 bg-violet-500/5 overflow-hidden">
+                <button
+                  onClick={() => setBetaLabOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-violet-500/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-violet-400" />
+                    <span className="text-sm font-bold text-violet-400 uppercase tracking-wider">Beta Lab Notes</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">v2-beta</span>
+                  </div>
+                  {betaLabOpen
+                    ? <ChevronUp className="w-4 h-4 text-violet-400 opacity-60" />
+                    : <ChevronDown className="w-4 h-4 text-violet-400 opacity-60" />
+                  }
+                </button>
+
+                <AnimatePresence>
+                  {betaLabOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 space-y-4 border-t border-violet-400/15">
+                        <p className="text-[11px] opacity-50 pt-3 italic">What's cooking in the lab. No guarantees. Fully vibes-driven engineering.</p>
+
+                        <div className="space-y-2">
+                          {[
+                            { icon: "✦", label: "MDX-Net stem splitting", note: "ONNX runtime — no CUDA, no 700MB torch packages, no drama." },
+                            { icon: "✦", label: "BS-Roformer stem splitting", note: "Transformer-based. Sounds intimidating. Kind of is." },
+                            { icon: "✦", label: "Live split log via SSE", note: "Watch the model work in real time. Very satisfying. Very terminal-coded." },
+                            { icon: "✦", label: "Song-named ZIP downloads", note: "No more job_172abc... filenames. You get Song_Name_stems.zip. Like a civilised person." },
+                            { icon: "✦", label: "Extended analysis panel", note: "Raw key strength, loudness in dBFS, danceability %. Real values where Essentia provides them." },
+                            { icon: "✦", label: "Demucs torchaudio fix", note: "Patched audio.py to write via soundfile directly — torchaudio 2.11 removed every non-CUDA backend and chose violence." },
+                            { icon: "✦", label: "This beta mode toggle", note: "Meta. We know. But here we are, and you clicked it, so." },
+                          ].map((item, i) => (
+                            <div key={i} className="flex gap-3 text-sm">
+                              <span className="text-violet-400 mt-0.5 shrink-0">{item.icon}</span>
+                              <div>
+                                <span className="font-semibold text-foreground">{item.label}</span>
+                                <span className="opacity-50 ml-2 text-[11px]">{item.note}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="text-[10px] opacity-40 border-t border-violet-400/10 pt-3">
+                          ⚠ BETA = "Best Effort, Technically Available". Models marked experimental require a local install. Use at your own risk and enjoy the chaos.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
