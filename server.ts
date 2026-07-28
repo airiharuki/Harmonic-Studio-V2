@@ -35,7 +35,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // boot: if the binary is missing or the wrong version, it downloads a fresh
 // copy on the fly. Falls back to the "node" JS runtime if that also fails.
 function ensureDenoRuntime(): string | null {
-  const DENO_VERSION = "2.6.0";
+  const DENO_VERSION = "2.9.4";
   const binDir = path.join(projectRoot, ".bin");
   const denoBin = path.join(binDir, "deno");
 
@@ -296,9 +296,6 @@ async function startServer() {
       ffmpegLocation: ffmpegStatic,
       jsRuntimes: jsRuntime,
       cookies: hasCookies ? cookiePath : undefined,
-      // Use player clients that don't require sign-in for public videos.
-      // tv_embedded is anonymous and stable; android is a reliable fallback.
-      extractorArgs: 'youtube:player_client=tv_embedded,android',
       addHeader: [
         'referer:https://www.youtube.com/',
         'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
