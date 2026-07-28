@@ -56,6 +56,7 @@ import { PianoRoll } from "./components/PianoRoll";
 import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
+import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
 import { 
   createSoundFont2SynthNode, 
   type SoundFont2SynthNode 
@@ -654,6 +655,8 @@ function MainApp() {
   }, []);
 
   const [bpmError, setBpmError] = useState<string | null>(null);
+  const [moodFilter, setMoodFilter] = useState<string>('');
+  const [lastProgInfo, setLastProgInfo] = useState<{ raw: string; moods: string[] } | null>(null);
 
   // ── Tap Tempo ──────────────────────────────────────────────────────────────
   const tapTimesRef = useRef<number[]>([]);
@@ -1156,52 +1159,24 @@ function MainApp() {
     }
   };
 
-  const handleGenerateLoop = async () => {
-    if (loopBpm > 300) {
-      toast.error("We’re not making extra tone today");
-      return;
-    }
-    if (loopBpm < 30) {
-      toast.error("BPM too low! Minimum is 30.");
-      return;
-    }
-    setGeneratingLoop(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a professional music producer. Generate a ${loopBars}-bar chord progression for a loop in the key of ${loopKey} ${loopScale}. 
-      The time signature is ${loopTimeSig || '4/4'} and the BPM is ${loopBpm || 120}.
-      Make the progression musical and interesting, suitable for a modern track.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.STRING,
-              description: "A musical chord symbol (e.g., Cmaj7, Am7, Dm7, G7)"
-            },
-            description: `An array of exactly ${loopBars} chord strings representing the progression.`
-          }
-        }
-      });
-      
-      let text = response.text || "[]";
-      const chords = JSON.parse(text);
-      
-      // Ensure we have the correct number of chords
-      const finalChords = Array.isArray(chords) ? chords.slice(0, loopBars) : new Array(loopBars).fill("C");
-      while (finalChords.length < loopBars) finalChords.push(finalChords[finalChords.length - 1] || "C");
-      
-      setLoopChords(finalChords);
-      toast.success(`Generated ${loopBars}-bar loop in ${loopKey} ${loopScale}!`);
-    } catch (error: any) {
-      toast.error("Failed to generate loop: " + error.message);
-    } finally {
-      setGeneratingLoop(false);
-    }
+  const handleGenerateLoop = () => {
+    if (loopBpm > 300) { toast.error("We're not making extra tone today"); return; }
+    if (loopBpm < 30)  { toast.error("BPM too low! Minimum is 30."); return; }
+
+    // Map UI scale to ProgScale — treat Modal as Minor for key resolution
+    const progScale: ProgScale =
+      loopScale === 'Major' ? 'Major' :
+      loopScale === 'Minor' ? 'Minor' : 'Minor';
+
+    const prog = pickProgression(progScale, moodFilter || undefined);
+    const chords = resolveProgression(prog.raw, loopKey, prog.scale, loopBars);
+
+    setLoopChords(chords);
+    setLastProgInfo({ raw: prog.raw, moods: prog.moods });
+    toast.success(
+      `${loopKey} ${loopScale}${prog.moods.length ? ` · ${prog.moods.join(' ')}` : ''}`,
+      { icon: '🎵', duration: 3000 }
+    );
   };
 
   const playLoop = async () => {
@@ -1600,24 +1575,53 @@ function MainApp() {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button 
-                      onClick={handleGenerateLoop}
-                      disabled={generatingLoop || !!bpmError}
-                      className="h-14 bg-foreground text-background hover:bg-foreground/90 font-bold text-lg rounded-2xl shadow-lg"
-                    >
-                      {generatingLoop ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Sparkles className="w-5 h-5 mr-2" />}
-                      Generate Loop
-                    </Button>
-                    <Button 
-                      onClick={playLoop}
-                      disabled={!loopChords}
-                      variant="outline"
-                      className="h-14 border-foreground/20 hover:bg-foreground/5 font-bold text-lg rounded-2xl"
-                    >
-                      {isLoopPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                      {isLoopPlaying ? "Stop Loop" : "Play Loop"}
-                    </Button>
+                  {/* Mood filter + generate row */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 space-y-1">
+                        <label className="text-xs font-bold uppercase opacity-70">Mood</label>
+                        <select
+                          value={moodFilter}
+                          onChange={e => setMoodFilter(e.target.value)}
+                          className="theme-input w-full p-2 rounded-lg border border-foreground/20 bg-background text-sm"
+                        >
+                          <option value="">Any mood</option>
+                          {ALL_MOODS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button
+                        onClick={handleGenerateLoop}
+                        disabled={!!bpmError}
+                        className="h-14 bg-foreground text-background hover:bg-foreground/90 font-bold text-lg rounded-2xl shadow-lg"
+                      >
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Roll Progression
+                      </Button>
+                      <Button
+                        onClick={playLoop}
+                        disabled={!loopChords}
+                        variant="outline"
+                        className="h-14 border-foreground/20 hover:bg-foreground/5 font-bold text-lg rounded-2xl"
+                      >
+                        {isLoopPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                        {isLoopPlaying ? "Stop Loop" : "Play Loop"}
+                      </Button>
+                    </div>
+
+                    {/* Last progression info */}
+                    {lastProgInfo && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-foreground/5 border border-foreground/10">
+                        <span className="text-[10px] font-mono opacity-40 flex-1 truncate">{lastProgInfo.raw}</span>
+                        <div className="flex gap-1 shrink-0">
+                          {lastProgInfo.moods.map(m => (
+                            <span key={m} className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-foreground/10 opacity-60">{m}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 space-y-4">
