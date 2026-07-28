@@ -63,8 +63,22 @@ Ready to get your hands dirty? Here is the warmest, most welcoming path to getti
 4. **Test it locally.** (Please make sure the app actually boots up before pushing — your future reviewers will appreciate it deeply).
 5. **Commit your code** using that sweet **Conventional Commit** format we talked about above (`feat: add cool thing`).
 6. **Push** to your fork (`git push origin feature/cool-thing`).
-7. **Open a Pull Request!** Write a little description about what you did and why. We love reading them.
+7. **Open a Pull Request — targeting `beta`, not `main`.** Write a little description about what you did and why. We love reading them.
 8. Kick back and wait for a review. We're kind and constructive here, so don't stress if we suggest a few tweaks — it's all in good faith.
+
+### 🧪 The Two-Branch Journey
+
+We keep a `beta` branch as a living testing ground — a place where cool ideas get to breathe before they hit the main stage.
+
+```
+your fork → beta → main
+```
+
+**If your PR gets merged into `beta`: you're halfway there. Actually more than halfway.** That means we looked at your code, liked what we saw, and trusted it enough to run it live. Give yourself a moment. That's real. 🎉
+
+From there, once `beta` has been battle-tested and nothing explodes, it gets promoted to `main` — which is what powers the live app. So your work *will* make it. It just takes a pit stop first.
+
+> **TL;DR:** Open your PR against `beta`. Landing in `beta` is not a consolation prize — it's the finish line, with one more lap to go.
 
 ## 📜 Keeping the Code Clean
 We don't have a million strict corporate rules — this is a music app, not a bank. But please keep these in mind so the next person who touches this code has a good time:
