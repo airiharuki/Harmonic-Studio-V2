@@ -625,9 +625,15 @@ function MainApp() {
   const [loopChords, setLoopChords] = useState<string[] | null>(null);
   const [generatingLoop, setGeneratingLoop] = useState(false);
   const [isLoopPlaying, setIsLoopPlaying] = useState(false);
+  const [loopCurrentTime, setLoopCurrentTime] = useState(0);
   const [synth, setSynth] = useState<SoundFont2SynthNode | null>(null);
   const [sfData, setSfData] = useState<ArrayBuffer | null>(null);
   const [isSfLoading, setIsSfLoading] = useState(false);
+
+  // Refs so async playback callbacks always see the latest values
+  const isLoopPlayingRef = useRef(false);
+  const loopAudioCtxRef = useRef<AudioContext | null>(null);
+  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const preloadSF = async () => {
@@ -1170,110 +1176,136 @@ function MainApp() {
   const playLoop = async () => {
     if (!loopChords) return;
     
-    if (isLoopPlaying) {
+    // ── Stop ──────────────────────────────────────────────────────────────────
+    if (isLoopPlayingRef.current) {
+      isLoopPlayingRef.current = false;
       setIsLoopPlaying(false);
-      if (synth) {
-        synth.stopAllNotes();
-      }
+      if (loopTimerRef.current) { clearTimeout(loopTimerRef.current); loopTimerRef.current = null; }
+      // silence all notes on the cached synth
+      if (synth) { for (let n = 0; n < 128; n++) synth.noteOff(0, n, 0); }
+      setLoopCurrentTime(0);
       return;
     }
 
-    // Safari requires AudioContext to be created and resumed synchronously in the click handler
+    // ── Start ─────────────────────────────────────────────────────────────────
+    // Reuse existing AudioContext so the synth stays connected to it.
+    // Only create a new one (and therefore a new synth) when the old one is gone.
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    const audioCtx = new AudioContextClass();
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
+    let audioCtx = loopAudioCtxRef.current;
+    let needNewSynth = false;
+    if (!audioCtx || audioCtx.state === 'closed') {
+      audioCtx = new AudioContextClass();
+      loopAudioCtxRef.current = audioCtx;
+      needNewSynth = true;
     }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
 
+    isLoopPlayingRef.current = true;
     setIsLoopPlaying(true);
-    
+    setLoopCurrentTime(0);
+
     try {
-      let currentSynth = synth;
+      let currentSynth = needNewSynth ? null : synth;
       if (!currentSynth) {
         try {
           let sfArrayBuffer = sfData;
           if (!sfArrayBuffer) {
-            toast.info("Loading custom e-piano soundfont...");
+            toast.info("Loading soundfont…");
             let sfResponse = await fetch('/epiano.sf2');
-            if (!sfResponse.ok) {
-              sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
-            }
-            if (!sfResponse.ok) {
-              sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
-            }
+            if (!sfResponse.ok) sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+            if (!sfResponse.ok) sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
             if (!sfResponse.ok) throw new Error("Soundfont not found");
             sfArrayBuffer = await sfResponse.arrayBuffer();
             setSfData(sfArrayBuffer);
           }
-          
           const blob = new Blob([sfArrayBuffer], { type: 'application/octet-stream' });
           const sfUrl = URL.createObjectURL(blob);
           currentSynth = await createSoundFont2SynthNode(audioCtx, sfUrl);
           currentSynth.connect(audioCtx.destination);
-          
-          // Add compatibility layer
-          (currentSynth as any).play = (noteName: string, time: number, options: any) => {
-              const midiNote = Note.midi(noteName);
-              if (midiNote === undefined) return { stop: () => {} };
-              const velocity = Math.floor((options.gain || 0.8) * 127);
-              const duration = options.duration || 1;
-              const delay = Math.max(0, time - audioCtx.currentTime);
-              
-              currentSynth!.noteOn(0, midiNote, velocity, delay);
-              currentSynth!.noteOff(0, midiNote, delay + duration);
-
-              return {
-                  stop: () => {
-                      currentSynth!.noteOff(0, midiNote, 0);
-                  }
-              };
-          };
-
-          (currentSynth as any).stopAllNotes = () => {
-              for (let i = 0; i < 128; i++) {
-                  currentSynth!.noteOff(0, i, 0);
-              }
-          };
-          
           setSynth(currentSynth);
         } catch (e) {
           console.error("SF2 Synth load error:", e);
           toast.error("Failed to load soundfont.");
+          isLoopPlayingRef.current = false;
           setIsLoopPlaying(false);
           return;
         }
       }
 
       currentSynth.setProgram(0, 0, 4);
-      const barDuration = (60 / loopBpm) * 4; // Assuming 4/4 for now
-      
-      for (let i = 0; i < loopChords.length; i++) {
-        if (!isLoopPlaying) break;
-        
-        const chordName = loopChords[i];
-        const notes = Chord.get(chordName).notes;
-        const midiNotes = notes.map(n => Note.midi(n + "4"));
+      const barDuration = (60 / loopBpm) * 4;
+      const totalDuration = loopChords.length * barDuration;
+      let chordIdx = 0;
+      const playStart = Date.now();
 
-        // Play notes
-        const startTime = audioCtx.currentTime;
-        midiNotes.forEach(note => {
-          if (note !== null) {
-            const noteName = Note.fromMidi(note);
-            currentSynth.play(noteName, startTime, { duration: barDuration * 0.9, gain: 0.8 });
+      const tick = () => {
+        if (!isLoopPlayingRef.current) return;
+
+        // Update piano-roll playhead
+        const elapsed = (Date.now() - playStart) / 1000;
+        setLoopCurrentTime(elapsed % totalDuration);
+
+        // Fire chord
+        const chordName = loopChords[chordIdx];
+        const notes = Chord.get(chordName).notes;
+        notes.forEach(noteName => {
+          const midiNote = Note.midi(noteName + "4");
+          if (midiNote != null) {
+            currentSynth!.noteOn(0, midiNote, 100, 0);
+            currentSynth!.noteOff(0, midiNote, barDuration * 0.88);
           }
         });
 
-        await new Promise(resolve => setTimeout(resolve, barDuration * 1000));
-        
-        if (i === loopChords.length - 1) {
-          i = -1; // Loop back
-        }
-      }
+        chordIdx = (chordIdx + 1) % loopChords.length;
+        loopTimerRef.current = setTimeout(tick, barDuration * 1000);
+      };
+
+      tick();
     } catch (error) {
       console.error("Playback error:", error);
       toast.error("Playback error. Check console.");
+      isLoopPlayingRef.current = false;
       setIsLoopPlaying(false);
+      if (loopTimerRef.current) clearTimeout(loopTimerRef.current);
     }
+  };
+
+  // ── MIDI helpers ────────────────────────────────────────────────────────────
+
+  const buildLoopPianoRoll = (chords: string[], bpm: number) => {
+    const barDuration = (60 / bpm) * 4;
+    const notes: { midi: number; time: number; duration: number; velocity: number }[] = [];
+    chords.forEach((chordName, i) => {
+      Chord.get(chordName).notes.forEach(noteName => {
+        const midiNote = Note.midi(noteName + "4");
+        if (midiNote != null) notes.push({ midi: midiNote, time: i * barDuration, duration: barDuration * 0.88, velocity: 100 });
+      });
+    });
+    return { tracks: [{ name: 'Chord Progression', notes }], duration: chords.length * barDuration };
+  };
+
+  const exportLoopMidi = () => {
+    if (!loopChords) return;
+    const barDuration = (60 / loopBpm) * 4;
+    const midi = new Midi();
+    midi.header.setTempo(loopBpm);
+    const track = midi.addTrack();
+    track.name = 'Loop Studio';
+    loopChords.forEach((chordName, i) => {
+      Chord.get(chordName).notes.forEach(noteName => {
+        const midiNote = Note.midi(noteName + "4");
+        if (midiNote != null) track.addNote({ midi: midiNote, time: i * barDuration, duration: barDuration * 0.88, velocity: 0.8 });
+      });
+    });
+    const bytes = midi.toArray();
+    const blob = new Blob([bytes], { type: 'audio/midi' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${loopKey}_${loopScale}_${loopBpm}bpm.mid`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('MIDI exported!', { icon: '🎹' });
   };
 
   return (
@@ -1838,6 +1870,26 @@ function MainApp() {
                         <span className="text-3xl font-bold tracking-tighter group-hover:scale-110 transition-transform">{chord}</span>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Piano Roll preview */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase opacity-50 tracking-wider">Piano Roll</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportLoopMidi}
+                        className="h-7 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10 gap-1.5"
+                      >
+                        <Download className="w-3 h-3" />
+                        Export MIDI
+                      </Button>
+                    </div>
+                    {(() => {
+                      const { tracks, duration } = buildLoopPianoRoll(loopChords, loopBpm);
+                      return <PianoRoll tracks={tracks} duration={duration} currentTime={loopCurrentTime} />;
+                    })()}
                   </div>
                 </motion.div>
               )}
