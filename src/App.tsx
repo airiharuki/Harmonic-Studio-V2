@@ -110,10 +110,65 @@ function MainApp() {
     try { return localStorage.getItem('beta-mode') === 'true'; } catch { return false; }
   });
   const [betaLabOpen, setBetaLabOpen] = useState(false);
+  const [titleClickCount, setTitleClickCount] = useState(0);
 
   useEffect(() => {
     try { localStorage.setItem('beta-mode', String(betaMode)); } catch {}
   }, [betaMode]);
+
+  // 🥚 Easter egg #1 — Konami code: ↑↑↓↓←→←→
+  useEffect(() => {
+    const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight'];
+    let idx = 0;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === KONAMI[idx]) {
+        idx++;
+        if (idx === KONAMI.length) {
+          idx = 0;
+          setBetaMode(true);
+          toast('🎮 Konami code accepted. Beta mode unlocked.', { icon: '⚗️', duration: 4000 });
+        }
+      } else {
+        idx = e.key === KONAMI[0] ? 1 : 0;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // 🥚 Easter egg #2 — type "studio" anywhere
+  useEffect(() => {
+    const SECRET = 'studio';
+    let typed = '';
+    let timer: ReturnType<typeof setTimeout>;
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      typed += e.key.toLowerCase();
+      if (typed.length > SECRET.length) typed = typed.slice(-SECRET.length);
+      clearTimeout(timer);
+      timer = setTimeout(() => { typed = ''; }, 1500);
+      if (typed === SECRET) {
+        typed = '';
+        setBetaMode(true);
+        toast('🎹 You know the word. Beta mode unlocked.', { icon: '🔑', duration: 4000 });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => { window.removeEventListener('keydown', handler); clearTimeout(timer); };
+  }, []);
+
+  // 🥚 Easter egg #3 — click the title 7× within 3 s (handled via titleClickCount state)
+  useEffect(() => {
+    if (titleClickCount === 0) return;
+    if (titleClickCount >= 7) {
+      setTitleClickCount(0);
+      setBetaMode(true);
+      toast('🫙 Seven taps. You found it. Beta mode unlocked.', { icon: '⚗️', duration: 4000 });
+      return;
+    }
+    const timer = setTimeout(() => setTitleClickCount(0), 3000);
+    return () => clearTimeout(timer);
+  }, [titleClickCount]);
 
   // Ask the server which stem-splitter binaries are actually installed.
   // Models the server can't run get greyed out in the picker and link to the
@@ -1298,7 +1353,9 @@ function MainApp() {
               <motion.h1 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md"
+                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md cursor-default select-none"
+                onClick={() => setTitleClickCount(c => c + 1)}
+                title={titleClickCount > 0 && titleClickCount < 7 ? `${7 - titleClickCount} more...` : undefined}
               >
                 Vibe Composer
               </motion.h1>
