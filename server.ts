@@ -557,14 +557,20 @@ async function startServer() {
       let args: string[] = [];
       let bin = "demucs";
 
+      // audio-separator (MDX/BS-Roformer) outputs files directly into its --output_dir.
+      // Demucs outputs into <outDir>/htdemucs/<inputBasename>/
+      const audioSepOutDir = path.join(outputDirForJob, "audio_sep_out");
+
       switch (model) {
         case 'mdx':
           bin = "audio-separator";
-          args = [inputPath, "--model_filename", "UVR-MDX-NET-Inst_HQ_3.onnx", "--output_dir", path.join(outputDirForJob, "htdemucs", "input")];
+          fs.mkdirSync(audioSepOutDir, { recursive: true });
+          args = [inputPath, "--model_filename", "UVR-MDX-NET-Inst_HQ_3.onnx", "--output_dir", audioSepOutDir];
           break;
         case 'bs-roformer':
           bin = "audio-separator";
-          args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", path.join(outputDirForJob, "htdemucs", "input")];
+          fs.mkdirSync(audioSepOutDir, { recursive: true });
+          args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", audioSepOutDir];
           break;
         case 'spleeter':
           bin = "spleeter";
@@ -590,9 +596,6 @@ async function startServer() {
       }
 
       log(`Starting ${(model || "demucs").toUpperCase()} stem separation...`);
-      if (model === 'mdx' || model === 'bs-roformer') {
-        fs.mkdirSync(path.join(outputDirForJob, "htdemucs", "input"), { recursive: true });
-      }
 
       await new Promise<void>((resolve, reject) => {
         const proc = spawn(bin, args);
@@ -617,8 +620,18 @@ async function startServer() {
 
       log("Separation complete. Packaging stems...");
 
-      // 3. Zip the results
-      const stemsPath = path.join(outputDirForJob, "htdemucs", "input");
+      // 3. Locate the stems and zip them.
+      // Demucs: <outputDirForJob>/htdemucs/input/  → named vocals.wav, drums.wav, bass.wav, other.wav
+      // audio-separator: audioSepOutDir            → named input_(Vocals)_*.flac etc. — zip everything
+      let stemsPath: string;
+      const isAudioSep = (model === 'mdx' || model === 'bs-roformer');
+
+      if (isAudioSep) {
+        stemsPath = audioSepOutDir;
+      } else {
+        stemsPath = path.join(outputDirForJob, "htdemucs", "input");
+      }
+
       const zipFilename = `${jobId}_stems.zip`;
       const zipPath = path.join(outputDir, zipFilename);
       const outputStream = fs.createWriteStream(zipPath);
@@ -629,7 +642,10 @@ async function startServer() {
         archive.on("error", reject);
         archive.pipe(outputStream);
 
-        if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
+        if (isAudioSep) {
+          // audio-separator produces its own naming — just include everything it made
+          archive.directory(stemsPath, false);
+        } else if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
           for (const stem of stemsToZip) {
             const stemFile = `${stem}.wav`;
             const fullStemPath = path.join(stemsPath, stemFile);
