@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import fs from "fs";
 import crypto from "crypto";
-import { exec, execSync } from "child_process";
+import { exec, execSync, spawn } from "child_process";
 import { promisify } from "util";
 import youtubedl from "youtube-dl-exec";
 import archiver from "archiver";
@@ -488,6 +488,17 @@ async function startServer() {
     const { url, filename, stemsToZip, model } = req.body;
     if (!url && !filename) return res.status(400).json({ error: "URL or filename is required" });
 
+    // --- SSE setup ---
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const send = (type: string, payload: Record<string, any>) => {
+      res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
+    };
+    const log = (line: string) => send("log", { line });
+
     const jobId = `job_${Date.now()}`;
     const jobDir = path.join(downloadsDir, jobId);
     fs.mkdirSync(jobDir);
@@ -498,8 +509,8 @@ async function startServer() {
 
     try {
       if (url) {
-        console.log(`Downloading for splitting: ${url}`);
-        
+        log("Downloading audio from URL...");
+
         let attempts = 0;
         const maxAttempts = 2;
         while (attempts < maxAttempts) {
@@ -510,7 +521,7 @@ async function startServer() {
             attempts++;
             const isConnectionReset = err.message?.includes('Remote end closed connection') || err.message?.includes('EPIPE');
             if (isConnectionReset && attempts < maxAttempts) {
-              console.warn(`Split download connection reset on attempt ${attempts}. Retrying...`);
+              log(`Download connection reset — retrying (attempt ${attempts})...`);
               await new Promise(r => setTimeout(r, 2000));
               continue;
             }
@@ -518,7 +529,7 @@ async function startServer() {
           }
         }
 
-        console.log(`Converting to WAV for splitting...`);
+        log("Download complete. Converting to WAV...");
         await new Promise((resolve, reject) => {
           ffmpeg(tempFile)
             .toFormat('wav')
@@ -529,93 +540,119 @@ async function startServer() {
             .on('error', reject)
             .save(inputPath);
         });
+        log("WAV conversion done.");
       } else if (filename) {
-        // 1b. Use uploaded file
         const sourcePath = path.join(downloadsDir, filename);
         if (!fs.existsSync(sourcePath)) {
-          return res.status(404).json({ error: "Uploaded file not found" });
+          send("error", { message: "Uploaded file not found" });
+          res.end();
+          return;
         }
-        // Copy to job dir
         fs.copyFileSync(sourcePath, inputPath);
+        log(`Using uploaded file: ${filename}`);
       }
 
       // 2. Run Splitting
       const outputDirForJob = path.join(outputDir, jobId);
-      let command = "";
+      let args: string[] = [];
+      let bin = "demucs";
+
       switch (model) {
         case 'mdx':
-          command = `audio-separator "${inputPath}" --model_filename UVR-MDX-NET-Inst_HQ_3.onnx --output_dir "${path.join(outputDirForJob, "htdemucs", "input")}"`;
+          bin = "audio-separator";
+          args = [inputPath, "--model_filename", "UVR-MDX-NET-Inst_HQ_3.onnx", "--output_dir", path.join(outputDirForJob, "htdemucs", "input")];
           break;
         case 'bs-roformer':
-          command = `audio-separator "${inputPath}" --model_filename model_bs_roformer_ep_317_sdr_12.9755.ckpt --output_dir "${path.join(outputDirForJob, "htdemucs", "input")}"`;
+          bin = "audio-separator";
+          args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", path.join(outputDirForJob, "htdemucs", "input")];
           break;
         case 'spleeter':
-          command = `spleeter separate -o "${outputDirForJob}" "${inputPath}"`;
+          bin = "spleeter";
+          args = ["separate", "-o", outputDirForJob, inputPath];
           break;
         case 'demucs':
         default:
-          command = `demucs -o "${outputDirForJob}" "${inputPath}"`;
+          bin = "demucs";
+          args = ["-o", outputDirForJob, inputPath];
           break;
       }
-      
-      // Confirm the requested splitter is actually installed before running.
-      // This replaces the previous silent fallback that copied the input mix
-      // into four "mock stems" — that was misleading users into thinking the
-      // separation worked when it hadn't.
+
       const available = await detectSplitters();
       if (!available[model || "demucs"]) {
-        // Clean up the job dir so we don't leak the converted WAV.
         try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch {}
-        return res.status(503).json({
-          error: `Stem splitter "${model}" is not installed on this server. ` +
-            `Stem splitting requires heavy ML runtimes (PyTorch / ONNX / TensorFlow) ` +
-            `that aren't available on the hosted version. Run the project locally ` +
-            `to use this feature — see ${REPO_URL} for install instructions.`,
-          model,
+        send("error", {
+          message: `Stem splitter "${model}" is not installed on this server. ` +
+            `Run the project locally to use this feature — see ${REPO_URL} for install instructions.`,
           repoUrl: REPO_URL,
         });
+        res.end();
+        return;
       }
 
-      console.log(`Running splitting command: ${command}`);
+      log(`Starting ${(model || "demucs").toUpperCase()} stem separation...`);
       if (model === 'mdx' || model === 'bs-roformer') {
-        // audio-separator expects the output dir to already exist
         fs.mkdirSync(path.join(outputDirForJob, "htdemucs", "input"), { recursive: true });
       }
-      await execAsync(command);
+
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn(bin, args);
+
+        const handleLine = (data: Buffer) => {
+          const text = data.toString();
+          text.split(/\r?\n/).forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed) log(trimmed);
+          });
+        };
+
+        proc.stdout.on("data", handleLine);
+        proc.stderr.on("data", handleLine);
+
+        proc.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`${bin} exited with code ${code}`));
+        });
+        proc.on("error", reject);
+      });
+
+      log("Separation complete. Packaging stems...");
 
       // 3. Zip the results
       const stemsPath = path.join(outputDirForJob, "htdemucs", "input");
       const zipFilename = `${jobId}_stems.zip`;
       const zipPath = path.join(outputDir, zipFilename);
-      const output = fs.createWriteStream(zipPath);
+      const outputStream = fs.createWriteStream(zipPath);
       const archive = archiver("zip", { zlib: { level: 9 } });
 
-      output.on("close", () => {
-        const token = createFileToken(zipPath, zipFilename);
-        res.json({ filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS });
+      await new Promise<void>((resolve, reject) => {
+        outputStream.on("close", resolve);
+        archive.on("error", reject);
+        archive.pipe(outputStream);
+
+        if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
+          for (const stem of stemsToZip) {
+            const stemFile = `${stem}.wav`;
+            const fullStemPath = path.join(stemsPath, stemFile);
+            if (fs.existsSync(fullStemPath)) {
+              archive.file(fullStemPath, { name: stemFile });
+            }
+          }
+        } else {
+          archive.directory(stemsPath, false);
+        }
+
+        archive.finalize();
       });
 
-      archive.pipe(output);
-      
-      // If specific stems requested, only zip those
-      if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
-        for (const stem of stemsToZip) {
-          const stemFile = `${stem}.wav`;
-          const fullStemPath = path.join(stemsPath, stemFile);
-          if (fs.existsSync(fullStemPath)) {
-            archive.file(fullStemPath, { name: stemFile });
-          }
-        }
-      } else {
-        // Default: zip all
-        archive.directory(stemsPath, false);
-      }
-      
-      await archive.finalize();
+      const token = createFileToken(zipPath, zipFilename);
+      log("ZIP ready. Starting download...");
+      send("done", { filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS });
+      res.end();
 
     } catch (error: any) {
       console.error("Split error:", error);
-      res.status(500).json({ error: error.message });
+      send("error", { message: error.message });
+      res.end();
     }
   });
 
