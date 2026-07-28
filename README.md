@@ -262,6 +262,13 @@ MIT. Fork it, remix it, build an empire on it. Just don't sue us if your track d
 
 Made by someone who got tired of manually calculating pitch shifts at 4am, then got completely carried away. Built on vibes, coffee, and the stubbornly held belief that music tools should be beautiful, fast, and actually work.
 
+### Third-Party Credits
+
+**[ldrolez/free-midi-chords](https://github.com/ldrolez/free-midi-chords)** — Ludovic Drolez
+The chord progression data powering Loop Studio's local generator comes directly from this project. 128 progressions across Major, Minor, and Modal scales, each tagged with moods. Free, open, and MIT licensed. The whole thing exists because one person decided to sit down and catalog every useful chord progression they knew. That's the kind of quiet contribution that makes tools like this possible — thank you.
+> *"A collection of free MIDI chords and progressions ready to be used in your DAW, Akai MPC, or Roland MC-707/101"*
+> Licensed under the [MIT License](https://github.com/ldrolez/free-midi-chords/blob/main/LICENSE). Used with gratitude.
+
 ---
 
 <div align="center">
