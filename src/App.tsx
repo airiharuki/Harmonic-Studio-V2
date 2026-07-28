@@ -750,7 +750,7 @@ function MainApp() {
     setSplitLogs([]);
 
     try {
-      const payload: any = { stemsToZip: selectedStems, model: splittingModel };
+      const payload: any = { stemsToZip: selectedStems, model: splittingModel, title: videoInfo?.title || uploadedFilename || "" };
       if (uploadedFilename) {
         payload.filename = uploadedFilename;
       } else {
