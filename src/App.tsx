@@ -1323,7 +1323,7 @@ function MainApp() {
               className="fixed top-0 left-0 right-0 z-[300] flex items-center justify-center gap-2 px-4 py-1.5 bg-violet-600/90 backdrop-blur-md text-white text-[10px] font-mono font-bold tracking-widest uppercase shadow-lg"
             >
               <FlaskConical className="w-3 h-3 animate-pulse" />
-              <span>BETA MODE ACTIVE — here be dragons. you asked for this.</span>
+              <span>BETA MODE ACTIVE — v2.1 &quot;Prism&quot; — here be dragons. you asked for this.</span>
               <button
                 onClick={() => setBetaMode(false)}
                 className="ml-4 opacity-60 hover:opacity-100 transition-opacity text-white leading-none"
@@ -2166,10 +2166,10 @@ function MainApp() {
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {[
-                              { id: 'demucs',      name: 'Demucs',      beta: false, tier: 'stable'       },
-                              { id: 'mdx',         name: 'MDX-Net',     beta: true,  tier: 'experimental' },
-                              { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'experimental' },
-                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental' },
+                              { id: 'demucs',      name: 'Demucs',      beta: false, tier: 'stable',       stemLimit: null },
+                              { id: 'mdx',         name: 'MDX-Net',     beta: true,  tier: 'experimental', stemLimit: null },
+                              { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'experimental', stemLimit: ['vocals', 'other'] as string[] },
+                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental', stemLimit: null },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
                               const isSelected = splittingModel === modelObj.id;
@@ -2177,6 +2177,12 @@ function MainApp() {
                               const handleClick = () => {
                                 if (isAvailable) {
                                   setSplittingModel(modelObj.id as any);
+                                  if (modelObj.stemLimit) {
+                                    setSelectedStems(modelObj.stemLimit);
+                                  } else if (splittingModel === 'spleeter') {
+                                    // Restore all stems when leaving Spleeter
+                                    setSelectedStems(['vocals', 'drums', 'bass', 'other']);
+                                  }
                                 } else {
                                   toast.info(`${modelObj.name} isn't installed on this server. Run the project locally to use it.`, {
                                     action: { label: "Install guide", onClick: () => window.open(splitterRepoUrl, "_blank") },
@@ -2238,7 +2244,12 @@ function MainApp() {
 
                         <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
                           <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Stems</h4>
+                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">
+                              Select Stems
+                              {splittingModel === 'spleeter' && (
+                                <span className="ml-2 text-[9px] font-bold uppercase tracking-widest text-amber-500 dark:text-amber-400">2-stem only</span>
+                              )}
+                            </h4>
                             <div className="flex gap-2">
                               <Button 
                                 variant="ghost" 
@@ -2248,14 +2259,16 @@ function MainApp() {
                               >
                                 Vocals/Inst
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={toggleAllStems}
-                                className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
-                              >
-                                {selectedStems.length === 4 ? "Deselect All" : "Select All"}
-                              </Button>
+                              {splittingModel !== 'spleeter' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={toggleAllStems}
+                                  className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
+                                >
+                                  {selectedStems.length === 4 ? "Deselect All" : "Select All"}
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
@@ -2264,20 +2277,27 @@ function MainApp() {
                               { id: "drums", label: "Drums", icon: Drum },
                               { id: "bass", label: "Bass", icon: Guitar },
                               { id: "other", label: "Other", icon: Piano },
-                            ].map((stem) => (
-                              <div 
-                                key={stem.id}
-                                onClick={() => toggleStem(stem.id)}
-                                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                                  selectedStems.includes(stem.id) 
-                                    ? "bg-foreground/10 border-foreground/30 text-foreground" 
-                                    : "bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-                                }`}
-                              >
-                                <stem.icon className="w-4 h-4" />
-                                <span className="text-sm font-medium">{stem.label}</span>
-                              </div>
-                            ))}
+                            ].map((stem) => {
+                              const isSpleeterLocked = splittingModel === 'spleeter' && stem.id !== 'vocals' && stem.id !== 'other';
+                              return (
+                                <div
+                                  key={stem.id}
+                                  onClick={() => !isSpleeterLocked && toggleStem(stem.id)}
+                                  title={isSpleeterLocked ? `Spleeter only outputs Vocals & Instrumental — ${stem.label} is not available` : undefined}
+                                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                                    isSpleeterLocked
+                                      ? "opacity-25 cursor-not-allowed bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5"
+                                      : selectedStems.includes(stem.id)
+                                        ? "cursor-pointer bg-foreground/10 border-foreground/30 text-foreground"
+                                        : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+                                  }`}
+                                >
+                                  <stem.icon className="w-4 h-4" />
+                                  <span className="text-sm font-medium">{stem.label}</span>
+                                  {isSpleeterLocked && <span className="ml-auto text-[9px] opacity-70">N/A</span>}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
 

@@ -233,6 +233,8 @@ For the fully automated install with scripts for Windows/macOS/Linux, the [main 
 
 A rough record of what's been brewing in here:
 
+- `feat` **v2.1 "Prism" — Spleeter stem restriction** — Drums & Bass locked out when Spleeter is selected (it only outputs 2 stems); "2-stem only" badge, N/A indicators, Select All hidden, stems auto-reset on model switch
+- `fix` **YouTube n-challenge** — upgraded Deno to 2.9.4; yt-dlp now solves JS challenges via `--js-runtimes deno`; full format list restored; removed broken `tv_embedded,android` extractor args
 - `feat` **Loop piano roll + MIDI export** — generated progressions render a live piano roll with scrolling playhead; one-click export to `.mid` with correct tempo and timing
 - `fix` **Loop playback** — stale-closure bug + AudioContext reuse; stop button now works reliably
 - `feat` **Local chord pack engine** — 128 progressions from ldrolez/free-midi-chords, Roman numeral resolver, mood filter, zero Gemini calls in Loop Studio
