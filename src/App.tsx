@@ -35,7 +35,8 @@ import {
   Hand,
   ChevronsUp,
   ChevronsDown,
-  Music2
+  Music2,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,26 +90,34 @@ const MODEL_CONFIGS: Record<string, {
   mdx: {
     execution: 'multi-pass',
     variants: [
-      { id: 'inst_hq3', label: 'Inst HQ 3', desc: 'Vocals · Instrumental',                            stems: ['vocals','other'] },
+      { id: 'inst_hq3', label: 'Inst HQ 3',  desc: 'Vocals · Instrumental',                          stems: ['vocals','other'] },
+      { id: 'bvr_mdx',  label: 'BVR · MDX',  desc: 'Lead Vocal · Backing Vocals · lightweight',      stems: ['lead_vocal','backing_vocal'] },
     ],
     defaultVariant: 'inst_hq3',
   },
   'bs-roformer': {
     execution: 'single-target',
     variants: [
-      { id: 'vocals_ep317', label: 'EP317', desc: 'Vocals only · max SDR',                            stems: ['vocals'] },
+      { id: 'vocals_ep317',  label: 'EP317 Vocals',      desc: 'Vocals only · max SDR',              stems: ['vocals'] },
+      { id: 'karaoke_bsr',   label: 'BVR · BS-RoFormer', desc: 'Lead Vocal · Backing Vocals · 2-pass', stems: ['lead_vocal','backing_vocal'] },
+      { id: 'karaoke_mel',   label: 'BVR · MelBand',     desc: 'Lead Vocal · Backing Vocals · 2-pass', stems: ['lead_vocal','backing_vocal'] },
     ],
     defaultVariant: 'vocals_ep317',
   },
 };
 
+// Variants that run a 2-pass BVR pipeline
+const BVR_VARIANT_IDS = ['karaoke_bsr', 'karaoke_mel', 'bvr_mdx'];
+
 const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
-  { id: 'vocals', label: 'Vocals',       icon: Mic2   },
-  { id: 'drums',  label: 'Drums',        icon: Drum   },
-  { id: 'bass',   label: 'Bass',         icon: Guitar },
-  { id: 'guitar', label: 'Guitar',       icon: Guitar },
-  { id: 'piano',  label: 'Piano',        icon: Piano  },
-  { id: 'other',  label: 'Other / Inst', icon: Music2 },
+  { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
+  { id: 'drums',         label: 'Drums',          icon: Drum   },
+  { id: 'bass',          label: 'Bass',           icon: Guitar },
+  { id: 'guitar',        label: 'Guitar',         icon: Guitar },
+  { id: 'piano',         label: 'Piano',          icon: Piano  },
+  { id: 'other',         label: 'Other / Inst',   icon: Music2 },
+  { id: 'lead_vocal',    label: 'Lead Vocal',     icon: Mic2   },
+  { id: 'backing_vocal', label: 'Backing Vocals', icon: Users  },
 ];
 
 const formatTime = (seconds: number) => {
@@ -2301,28 +2310,63 @@ function MainApp() {
                             <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-3">
                               <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Variant</h4>
                               <div className="flex flex-col gap-2">
-                                {cfg.variants.map(v => (
-                                  <button
-                                    key={v.id}
-                                    onClick={() => {
-                                      setModelVariant(v.id);
-                                      const kept = selectedStems.filter(s => v.stems.includes(s));
-                                      setSelectedStems(kept.length > 0 ? kept : v.stems);
-                                    }}
-                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left ${
-                                      modelVariant === v.id
-                                        ? 'bg-foreground/10 border-foreground/30 text-foreground'
-                                        : 'bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-60 hover:opacity-90'
-                                    }`}
-                                  >
-                                    <span>{v.label}</span>
-                                    <span className="font-normal opacity-60">{v.desc}</span>
-                                  </button>
-                                ))}
+                                {cfg.variants.map(v => {
+                                  const isBvr = BVR_VARIANT_IDS.includes(v.id);
+                                  return (
+                                    <button
+                                      key={v.id}
+                                      onClick={() => {
+                                        setModelVariant(v.id);
+                                        const kept = selectedStems.filter(s => v.stems.includes(s));
+                                        setSelectedStems(kept.length > 0 ? kept : v.stems);
+                                      }}
+                                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left ${
+                                        modelVariant === v.id
+                                          ? isBvr
+                                            ? 'bg-pink-500/10 border-pink-400/40 text-foreground'
+                                            : 'bg-foreground/10 border-foreground/30 text-foreground'
+                                          : 'bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-60 hover:opacity-90'
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-1.5">
+                                        {isBvr && <Users className="w-3 h-3 text-pink-400 shrink-0" />}
+                                        {v.label}
+                                      </span>
+                                      <span className="font-normal opacity-60">{v.desc}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
                         })()}
+
+                        {/* BVR pipeline info card — shown when a karaoke/BVR variant is active */}
+                        {BVR_VARIANT_IDS.includes(modelVariant) && (
+                          <div className="p-4 rounded-2xl border border-pink-400/20 bg-pink-500/5 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-pink-400 shrink-0" />
+                              <h4 className="text-sm font-bold text-pink-400 uppercase tracking-wider">Backing Vocal Removal</h4>
+                            </div>
+                            <p className="text-[11px] opacity-70 leading-relaxed">
+                              Runs a <span className="font-semibold opacity-90">2-pass pipeline</span> — modelled after the professional LALAL.AI workflow.
+                            </p>
+                            <div className="flex items-center gap-1 text-[10px] font-mono opacity-60 flex-wrap">
+                              <span className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Full Track</span>
+                              <span>→</span>
+                              <span className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Pass 1: Vocal Isolation</span>
+                              <span>→</span>
+                              <span className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">All Vocals</span>
+                              <span>→</span>
+                              <span className="px-2 py-0.5 rounded bg-pink-500/15 border border-pink-400/20">Pass 2: Lead / Backing Split</span>
+                            </div>
+                            <div className="flex gap-3 text-[10px] opacity-60">
+                              <span>⏱ ~2× processing time</span>
+                              <span>·</span>
+                              <span>🖥 requires local install</span>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
                           {(() => {

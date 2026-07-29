@@ -233,6 +233,7 @@ For the fully automated install with scripts for Windows/macOS/Linux, the [main 
 
 A rough record of what's been brewing in here:
 
+- `feat` **Backing Vocal Removal (BVR)** — 2-pass pipeline: Pass 1 isolates all vocals via BS-RoFormer EP317, Pass 2 splits Lead vs Backing via a karaoke fine-tuned checkpoint (BS-RoFormer Karaoke, MelBand-RoFormer Karaoke, or UVR-BVR-MDX); BVR variants added to BS-RoFormer and MDX-Net; pipeline info card shows in-UI flow diagram; Lead Vocal + Backing Vocals stems added to the grid
 - `feat` **v2.1 "Prism" — Model capability & variant system** — each model now exposes its true capabilities; Spleeter unlocked to 2/4/5-stem configs; Demucs supports 4-stem and 6-stem (htdemucs_6s) variants; stem grid expands to 6 stems (Vocals, Drums, Bass, Guitar, Piano, Other/Inst) and greys out only what the active variant can't produce; execution mode badge per card (single-pass / multi-pass / single-target); Select All scoped to available stems; modelVariant wired through to the server
 - `fix` **YouTube n-challenge** — upgraded Deno to 2.9.4; yt-dlp now solves JS challenges via `--js-runtimes deno`; full format list restored; removed broken `tv_embedded,android` extractor args
 - `feat` **Loop piano roll + MIDI export** — generated progressions render a live piano roll with scrolling playhead; one-click export to `.mid` with correct tempo and timing

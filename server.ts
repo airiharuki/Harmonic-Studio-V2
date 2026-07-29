@@ -554,91 +554,134 @@ async function startServer() {
 
       // 2. Run Splitting
       const outputDirForJob = path.join(outputDir, jobId);
-      let args: string[] = [];
-      let bin = "demucs";
 
-      // audio-separator (MDX/BS-Roformer) outputs files directly into its --output_dir.
-      // Demucs outputs into <outDir>/htdemucs/<inputBasename>/
-      const audioSepOutDir = path.join(outputDirForJob, "audio_sep_out");
-
-      switch (model) {
-        case 'mdx':
-          bin = "audio-separator";
-          fs.mkdirSync(audioSepOutDir, { recursive: true });
-          args = [inputPath, "--model_filename", "UVR-MDX-NET-Inst_HQ_3.onnx", "--output_dir", audioSepOutDir];
-          break;
-        case 'bs-roformer':
-          bin = "audio-separator";
-          fs.mkdirSync(audioSepOutDir, { recursive: true });
-          args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", audioSepOutDir];
-          break;
-        case 'spleeter': {
-          const spleeterConfig = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : '4stems';
-          bin = "spleeter";
-          args = ["separate", "-p", `spleeter:${spleeterConfig}`, "-o", outputDirForJob, inputPath];
-          break;
-        }
-        case 'demucs':
-        default: {
-          const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : 'htdemucs';
-          bin = "demucs";
-          args = ["-n", demucsModel, "-o", outputDirForJob, inputPath];
-          break;
-        }
-      }
-
-      const available = await detectSplitters();
-      if (!available[model || "demucs"]) {
-        try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch {}
-        send("error", {
-          message: `Stem splitter "${model}" is not installed on this server. ` +
-            `Run the project locally to use this feature — see ${REPO_URL} for install instructions.`,
-          repoUrl: REPO_URL,
-        });
-        res.end();
-        return;
-      }
-
-      log(`Starting ${(model || "demucs").toUpperCase()} stem separation...`);
-
-      await new Promise<void>((resolve, reject) => {
+      // Reusable helper — spawns a process and streams stdout/stderr as SSE log lines
+      const runProcess = (bin: string, args: string[]) => new Promise<void>((resolve, reject) => {
         const proc = spawn(bin, args);
-
-        const handleLine = (data: Buffer) => {
-          const text = data.toString();
-          text.split(/\r?\n/).forEach(line => {
-            const trimmed = line.trim();
-            if (trimmed) log(trimmed);
-          });
-        };
-
-        proc.stdout.on("data", handleLine);
-        proc.stderr.on("data", handleLine);
-
-        proc.on("close", (code) => {
-          if (code === 0) resolve();
-          else reject(new Error(`${bin} exited with code ${code}`));
-        });
+        const pipe = (data: Buffer) =>
+          data.toString().split(/\r?\n/).forEach(l => { const t = l.trim(); if (t) log(t); });
+        proc.stdout.on("data", pipe);
+        proc.stderr.on("data", pipe);
+        proc.on("close", code => code === 0 ? resolve() : reject(new Error(`${bin} exited with code ${code}`)));
         proc.on("error", reject);
       });
 
-      log("Separation complete. Packaging stems...");
+      // Backing Vocal Removal — 2-pass pipeline checkpoint config
+      // Pass 1: isolate all vocals from the full mix (standard vocal model)
+      // Pass 2: split isolated vocals into Lead vs Backing (karaoke fine-tuned checkpoint)
+      const BVR_MODELS: Record<string, { pass1: string; pass2: string }> = {
+        karaoke_bsr: {
+          pass1: "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+          pass2: "model_bs_roformer_karaoke_ep_937_sdr_10.5765.ckpt",
+        },
+        karaoke_mel: {
+          pass1: "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+          pass2: "mel_band_roformer_karaoke_by_becruily_ep_162_sdr_10.0772.ckpt",
+        },
+        bvr_mdx: {
+          pass1: "UVR-MDX-NET-Inst_HQ_3.onnx",
+          pass2: "UVR-BVE-BVR_MDX23C.onnx",
+        },
+      };
+      const isBvrMode = Object.keys(BVR_MODELS).includes(modelVariant || "");
 
-      // 3. Locate the stems and zip them.
-      // Demucs: <outputDirForJob>/htdemucs/input/  → named vocals.wav, drums.wav, bass.wav, other.wav
-      // audio-separator: audioSepOutDir            → named input_(Vocals)_*.flac etc. — zip everything
       let stemsPath: string;
-      const isAudioSep = (model === 'mdx' || model === 'bs-roformer');
+      let zipAllFromStemsPath = false; // if true, archive zips the whole dir as-is
 
-      if (isAudioSep) {
-        stemsPath = audioSepOutDir;
-      } else if (model === 'spleeter') {
-        // Spleeter outputs to <outDir>/<inputBasenameWithoutExt>/
-        stemsPath = path.join(outputDirForJob, path.basename(inputFilename, path.extname(inputFilename)));
+      if (isBvrMode) {
+        // ── BVR 2-pass pipeline ───────────────────────────────────────────────
+        const bvrCfg = BVR_MODELS[modelVariant!];
+        const pass1Dir = path.join(outputDirForJob, "bvr_pass1");
+        const pass2Dir = path.join(outputDirForJob, "bvr_pass2");
+        fs.mkdirSync(pass1Dir, { recursive: true });
+        fs.mkdirSync(pass2Dir, { recursive: true });
+
+        const available = await detectSplitters();
+        if (!available["bs-roformer"] && !available["mdx"]) {
+          send("error", {
+            message: `audio-separator is not installed on this server. BVR requires it for both passes. ` +
+              `Run the project locally — see ${REPO_URL}.`,
+            repoUrl: REPO_URL,
+          });
+          res.end(); return;
+        }
+
+        log("BVR — Pass 1: Isolating vocals from full mix...");
+        await runProcess("audio-separator", [inputPath, "--model_filename", bvrCfg.pass1, "--output_dir", pass1Dir]);
+
+        // audio-separator names output like "input_(Vocals)_model.ext" — find it
+        const pass1Files = fs.readdirSync(pass1Dir);
+        const vocalsFile = pass1Files.find(f => /vocal/i.test(f) && !/backing/i.test(f));
+        if (!vocalsFile)
+          throw new Error("BVR Pass 1 — vocals stem not found in output. " +
+            "Ensure the model produces a file with 'vocal' in its name.");
+        const vocalsPath = path.join(pass1Dir, vocalsFile);
+
+        log("BVR — Pass 2: Splitting lead vs backing vocals...");
+        await runProcess("audio-separator", [vocalsPath, "--model_filename", bvrCfg.pass2, "--output_dir", pass2Dir]);
+
+        stemsPath = pass2Dir;
+        zipAllFromStemsPath = true;
+        log("BVR — Both passes complete. Packaging stems...");
+
       } else {
-        // Demucs outputs to <outDir>/<modelName>/<inputBasenameWithoutExt>/
-        const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : 'htdemucs';
-        stemsPath = path.join(outputDirForJob, demucsModel, path.basename(inputFilename, path.extname(inputFilename)));
+        // ── Standard single-pass separation ──────────────────────────────────
+        let args: string[] = [];
+        let bin = "demucs";
+        const audioSepOutDir = path.join(outputDirForJob, "audio_sep_out");
+
+        switch (model) {
+          case "mdx":
+            bin = "audio-separator";
+            fs.mkdirSync(audioSepOutDir, { recursive: true });
+            args = [inputPath, "--model_filename", "UVR-MDX-NET-Inst_HQ_3.onnx", "--output_dir", audioSepOutDir];
+            break;
+          case "bs-roformer":
+            bin = "audio-separator";
+            fs.mkdirSync(audioSepOutDir, { recursive: true });
+            args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", audioSepOutDir];
+            break;
+          case "spleeter": {
+            const spleeterConfig = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : "4stems";
+            bin = "spleeter";
+            args = ["separate", "-p", `spleeter:${spleeterConfig}`, "-o", outputDirForJob, inputPath];
+            break;
+          }
+          case "demucs":
+          default: {
+            const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : "htdemucs";
+            bin = "demucs";
+            args = ["-n", demucsModel, "-o", outputDirForJob, inputPath];
+            break;
+          }
+        }
+
+        const available = await detectSplitters();
+        if (!available[model || "demucs"]) {
+          try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch {}
+          send("error", {
+            message: `Stem splitter "${model}" is not installed on this server. ` +
+              `Run the project locally to use this feature — see ${REPO_URL} for install instructions.`,
+            repoUrl: REPO_URL,
+          });
+          res.end();
+          return;
+        }
+
+        log(`Starting ${(model || "demucs").toUpperCase()} stem separation...`);
+        await runProcess(bin, args);
+        log("Separation complete. Packaging stems...");
+
+        const isAudioSep = (model === "mdx" || model === "bs-roformer");
+        if (isAudioSep) {
+          stemsPath = audioSepOutDir;
+          zipAllFromStemsPath = true;
+        } else if (model === "spleeter") {
+          stemsPath = path.join(outputDirForJob, path.basename(inputFilename, path.extname(inputFilename)));
+        } else {
+          const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : "htdemucs";
+          stemsPath = path.join(outputDirForJob, demucsModel, path.basename(inputFilename, path.extname(inputFilename)));
+        }
       }
 
       const safeTitle = title
@@ -654,8 +697,8 @@ async function startServer() {
         archive.on("error", reject);
         archive.pipe(outputStream);
 
-        if (isAudioSep) {
-          // audio-separator produces its own naming — just include everything it made
+        if (zipAllFromStemsPath) {
+          // BVR 2-pass or audio-separator: output naming is model-defined — zip everything
           archive.directory(stemsPath, false);
         } else if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
           for (const stem of stemsToZip) {
