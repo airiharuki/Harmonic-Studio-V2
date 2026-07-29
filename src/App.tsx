@@ -1380,11 +1380,12 @@ function MainApp() {
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
               className="fixed top-0 left-0 right-0 z-[300] flex items-center justify-center gap-2 px-4 py-1.5 bg-violet-600/90 backdrop-blur-md text-white text-[10px] font-mono font-bold tracking-widest uppercase shadow-lg"
             >
-              <FlaskConical className="w-3 h-3 animate-pulse" />
-              <span>BETA MODE ACTIVE — v2.1 &quot;Prism&quot; — here be dragons. you asked for this.</span>
+              <FlaskConical className="w-3 h-3 animate-pulse shrink-0" />
+              <span className="sm:hidden truncate">BETA MODE ACTIVE — v2.1 &quot;Prism&quot;</span>
+              <span className="hidden sm:inline">BETA MODE ACTIVE — v2.1 &quot;Prism&quot; — here be dragons. you asked for this.</span>
               <button
                 onClick={() => setBetaMode(false)}
-                className="ml-4 opacity-60 hover:opacity-100 transition-opacity text-white leading-none"
+                className="ml-2 sm:ml-4 opacity-60 hover:opacity-100 transition-opacity text-white leading-none shrink-0"
               >
                 ✕
               </button>
@@ -1428,7 +1429,7 @@ function MainApp() {
           </Button>
         </div>
         <RecentTracksPanel open={recentTracksOpen} onClose={() => setRecentTracksOpen(false)} />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-12">
+        <div className={`max-w-5xl mx-auto px-4 sm:px-6 pb-4 sm:py-12 transition-[padding] duration-300 ${betaMode ? 'pt-9 sm:pt-12' : 'pt-4 sm:pt-12'}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mt-11 sm:mt-0 mb-6 sm:mb-12 relative z-[100]">
             {/* Mobile Camera-style sliding tab picker */}
