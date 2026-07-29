@@ -233,7 +233,7 @@ For the fully automated install with scripts for Windows/macOS/Linux, the [main 
 
 A rough record of what's been brewing in here:
 
-- `feat` **v2.1 "Prism" — Spleeter stem restriction** — Drums & Bass locked out when Spleeter is selected (it only outputs 2 stems); "2-stem only" badge, N/A indicators, Select All hidden, stems auto-reset on model switch
+- `feat` **v2.1 "Prism" — Model capability & variant system** — each model now exposes its true capabilities; Spleeter unlocked to 2/4/5-stem configs; Demucs supports 4-stem and 6-stem (htdemucs_6s) variants; stem grid expands to 6 stems (Vocals, Drums, Bass, Guitar, Piano, Other/Inst) and greys out only what the active variant can't produce; execution mode badge per card (single-pass / multi-pass / single-target); Select All scoped to available stems; modelVariant wired through to the server
 - `fix` **YouTube n-challenge** — upgraded Deno to 2.9.4; yt-dlp now solves JS challenges via `--js-runtimes deno`; full format list restored; removed broken `tv_embedded,android` extractor args
 - `feat` **Loop piano roll + MIDI export** — generated progressions render a live piano roll with scrolling playhead; one-click export to `.mid` with correct tempo and timing
 - `fix` **Loop playback** — stale-closure bug + AudioContext reuse; stop button now works reliably

@@ -485,7 +485,7 @@ async function startServer() {
   });
 
   app.post("/api/split", async (req, res) => {
-    const { url, filename, stemsToZip, model, title } = req.body;
+    const { url, filename, stemsToZip, model, modelVariant, title } = req.body;
     if (!url && !filename) return res.status(400).json({ error: "URL or filename is required" });
 
     // --- SSE setup ---
@@ -572,15 +572,19 @@ async function startServer() {
           fs.mkdirSync(audioSepOutDir, { recursive: true });
           args = [inputPath, "--model_filename", "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "--output_dir", audioSepOutDir];
           break;
-        case 'spleeter':
+        case 'spleeter': {
+          const spleeterConfig = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : '4stems';
           bin = "spleeter";
-          args = ["separate", "-o", outputDirForJob, inputPath];
+          args = ["separate", "-p", `spleeter:${spleeterConfig}`, "-o", outputDirForJob, inputPath];
           break;
+        }
         case 'demucs':
-        default:
+        default: {
+          const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : 'htdemucs';
           bin = "demucs";
-          args = ["-o", outputDirForJob, inputPath];
+          args = ["-n", demucsModel, "-o", outputDirForJob, inputPath];
           break;
+        }
       }
 
       const available = await detectSplitters();
@@ -628,8 +632,13 @@ async function startServer() {
 
       if (isAudioSep) {
         stemsPath = audioSepOutDir;
+      } else if (model === 'spleeter') {
+        // Spleeter outputs to <outDir>/<inputBasenameWithoutExt>/
+        stemsPath = path.join(outputDirForJob, path.basename(inputFilename, path.extname(inputFilename)));
       } else {
-        stemsPath = path.join(outputDirForJob, "htdemucs", "input");
+        // Demucs outputs to <outDir>/<modelName>/<inputBasenameWithoutExt>/
+        const demucsModel = (modelVariant && /^htdemucs/.test(modelVariant)) ? modelVariant : 'htdemucs';
+        stemsPath = path.join(outputDirForJob, demucsModel, path.basename(inputFilename, path.extname(inputFilename)));
       }
 
       const safeTitle = title
@@ -650,12 +659,16 @@ async function startServer() {
           archive.directory(stemsPath, false);
         } else if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
           for (const stem of stemsToZip) {
-            const stemFile = `${stem}.wav`;
-            const fullStemPath = path.join(stemsPath, stemFile);
-            if (fs.existsSync(fullStemPath)) {
-              archive.file(fullStemPath, { name: stemFile });
+              // Spleeter 2stems uses "accompaniment" for what we call "other"
+              const spleeterVariant = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : '4stems';
+              const stemFilename = (model === 'spleeter' && spleeterVariant === '2stems' && stem === 'other')
+                ? 'accompaniment.wav'
+                : `${stem}.wav`;
+              const fullStemPath = path.join(stemsPath, stemFilename);
+              if (fs.existsSync(fullStemPath)) {
+                archive.file(fullStemPath, { name: `${stem}.wav` });
+              }
             }
-          }
         } else {
           archive.directory(stemsPath, false);
         }
