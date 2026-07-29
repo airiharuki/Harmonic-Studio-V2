@@ -21,6 +21,7 @@
 <div align="center">
 
 [![Branch](https://img.shields.io/badge/branch-beta-8b5cf6?style=for-the-badge&logo=git&logoColor=white)](https://github.com/airiharuki/Harmonic-Studio-V2/tree/beta)
+[![Version](https://img.shields.io/badge/version-v2.1%20%22Prism%22-a855f7?style=for-the-badge)]()
 [![Status](https://img.shields.io/badge/status-experimental-f97316?style=for-the-badge)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-22c55e?style=for-the-badge&logo=github)](CONTRIBUTING.md)
 [![License](https://img.shields.io/badge/license-MIT-3b82f6?style=for-the-badge)](LICENSE)
@@ -107,12 +108,13 @@ Drop a link or a file. Get the audio. Get the data. It's fast and it doesn't nee
 - 📥 **Universal Downloader (`yt-dlp`)** — Pulls audio from 1,000+ sites. YouTube, SoundCloud, Bandcamp, TikTok, Twitch, Mixcloud, Twitter/X — if it streams, we eat it. Files are auto-named to the actual track title because `video_1080p_final_v3_REAL.mp3` is not a personality.
 - 🎧 **In-Browser Preview** — Hidden iframe player for downloaded tracks. Doesn't clutter the UI. Just works.
 - 🧠 **Essentia.js Analysis** — BPM, Key, Scale, Energy, Mood — extracted with actual DSP math. A tiny, very pedantic music major now lives in your browser tab. They don't ask to be followed on SoundCloud.
-- 🎙️ **Stem Splitting (4 Models)** — Pull tracks apart into Vocals, Drums, Bass, and Other:
-  - **Demucs** `✓ stable` — The reliable one. Proven. Ships.
-  - **MDX-Net** `⚗ experimental` — Faster, different tradeoffs.
-  - **Spleeter** `⚗ experimental` — Rapid prototype energy. Works. Mostly.
-  - **BS-Roformer** `⚗ experimental` — The ambitious one. High ceiling.
-  - Outputs as a ZIP named after the song. All four stems or just Vocals/Instrumental — your call.
+- 🎙️ **Stem Splitting (4 Models, 8 Stem Types)** — Pull tracks apart with the right model for the job, each with its own variant selector:
+  - **Demucs** `✓ stable` — Single-pass. `4-stem` (Vocals/Drums/Bass/Other) or `6-stem` (+ Guitar & Piano).
+  - **Spleeter** `⚗ experimental` — Single-pass. `2-stem`, `4-stem`, or `5-stem` (+ Piano) — properly configured, not assumed.
+  - **MDX-Net** `⚗ experimental` — Multi-pass. `Inst HQ 3` (Vocals + Instrumental) or `BVR · MDX` (Lead/Backing split).
+  - **BS-Roformer** `⚗ experimental` — `EP317` (max-SDR vocal isolation), `BVR · BS-RoFormer`, or `BVR · MelBand` (see below).
+  - Stem grid shows all 8 types (Vocals, Drums, Bass, Guitar, Piano, Other/Inst, Lead Vocal, Backing Vocals) — unavailable stems grey out automatically per variant. Outputs as a ZIP named after the song.
+- 🎤 **Backing Vocal Removal (BVR)** — A 2-pass pipeline matching LALAL.AI quality, open-source and free: Pass 1 isolates all vocals via BS-RoFormer EP317, Pass 2 splits Lead vs Backing via a karaoke fine-tuned checkpoint (BS-RoFormer Karaoke or MelBand-RoFormer Karaoke). Select any BVR variant and a pink pipeline card shows the flow in-app. Requires local install.
 - ✨ **Vibe Studio (AI Chords)** — After analysis, feed the track's vibe into Gemini's brain. It writes you a 4-bar chord progression. You didn't play a single note and yet here you are, a composer.
 
 > 🚨 **WAV or FLAC only** for the analyzer and splitter. MP3s are lossy and the models make faces. You've been warned, kindly.

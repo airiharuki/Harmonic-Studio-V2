@@ -172,6 +172,11 @@
     min-height: 100vh;
     min-height: 100dvh;
   }
+
+  /* Beta mode background — local asset, gitignored, not shipped to main */
+  body.beta-active {
+    --bg-image: url('/beta-bg.jpg');
+  }
   html {
     @apply font-sans;
     overflow-x: hidden;

@@ -10,3 +10,4 @@ coverage/
 !.env.example
 .bin/
 cookies.txt
+public/beta-bg.jpg

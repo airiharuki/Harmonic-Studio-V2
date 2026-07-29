@@ -179,6 +179,7 @@ function MainApp() {
 
   useEffect(() => {
     try { localStorage.setItem('beta-mode', String(betaMode)); } catch {}
+    document.body.classList.toggle('beta-active', betaMode);
   }, [betaMode]);
 
   // 🥚 Easter egg #1 — Konami code: ↑↑↓↓←→←→
