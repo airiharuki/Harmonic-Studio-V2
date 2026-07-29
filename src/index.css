@@ -173,9 +173,9 @@
     min-height: 100dvh;
   }
 
-  /* Beta mode background — local asset, gitignored, not shipped to main */
+  /* Beta mode background — v2.1 "Prism" (https://imgur.com/a/j0pWhgx) */
   body.beta-active {
-    --bg-image: url('/beta-bg.jpg');
+    --bg-image: url('https://i.imgur.com/atQ1T2n.jpeg');
   }
   html {
     @apply font-sans;
