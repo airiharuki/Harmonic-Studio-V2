@@ -110,7 +110,7 @@ Drop a link or a file. Get the audio. Get the data. It's fast and it doesn't nee
 - 🧠 **Essentia.js Analysis** — BPM, Key, Scale, Energy, Mood — extracted with actual DSP math. A tiny, very pedantic music major now lives in your browser tab. They don't ask to be followed on SoundCloud.
 - 🎙️ **Stem Splitting (4 Models, 8 Stem Types)** — Pull tracks apart with the right model for the job, each with its own variant selector:
   - **Demucs** `✓ stable` — Single-pass. `4-stem` (Vocals/Drums/Bass/Other) or `6-stem` (+ Guitar & Piano).
-  - **Spleeter** `⚗ experimental` — Single-pass. `2-stem`, `4-stem`, or `5-stem` (+ Piano) — properly configured, not assumed.
+  - **Spleeter** `legacy · fallback` — Single-pass. `2-stem`, `4-stem`, or `5-stem` (+ Piano). Start with Demucs; use Spleeter only when another model is troublesome for your track or setup.
   - **MDX-Net** `⚗ experimental` — Multi-pass. `Inst HQ 3` (Vocals + Instrumental) or `BVR · MDX` (Lead/Backing split).
   - **BS-Roformer** `⚗ experimental` — `EP317` (max-SDR vocal isolation), `BVR · BS-RoFormer`, or `BVR · MelBand` (see below).
   - Stem grid shows all 8 types (Vocals, Drums, Bass, Guitar, Piano, Other/Inst, Lead Vocal, Backing Vocals) — unavailable stems grey out automatically per variant. Outputs as a ZIP named after the song.

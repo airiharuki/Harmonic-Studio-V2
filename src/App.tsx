@@ -2246,13 +2246,14 @@ function MainApp() {
                             {[
                               { id: 'demucs',      name: 'Demucs',      beta: false, tier: 'stable'       },
                               { id: 'mdx',         name: 'MDX-Net',     beta: true,  tier: 'experimental' },
-                              { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'experimental' },
+                              { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'legacy'       },
                               { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental' },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
                               const isBetaLocked = !betaMode && modelObj.beta;
                               const isSelected = splittingModel === modelObj.id;
-                              const showBeta = betaMode ? modelObj.tier !== 'stable' : modelObj.beta;
+                              const showBeta = betaMode ? modelObj.tier === 'experimental' : modelObj.beta;
+                              const isLegacy = modelObj.tier === 'legacy';
                               const cfg = MODEL_CONFIGS[modelObj.id];
                               const handleClick = () => {
                                 if (isBetaLocked) {
@@ -2279,6 +2280,7 @@ function MainApp() {
                                   onClick={handleClick}
                                   title={
                                     isBetaLocked ? `${modelObj.name} — available soon (currently trialing in beta mode)`
+                                      : isLegacy ? 'Legacy model — use Demucs first; choose Spleeter only if another model is troublesome.'
                                       : isAvailable ? modelObj.name
                                       : `${modelObj.name} requires a local install — click for setup`
                                   }
@@ -2302,7 +2304,12 @@ function MainApp() {
                                   {isAvailable && !isBetaLocked && (
                                     <span className="text-[9px] opacity-50 font-mono">{cfg?.execution}</span>
                                   )}
-                                  {betaMode && isAvailable && (
+                                   {isAvailable && isLegacy && (
+                                     <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300 opacity-90">
+                                       Legacy · fallback
+                                     </span>
+                                   )}
+                                   {betaMode && isAvailable && !isLegacy && (
                                     <span className={`text-[9px] font-bold uppercase tracking-wider ${
                                       modelObj.tier === 'stable' ? 'text-green-500 dark:text-green-400 opacity-70' : 'text-violet-400 opacity-80'
                                     }`}>
