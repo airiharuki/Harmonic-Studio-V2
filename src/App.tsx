@@ -180,6 +180,15 @@ function MainApp() {
   useEffect(() => {
     try { localStorage.setItem('beta-mode', String(betaMode)); } catch {}
     document.body.classList.toggle('beta-active', betaMode);
+    // BVR/karaoke variants are beta-only while they're being trialed — bounce
+    // back to the model's default variant if beta mode gets switched off.
+    if (!betaMode && BVR_VARIANT_IDS.includes(modelVariant)) {
+      const cfg = MODEL_CONFIGS[splittingModel];
+      const defaultVar = cfg?.defaultVariant ?? 'default';
+      setModelVariant(defaultVar);
+      const variantStems = cfg?.variants.find(v => v.id === defaultVar)?.stems ?? ['vocals','drums','bass','other'];
+      setSelectedStems(variantStems);
+    }
   }, [betaMode]);
 
   // 🥚 Easter egg #1 — Konami code: ↑↑↓↓←→←→
@@ -2312,7 +2321,7 @@ function MainApp() {
                             <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-3">
                               <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Variant</h4>
                               <div className="flex flex-col gap-2">
-                                {cfg.variants.map(v => {
+                                {cfg.variants.filter(v => betaMode || !BVR_VARIANT_IDS.includes(v.id)).map(v => {
                                   const isBvr = BVR_VARIANT_IDS.includes(v.id);
                                   return (
                                     <button
