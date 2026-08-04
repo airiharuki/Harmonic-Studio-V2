@@ -49,44 +49,44 @@
 }
 
 :root {
-    --background: oklch(0.99 0.004 280); /* barely-there lavender tint */
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
+    --background: oklch(0.975 0.012 285); /* soft violet-lavender */
+    --foreground: oklch(0.14 0.04 275);   /* deep cool-ink text */
+    --card: oklch(0.993 0.006 280);        /* barely-violet white */
+    --card-foreground: oklch(0.14 0.04 275);
+    --popover: oklch(0.993 0.006 280);
+    --popover-foreground: oklch(0.14 0.04 275);
+    --primary: oklch(0.28 0.12 280);       /* deep violet primary */
     --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.955 0.01 280);
+    --secondary-foreground: oklch(0.28 0.12 280);
+    --muted: oklch(0.955 0.01 280);
+    --muted-foreground: oklch(0.50 0.04 275);
+    --accent: oklch(0.955 0.01 280);
+    --accent-foreground: oklch(0.28 0.12 280);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --border: oklch(0.895 0.014 275);      /* violet-tinted border */
+    --input: oklch(0.895 0.014 275);
+    --ring: oklch(0.60 0.22 275);          /* vivid violet ring */
+    --chart-1: oklch(0.82 0.08 275);
+    --chart-2: oklch(0.60 0.14 275);
+    --chart-3: oklch(0.44 0.16 275);
+    --chart-4: oklch(0.34 0.16 275);
+    --chart-5: oklch(0.24 0.12 275);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar: oklch(0.980 0.008 280);
+    --sidebar-foreground: oklch(0.14 0.04 275);
+    --sidebar-primary: oklch(0.28 0.12 280);
     --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar-accent: oklch(0.955 0.01 280);
+    --sidebar-accent-foreground: oklch(0.28 0.12 280);
+    --sidebar-border: oklch(0.895 0.014 275);
+    --sidebar-ring: oklch(0.60 0.22 275);
     
     /* Custom Theme Variables */
     --bg-image: url('https://i.imgur.com/2y5CXtS.jpeg');
-    --app-text: #4a3b3b;
-    --pill-bg: rgba(0, 0, 0, 0.05);
-    --pill-active: #b388ff;
+    --app-text: #2d2450;                   /* deep cool violet-ink */
+    --pill-bg: rgba(120, 80, 255, 0.06);
+    --pill-active: #a78bfa;
 
     /* Holographic palette */
     --iris-cyan:   rgba(125, 211, 252, 1);
@@ -100,58 +100,61 @@
         rgba(249,168,212,0.3) 80%,
         transparent 100%
     );
-    --glass-highlight: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.04);
+    --glass-highlight: inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 0 rgba(100,80,200,0.04);
 }
 
 .dark {
-    --background: #07070e; /* deep space — slightly more blue than before */
-    --foreground: #ffffff;
-    --card: #0c0c0e;
-    --card-foreground: #ffffff;
-    --popover: #0c0c0e;
-    --popover-foreground: #ffffff;
-    --primary: #ffffff;
-    --primary-foreground: #000000;
-    --secondary: #18181b;
-    --secondary-foreground: #ffffff;
-    --muted: #18181b;
-    --muted-foreground: #d4d4d8;
-    --accent: #18181b;
-    --accent-foreground: #ffffff;
+    --background: #04050f;               /* deeper blue-black space */
+    --foreground: #eeedf8;               /* cool off-white, not pure white */
+    --card: #080914;                     /* slightly blue-black card */
+    --card-foreground: #eeedf8;
+    --popover: #080914;
+    --popover-foreground: #eeedf8;
+    --primary: #c4b5fd;                  /* soft violet */
+    --primary-foreground: #0d0a1f;
+    --secondary: #12131f;                /* subtle blue-navy secondary */
+    --secondary-foreground: #eeedf8;
+    --muted: #12131f;
+    --muted-foreground: #a8a6c8;         /* muted cool lilac */
+    --accent: #12131f;
+    --accent-foreground: #eeedf8;
     --destructive: #7f1d1d;
-    --border: rgba(255, 255, 255, 0.08);
-    --input: rgba(255, 255, 255, 0.12);
-    --ring: #a855f7;
-    --chart-1: #3b82f6;
-    --chart-2: #10b981;
+    --border: rgba(160, 140, 255, 0.09); /* faint violet border */
+    --input: rgba(160, 140, 255, 0.13);
+    --ring: #818cf8;                     /* indigo ring */
+    --chart-1: #60a5fa;
+    --chart-2: #34d399;
     --chart-3: #f59e0b;
-    --chart-4: #8b5cf6;
-    --chart-5: #ef4444;
-    --sidebar: #09090b;
-    --sidebar-foreground: #ffffff;
-    --sidebar-primary: #a855f7;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #18181b;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: rgba(255, 255, 255, 0.08);
-    --sidebar-ring: #a855f7;
+    --chart-4: #a78bfa;
+    --chart-5: #f87171;
+    --sidebar: #06070f;
+    --sidebar-foreground: #eeedf8;
+    --sidebar-primary: #a78bfa;
+    --sidebar-primary-foreground: #eeedf8;
+    --sidebar-accent: #12131f;
+    --sidebar-accent-foreground: #eeedf8;
+    --sidebar-border: rgba(160, 140, 255, 0.09);
+    --sidebar-ring: #818cf8;
     
     /* Custom Theme Variables */
     --bg-image: url('https://i.imgur.com/71AmNm1.jpeg');
-    --app-text: #f4f4f5;
-    --pill-bg: rgba(255, 255, 255, 0.05);
-    --pill-active: #9b59b6;
+    --app-text: #dddaf5;                 /* cool violet-tinted off-white */
+    --pill-bg: rgba(130, 110, 255, 0.07);
+    --pill-active: #818cf8;
 
     /* Holographic palette — brighter in dark */
+    --iris-cyan:   rgba(125, 211, 252, 1);
+    --iris-violet: rgba(167, 139, 250, 1);
+    --iris-rose:   rgba(249, 168, 212, 1);
     --iris-edge: linear-gradient(
         90deg,
         transparent 0%,
-        rgba(125,211,252,0.25) 20%,
-        rgba(167,139,250,0.35) 50%,
-        rgba(249,168,212,0.2) 80%,
+        rgba(125,211,252,0.28) 20%,
+        rgba(167,139,250,0.38) 50%,
+        rgba(249,168,212,0.22) 80%,
         transparent 100%
     );
-    --glass-highlight: inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.15);
+    --glass-highlight: inset 0 1px 0 rgba(200,190,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.2);
 }
 
 @layer base {
@@ -173,14 +176,82 @@
     min-height: 100dvh;
   }
 
-  /* Beta mode backgrounds — v2.1 "Prism" */
-  /* Light: pink sparkle gradient (https://imgur.com/a/nQ6QMY8) */
+  /* ── Beta mode — v2.1 "Prism" ──────────────────────────────── */
+
+  /* Light beta: warm pink/gold sparkle bg — pull the whole palette warm-rose */
   body.beta-active {
     --bg-image: url('https://i.imgur.com/0URbO6G.jpeg');
+    --background: oklch(0.968 0.016 15);     /* warm blush */
+    --card: oklch(0.994 0.010 18);            /* barely-rose white */
+    --card-foreground: oklch(0.18 0.07 20);
+    --popover: oklch(0.994 0.010 18);
+    --popover-foreground: oklch(0.18 0.07 20);
+    --foreground: oklch(0.18 0.07 20);        /* deep warm-rose ink */
+    --primary: oklch(0.38 0.18 20);           /* vivid rose primary */
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.950 0.012 20);
+    --secondary-foreground: oklch(0.38 0.18 20);
+    --muted: oklch(0.950 0.012 20);
+    --muted-foreground: oklch(0.50 0.07 18);
+    --accent: oklch(0.950 0.012 20);
+    --accent-foreground: oklch(0.38 0.18 20);
+    --border: oklch(0.878 0.022 18);          /* rose-tinted border */
+    --input: oklch(0.878 0.022 18);
+    --ring: oklch(0.62 0.26 18);              /* vivid rose ring */
+    --app-text: #3d1515;                      /* deep warm rose text */
+    --pill-bg: rgba(220, 80, 80, 0.06);
+    --pill-active: #fb7185;
+    --iris-cyan:   rgba(253, 186, 116, 1);    /* warm gold */
+    --iris-violet: rgba(244, 114, 182, 1);    /* hot pink */
+    --iris-rose:   rgba(251, 207, 232, 1);    /* blush */
+    --iris-edge: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(253,186,116,0.40) 20%,
+      rgba(244,114,182,0.50) 50%,
+      rgba(251,207,232,0.35) 80%,
+      transparent 100%
+    );
+    --glass-highlight: inset 0 1px 0 rgba(255,230,230,0.70), inset 0 -1px 0 rgba(180,60,60,0.04);
   }
-  /* Dark: blue dot-matrix (https://imgur.com/a/j0pWhgx) */
+
+  /* Dark beta: cool blue dot-matrix bg — shift to deep blue, cyan accents */
   .dark body.beta-active {
     --bg-image: url('https://i.imgur.com/atQ1T2n.jpeg');
+    --background: #020609;                    /* deeper blue-black */
+    --card: #04080e;                          /* midnight blue card */
+    --card-foreground: #e0f2fe;
+    --popover: #04080e;
+    --popover-foreground: #e0f2fe;
+    --foreground: #e0f2fe;                    /* ice-blue white */
+    --primary: #38bdf8;                       /* sky blue primary */
+    --primary-foreground: #021927;
+    --secondary: #071322;                     /* deep navy secondary */
+    --secondary-foreground: #e0f2fe;
+    --muted: #071322;
+    --muted-foreground: #7dd3fc;              /* muted sky blue */
+    --accent: #071322;
+    --accent-foreground: #e0f2fe;
+    --border: rgba(56, 189, 248, 0.12);       /* cyan-tinted border */
+    --input: rgba(56, 189, 248, 0.16);
+    --ring: #38bdf8;                          /* sky blue ring */
+    --sidebar-ring: #38bdf8;
+    --sidebar-primary: #38bdf8;
+    --app-text: #e0f2fe;
+    --pill-bg: rgba(56, 189, 248, 0.07);
+    --pill-active: #38bdf8;
+    --iris-cyan:   rgba(56, 189, 248, 1);     /* sky blue */
+    --iris-violet: rgba(99, 102, 241, 1);     /* indigo */
+    --iris-rose:   rgba(147, 197, 253, 1);    /* pale blue */
+    --iris-edge: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(56,189,248,0.45) 20%,
+      rgba(99,102,241,0.40) 50%,
+      rgba(147,197,253,0.35) 80%,
+      transparent 100%
+    );
+    --glass-highlight: inset 0 1px 0 rgba(100,200,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.25);
   }
   html {
     @apply font-sans;
@@ -220,10 +291,18 @@
   z-index: 0;
   background:
     radial-gradient(ellipse 90% 55% at 15% 35%, rgba(100, 60, 255, 0.07) 0%, transparent 65%),
-    radial-gradient(ellipse 70% 45% at 85% 65%, rgba(0, 180, 255, 0.05) 0%, transparent 65%),
-    radial-gradient(ellipse 110% 60% at 50% 110%, rgba(220, 40, 140, 0.04) 0%, transparent 60%);
+    radial-gradient(ellipse 70% 45% at 85% 65%, rgba(0, 150, 255, 0.05) 0%, transparent 65%),
+    radial-gradient(ellipse 110% 60% at 50% 110%, rgba(180, 40, 140, 0.04) 0%, transparent 60%);
   animation: aurora-breathe 14s ease-in-out infinite alternate;
   filter: blur(30px);
+}
+
+/* Beta dark — shift aurora to blue/cyan to match dot-matrix bg */
+.dark body.beta-active::before {
+  background:
+    radial-gradient(ellipse 90% 55% at 15% 35%, rgba(14, 100, 220, 0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 45% at 85% 65%, rgba(0, 180, 255, 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 110% 60% at 50% 110%, rgba(56, 100, 255, 0.06) 0%, transparent 60%);
 }
 
 @keyframes aurora-breathe {
@@ -305,7 +384,7 @@
   @apply px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 data-[state=active]:text-foreground data-[state=active]:font-bold;
 }
 
-/* Light mode active — iridescent gradient pill */
+/* Light mode active — violet-lavender pill */
 .pill-tab-trigger[data-state="active"] {
   background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 40%, #bfdbfe 100%);
   box-shadow:
@@ -314,19 +393,44 @@
   color: #3b0764;
 }
 
-/* Dark mode active — translucent holographic */
+/* Dark mode active — translucent indigo/violet */
 .dark .pill-tab-trigger[data-state="active"] {
   background: linear-gradient(
     135deg,
     rgba(125, 211, 252, 0.14) 0%,
-    rgba(167, 139, 250, 0.22) 50%,
-    rgba(249, 168, 212, 0.12) 100%
+    rgba(167, 139, 250, 0.24) 50%,
+    rgba(129, 140, 248, 0.14) 100%
   );
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  border: 1px solid rgba(167, 139, 250, 0.30);
   box-shadow:
-    0 0 28px -4px rgba(139, 92, 246, 0.4),
+    0 0 28px -4px rgba(130, 110, 255, 0.40),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  color: #eeedf8;
+}
+
+/* Beta light active — warm rose/gold pill */
+body.beta-active .pill-tab-trigger[data-state="active"] {
+  background: linear-gradient(135deg, #fde68a 0%, #fca5a5 45%, #f9a8d4 100%);
+  box-shadow:
+    0 8px 24px -4px rgba(244, 114, 182, 0.40),
+    inset 0 1px 0 rgba(255,255,255,0.75);
+  color: #7c1a1a;
+  border: none;
+}
+
+/* Beta dark active — sky blue / indigo pill */
+.dark body.beta-active .pill-tab-trigger[data-state="active"] {
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.20) 0%,
+    rgba(99, 102, 241, 0.24) 50%,
+    rgba(147, 197, 253, 0.16) 100%
+  );
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  box-shadow:
+    0 0 28px -4px rgba(56, 189, 248, 0.45),
+    inset 0 1px 0 rgba(150, 220, 255, 0.12);
+  color: #e0f2fe;
 }
 
 /* ─── Theme Card (Glass Panel) ────────────────────────────────── */
