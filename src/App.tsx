@@ -109,6 +109,9 @@ const MODEL_CONFIGS: Record<string, {
 // Variants that run a 2-pass BVR pipeline
 const BVR_VARIANT_IDS = ['karaoke_bsr', 'karaoke_mel', 'bvr_mdx'];
 
+// Models still being trialed in beta — locked to "available soon" outside beta mode
+const BETA_ONLY_MODELS = ['mdx', 'bs-roformer'];
+
 const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
   { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
   { id: 'drums',         label: 'Drums',          icon: Drum   },
@@ -180,14 +183,20 @@ function MainApp() {
   useEffect(() => {
     try { localStorage.setItem('beta-mode', String(betaMode)); } catch {}
     document.body.classList.toggle('beta-active', betaMode);
-    // BVR/karaoke variants are beta-only while they're being trialed — bounce
-    // back to the model's default variant if beta mode gets switched off.
-    if (!betaMode && BVR_VARIANT_IDS.includes(modelVariant)) {
-      const cfg = MODEL_CONFIGS[splittingModel];
-      const defaultVar = cfg?.defaultVariant ?? 'default';
-      setModelVariant(defaultVar);
-      const variantStems = cfg?.variants.find(v => v.id === defaultVar)?.stems ?? ['vocals','drums','bass','other'];
-      setSelectedStems(variantStems);
+    // BVR/karaoke variants and beta-only models are locked while they're
+    // being trialed — bounce back to a stable default if beta mode switches off.
+    if (!betaMode) {
+      if (BETA_ONLY_MODELS.includes(splittingModel)) {
+        setSplittingModel('demucs');
+        setModelVariant(MODEL_CONFIGS.demucs.defaultVariant);
+        setSelectedStems(MODEL_CONFIGS.demucs.variants.find(v => v.id === MODEL_CONFIGS.demucs.defaultVariant)?.stems ?? ['vocals','drums','bass','other']);
+      } else if (BVR_VARIANT_IDS.includes(modelVariant)) {
+        const cfg = MODEL_CONFIGS[splittingModel];
+        const defaultVar = cfg?.defaultVariant ?? 'default';
+        setModelVariant(defaultVar);
+        const variantStems = cfg?.variants.find(v => v.id === defaultVar)?.stems ?? ['vocals','drums','bass','other'];
+        setSelectedStems(variantStems);
+      }
     }
   }, [betaMode]);
 
@@ -2241,11 +2250,17 @@ function MainApp() {
                               { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental' },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
+                              const isBetaLocked = !betaMode && modelObj.beta;
                               const isSelected = splittingModel === modelObj.id;
                               const showBeta = betaMode ? modelObj.tier !== 'stable' : modelObj.beta;
                               const cfg = MODEL_CONFIGS[modelObj.id];
                               const handleClick = () => {
-                                if (isAvailable) {
+                                if (isBetaLocked) {
+                                  toast.info(`${modelObj.name} is still being trialed in beta mode — available soon.`, {
+                                    icon: '🔒',
+                                    duration: 5000,
+                                  });
+                                } else if (isAvailable) {
                                   setSplittingModel(modelObj.id as any);
                                   const defaultVar = cfg?.defaultVariant ?? 'default';
                                   setModelVariant(defaultVar);
@@ -2262,9 +2277,13 @@ function MainApp() {
                                 <div
                                   key={modelObj.id}
                                   onClick={handleClick}
-                                  title={isAvailable ? modelObj.name : `${modelObj.name} requires a local install — click for setup`}
+                                  title={
+                                    isBetaLocked ? `${modelObj.name} — available soon (currently trialing in beta mode)`
+                                      : isAvailable ? modelObj.name
+                                      : `${modelObj.name} requires a local install — click for setup`
+                                  }
                                   className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all overflow-hidden ${
-                                    !isAvailable
+                                    !isAvailable || isBetaLocked
                                       ? "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-40 cursor-not-allowed hover:opacity-60"
                                       : isSelected && betaMode && modelObj.tier === 'experimental'
                                         ? "cursor-pointer bg-violet-500/10 border-violet-400/40 text-foreground shadow-[0_0_12px_rgba(139,92,246,0.2)]"
@@ -2280,7 +2299,7 @@ function MainApp() {
                                     </span>
                                   )}
                                   <span className="text-sm font-medium">{modelObj.name}</span>
-                                  {isAvailable && (
+                                  {isAvailable && !isBetaLocked && (
                                     <span className="text-[9px] opacity-50 font-mono">{cfg?.execution}</span>
                                   )}
                                   {betaMode && isAvailable && (
@@ -2292,6 +2311,9 @@ function MainApp() {
                                   )}
                                   {!isAvailable && (
                                     <span className="text-[10px] opacity-70">Local install</span>
+                                  )}
+                                  {isAvailable && isBetaLocked && (
+                                    <span className="text-[10px] opacity-70 text-violet-400">Available soon</span>
                                   )}
                                 </div>
                               );
