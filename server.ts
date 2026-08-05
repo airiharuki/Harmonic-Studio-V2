@@ -1104,9 +1104,36 @@ async function startServer() {
         archive.finalize();
       });
 
+      // Also expose each individual stem WAV for in-app waveform preview.
+      // Stems are copied into outputDir (tracked by the same 4-hour cleanup)
+      // and served through the same token mechanism as the ZIP.
+      const stemPreviews: { name: string; url: string }[] = [];
+      try {
+        if (fs.existsSync(stemsPath)) {
+          const wavFiles = fs.readdirSync(stemsPath).filter(f => f.toLowerCase().endsWith(".wav") || f.toLowerCase().endsWith(".flac") || f.toLowerCase().endsWith(".mp3"));
+          for (const wav of wavFiles) {
+            const stemName = path.basename(wav, path.extname(wav));
+            // Spleeter 2stems names instrumental "accompaniment" — normalise to "other"
+            const displayName = stemName === "accompaniment" ? "other" : stemName;
+            if (!zipAllFromStemsPath && stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
+              // Respect the user's stem selection when it was applied to the ZIP
+              if (!stemsToZip.includes(displayName)) continue;
+            }
+            const previewFilename = `${jobId}_${stemName}${path.extname(wav)}`;
+            const previewPath = path.join(outputDir, previewFilename);
+            fs.copyFileSync(path.join(stemsPath, wav), previewPath);
+            const stemToken = createFileToken(previewPath, `${displayName}${path.extname(wav)}`);
+            stemPreviews.push({ name: displayName, url: `/api/files/token/${stemToken}` });
+          }
+        }
+      } catch (previewErr) {
+        // Previews are best-effort — the ZIP download must still succeed.
+        console.error("[split] Failed to prepare stem previews:", previewErr);
+      }
+
       const token = createFileToken(zipPath, zipFilename);
       log("ZIP ready. Starting download...");
-      send("done", { filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS });
+      send("done", { filename: zipFilename, url: `/api/files/token/${token}`, expiresIn: FILE_TTL_MS, stems: stemPreviews });
       res.end();
 
     } catch (error: any) {

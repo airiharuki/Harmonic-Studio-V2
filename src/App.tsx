@@ -57,6 +57,7 @@ import { Chord, Note } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
 import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
+import { WaveformPlayer } from "./components/WaveformPlayer";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
 import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
@@ -168,6 +169,7 @@ function MainApp() {
   const [chords, setChords] = useState<string[] | null>(null);
   const [generatingChords, setGeneratingChords] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [stemPreviews, setStemPreviews] = useState<{ name: string; url: string }[]>([]);
   const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
   const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
   const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
@@ -323,6 +325,7 @@ function MainApp() {
     setAudioCurrentTime(0);
     setAudioDuration(0);
     setIsPlaying(false);
+    setStemPreviews([]);
     return blobUrl;
   };
 
@@ -999,6 +1002,7 @@ function MainApp() {
 
     setSplitting(true);
     setSplitLogs([]);
+    setStemPreviews([]);
 
     try {
       const payload: any = { stemsToZip: selectedStems, model: splittingModel, modelVariant, title: videoInfo?.title || uploadedFilename || "" };
@@ -1043,6 +1047,7 @@ function MainApp() {
               downloadUrl = event.url;
               expiresIn = event.expiresIn;
               downloadFilename = event.filename;
+              if (Array.isArray(event.stems)) setStemPreviews(event.stems);
             } else if (event.type === "error") {
               throw new Error(event.message);
             }
@@ -2204,56 +2209,8 @@ function MainApp() {
                     )}
 
                     {audioUrl && (
-                      <div className="pt-4 border-t border-black/10 dark:border-white/10 space-y-4">
-                        <div className="flex items-center gap-4">
-                          <Button 
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                              if (audioRef.current) {
-                                if (isPlaying) {
-                                  audioRef.current.pause();
-                                } else {
-                                  audioRef.current.play();
-                                }
-                                setIsPlaying(!isPlaying);
-                              }
-                            }}
-                            className="w-12 h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 shrink-0"
-                          >
-                            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-1" />}
-                          </Button>
-                          
-                          <div className="flex-1 space-y-1">
-                            <div className="flex justify-between text-[10px] font-mono opacity-50 uppercase font-bold">
-                              <span>{formatTime(audioCurrentTime)}</span>
-                              <span>{formatTime(audioDuration)}</span>
-                            </div>
-                            <Slider 
-                              value={[audioCurrentTime]} 
-                              max={audioDuration || 100} 
-                              step={0.1}
-                              onValueChange={(vals) => {
-                                if (audioRef.current) {
-                                  audioRef.current.currentTime = vals[0];
-                                  setAudioCurrentTime(vals[0]);
-                                }
-                              }}
-                              className="cursor-pointer"
-                            />
-                          </div>
-                        </div>
-
-                        <audio 
-                          ref={audioRef}
-                          src={audioUrl} 
-                          className="hidden"
-                          onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
-                          onDurationChange={(e) => setAudioDuration(e.currentTarget.duration)}
-                          onEnded={() => setIsPlaying(false)}
-                          onPlay={() => setIsPlaying(true)}
-                          onPause={() => setIsPlaying(false)}
-                        />
+                      <div className="pt-4 border-t border-black/10 dark:border-white/10">
+                        <WaveformPlayer url={audioUrl} bpm={analysis?.bpm ?? null} />
                       </div>
                     )}
                   </CardContent>
@@ -2554,6 +2511,32 @@ function MainApp() {
                                 </div>
                               )}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Stem previews — seekable waveform per split stem */}
+                        {stemPreviews.length > 0 && (
+                          <div className="rounded-2xl border border-black/10 dark:border-white/10 p-4 space-y-4 bg-black/5 dark:bg-white/[0.04]">
+                            <h4 className="text-xs font-bold opacity-40 uppercase tracking-wider">Stem Previews</h4>
+                            {stemPreviews.map((stem) => {
+                              const meta = ALL_STEMS.find(s => s.id === stem.name);
+                              const StemIcon = meta?.icon ?? Music2;
+                              return (
+                                <div key={stem.url}>
+                                <WaveformPlayer
+                                  url={stem.url}
+                                  bpm={analysis?.bpm ?? null}
+                                  height={48}
+                                  label={
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <StemIcon className="w-3 h-3" />
+                                      {meta?.label ?? stem.name}
+                                    </span>
+                                  }
+                                />
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </CardContent>
