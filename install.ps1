@@ -86,9 +86,22 @@ if ($refreshPath) {
 Write-Host "`n🤖 Installing AI Audio Separators and yt-dlp..." -ForegroundColor Cyan
 python -m pip install --upgrade pip
 
-# GPU flag: swap [cpu] -> [gpu] if you have an NVIDIA GPU with CUDA set up.
-# Using [cpu] by default — works everywhere without extra driver setup.
-pip install -U demucs spleeter "audio-separator[cpu]" yt-dlp
+# GPU or CPU choice
+Write-Host ""
+Write-Host "Do you have an NVIDIA GPU with CUDA installed?" -ForegroundColor Cyan
+Write-Host "  [G] GPU  — faster stem splitting (requires NVIDIA GPU + CUDA drivers)" -ForegroundColor Yellow
+Write-Host "  [C] CPU  — works on any machine, no extra drivers needed (default)" -ForegroundColor Yellow
+Write-Host ""
+$gpuChoice = Read-Host "Enter G or C (press Enter to default to CPU)"
+$gpuChoice = $gpuChoice.Trim().ToUpper()
+
+if ($gpuChoice -eq "G") {
+    Write-Host "⚡ Installing audio-separator with GPU (CUDA) support..." -ForegroundColor Magenta
+    pip install -U demucs spleeter "audio-separator[gpu]" yt-dlp
+} else {
+    Write-Host "🖥️  Installing audio-separator with CPU support..." -ForegroundColor Cyan
+    pip install -U demucs spleeter "audio-separator[cpu]" yt-dlp
+}
 
 # 4. Node Dependencies
 Write-Host "`n📦 Installing Node dependencies..." -ForegroundColor Cyan
@@ -98,8 +111,4 @@ Write-Host "`n✅ Setup Complete!" -ForegroundColor Magenta
 Write-Host "--------------------------------------------------------"
 Write-Host "To start the lab, ensure your terminal is inside the Harmonic-Studio-V2 folder and run:"
 Write-Host "  npm run dev" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "💡 GPU tip: if you have an NVIDIA GPU with CUDA, re-run:" -ForegroundColor DarkGray
-Write-Host '  pip install -U "audio-separator[gpu]"' -ForegroundColor DarkGray
-Write-Host "for significantly faster stem splitting." -ForegroundColor DarkGray
 Write-Host "--------------------------------------------------------"
