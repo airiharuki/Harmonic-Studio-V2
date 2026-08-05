@@ -10,6 +10,15 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ---
 
+## [v2.1.4] — YouTube Download Rate Limiting
+
+### Security
+- **`/api/download` rate limiting**: per-IP single active download, 30-second cooldown, global cap of 3 concurrent downloads. Returns 429 with `Retry-After` on excess. `endDlJob` is always called in a `try/finally` so the counter never leaks on error.
+- **`/api/info` rate limiting**: 5 requests per 30-second window per IP. Throttles metadata-only probes that could be used to enumerate or abuse the endpoint.
+- Both limiters mirror the existing `/api/split` pattern (`checkRateLimit / beginJob / endJob`) for consistency.
+
+---
+
 ## [v2.1.3] — Security Test Coverage
 
 ### Added

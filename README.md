@@ -289,4 +289,6 @@ The chord progression data powering Loop Studio's local generator comes directly
 
 **Made with ❤️, ☕, and increasingly experimental CSS**
 
+~~Sponsored by Replit~~ *(or maybe not)*
+
 </div>
