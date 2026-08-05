@@ -6,7 +6,15 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ## [Unreleased] — beta only
 
-*Nothing cooking yet.*
+### Added
+- **SoundCloud streaming player**: paste a SoundCloud track link in the Analyzer and get the official artwork-forward player inline — streams directly, no download required. Metadata (title, artist, 500px artwork) resolved server-side via SoundCloud's oEmbed API with strict hostname validation.
+
+---
+
+## [v2.1.6] — Real Audio Verification
+
+### Security
+- **Content-based audio validation**: uploaded files are now probed with `ffprobe` after the extension/MIME check — a renamed `.exe` or random blob with a `.mp3` filename fails the stream check and is rejected before it can reach the stem splitter.
 
 ---
 

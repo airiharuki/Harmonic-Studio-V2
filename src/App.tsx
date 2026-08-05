@@ -857,6 +857,15 @@ function MainApp() {
     loadEssentia();
   }, []);
 
+  const isSoundCloudUrl = (raw: string): boolean => {
+    try {
+      const host = new URL(raw).hostname.toLowerCase();
+      return host === "soundcloud.com" || host.endsWith(".soundcloud.com");
+    } catch {
+      return false;
+    }
+  };
+
   const handleFetchInfo = async () => {
     if (!url && !file) return;
     setLoading(true);
@@ -887,9 +896,21 @@ function MainApp() {
           isLocal: true
         });
         toast.success("File uploaded successfully!");
+      } else if (isSoundCloudUrl(url)) {
+        // SoundCloud: stream via official widget — artwork-forward player, no download.
+        const sc = await axios.get(`/api/sc/resolve?url=${encodeURIComponent(url)}`);
+        setVideoInfo({
+          title: sc.data.title,
+          uploader: sc.data.author,
+          thumbnail: sc.data.thumbnail,
+          duration: 0,
+          view_count: 0,
+          soundcloudUrl: url,
+        });
+        toast.success("SoundCloud track loaded — streaming, no download needed.");
       } else {
         const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
-        
+
         let videoId = '';
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
           if (url.includes('youtu.be/')) {
@@ -2077,7 +2098,14 @@ function MainApp() {
               <div className="lg:col-span-5 space-y-6">
                 <Card className="theme-card relative overflow-hidden">
                   <div className="aspect-video relative group bg-black">
-                    {videoInfo.targetVideoId ? (
+                    {videoInfo.soundcloudUrl ? (
+                      <iframe
+                        src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(videoInfo.soundcloudUrl)}&visual=true&auto_play=false&hide_related=true&show_comments=false&show_reposts=false&show_teaser=false`}
+                        title="SoundCloud player"
+                        className="w-full h-full border-0"
+                        allow="autoplay"
+                      />
+                    ) : videoInfo.targetVideoId ? (
                       <iframe
                         src={`https://www.youtube.com/embed/${videoInfo.targetVideoId}`}
                         title="YouTube video player"
@@ -2104,12 +2132,20 @@ function MainApp() {
                   </div>
                   <CardContent className="p-6 space-y-6">
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
-                        {Math.floor(videoInfo.duration / 60)}:{(videoInfo.duration % 60).toString().padStart(2, '0')}
-                      </Badge>
-                      <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
-                        {videoInfo.view_count?.toLocaleString()} views
-                      </Badge>
+                      {videoInfo.soundcloudUrl ? (
+                        <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
+                          SoundCloud · streaming
+                        </Badge>
+                      ) : (
+                        <>
+                          <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
+                            {Math.floor(videoInfo.duration / 60)}:{(videoInfo.duration % 60).toString().padStart(2, '0')}
+                          </Badge>
+                          <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-80 border-none">
+                            {videoInfo.view_count?.toLocaleString()} views
+                          </Badge>
+                        </>
+                      )}
                     </div>
 
                     {!videoInfo.isLocal && (

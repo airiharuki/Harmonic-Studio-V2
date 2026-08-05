@@ -633,6 +633,65 @@ async function startServer() {
     }
   });
 
+  // SoundCloud oEmbed proxy — resolves track metadata for the inline player
+  // without exposing the browser to CORS issues. Hostname is strictly
+  // validated so this can't be used as an open proxy.
+  app.get("/api/sc/resolve", async (req, res) => {
+    const url = req.query.url as string;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.status(400).json({ error: "Invalid URL" });
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return res.status(400).json({ error: "Invalid URL scheme" });
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (host !== "soundcloud.com" && !host.endsWith(".soundcloud.com")) {
+      return res.status(400).json({ error: "Only soundcloud.com URLs are supported" });
+    }
+
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+    const infoRate = checkInfoRateLimit(clientIp);
+    if (!infoRate.allowed) {
+      res.setHeader("Retry-After", Math.ceil((infoRate.retryAfterMs || 0) / 1000));
+      return res.status(429).json({
+        error: "Too many requests. Please wait before trying again.",
+        retryAfterMs: infoRate.retryAfterMs,
+      });
+    }
+
+    try {
+      const oembed = await fetch(
+        `https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!oembed.ok) {
+        if (oembed.status === 404) {
+          return res.status(404).json({ error: "Track not found or is private" });
+        }
+        if (oembed.status === 429) {
+          return res.status(429).json({ error: "SoundCloud is rate limiting requests — try again shortly" });
+        }
+        console.error(`SoundCloud oembed returned ${oembed.status}`);
+        return res.status(502).json({ error: "SoundCloud is unreachable right now — try again later" });
+      }
+      const data = await oembed.json();
+      res.json({
+        title: data.title,
+        author: data.author_name,
+        authorUrl: data.author_url,
+        thumbnail: (data.thumbnail_url || "").replace("-large.jpg", "-t500x500.jpg"),
+      });
+    } catch (error: any) {
+      console.error("SoundCloud resolve error:", error);
+      res.status(500).json({ error: "Failed to resolve SoundCloud track" });
+    }
+  });
+
   app.post("/api/download", async (req, res) => {
     const { url, format, title } = req.body;
     if (!url || !format) return res.status(400).json({ error: "URL and format are required" });
