@@ -351,10 +351,50 @@ async function startServer() {
   // Sweep every 30 minutes
   setInterval(sweepExpiredFiles, 30 * 60 * 1000);
 
-  const upload = multer({ dest: downloadsDir });
+  // --- Upload hardening ---
+  // Cap upload size and only accept audio files, so a malicious/buggy client
+  // can't fill the disk or stash arbitrary payloads in downloads/.
+  const UPLOAD_MAX_BYTES = 300 * 1024 * 1024; // 300 MB
+  const AUDIO_EXTENSIONS = new Set([
+    ".mp3", ".wav", ".flac", ".ogg", ".oga", ".opus", ".m4a", ".aac",
+    ".wma", ".aiff", ".aif", ".alac", ".mp4", ".webm", ".mkv",
+  ]);
+  const isAudioMime = (mime: string) =>
+    mime.startsWith("audio/") ||
+    // Some browsers report container/video MIME types for audio-bearing files.
+    mime === "video/mp4" || mime === "video/webm" || mime === "video/x-matroska" ||
+    mime === "application/octet-stream";
+
+  const upload = multer({
+    dest: downloadsDir,
+    limits: { fileSize: UPLOAD_MAX_BYTES, files: 1 },
+    fileFilter: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      const mime = (file.mimetype || "").toLowerCase();
+      if (AUDIO_EXTENSIONS.has(ext) && isAudioMime(mime)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Unsupported file type "${ext || file.mimetype}". Please upload an audio file (mp3, wav, flac, ogg, m4a, aac, ...).`));
+      }
+    },
+  });
+
+  // Wraps multer so its errors (size limit, rejected type) come back as clear
+  // JSON instead of a generic 500 / connection reset.
+  const uploadSingle = (field: string) => (req: any, res: any, next: any) => {
+    upload.single(field)(req, res, (err: any) => {
+      if (err) {
+        if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+          return res.status(413).json({ error: `File is too large. Maximum upload size is ${UPLOAD_MAX_BYTES / (1024 * 1024)} MB.` });
+        }
+        return res.status(400).json({ error: err.message || "Upload rejected" });
+      }
+      next();
+    });
+  };
 
   // API Routes
-  app.post("/api/upload", upload.single("file"), (req: any, res) => {
+  app.post("/api/upload", uploadSingle("file"), (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     
     // Rename file to include original extension
