@@ -139,15 +139,29 @@ async function startServer() {
 
   // Path traversal guard — resolves user-controlled filename segments and
   // refuses anything that escapes the base directory (e.g. "../.env").
+  // Also resolves symlinks for existing paths so a planted symlink inside
+  // downloads/ or output/ can't redirect reads outside the base directory.
   // Returns null for unsafe paths.
   const safeJoin = (baseDir: string, userPath: string): string | null => {
     if (!userPath || userPath.includes("\0")) return null;
-    const resolved = path.resolve(baseDir, userPath);
     const baseResolved = path.resolve(baseDir);
+    const resolved = path.resolve(baseResolved, userPath);
     if (resolved !== baseResolved && !resolved.startsWith(baseResolved + path.sep)) {
       return null;
     }
-    return resolved;
+    // Symlink check — if the path exists, verify its REAL location is still
+    // inside the base directory. Non-existent paths can't traverse at open
+    // time, so the lexical check above is sufficient for them.
+    try {
+      const real = fs.realpathSync(resolved);
+      const realBase = fs.realpathSync(baseResolved);
+      if (real !== realBase && !real.startsWith(realBase + path.sep)) {
+        return null;
+      }
+      return real;
+    } catch {
+      return resolved;
+    }
   };
 
   // --- Secure file token store ---
@@ -714,7 +728,17 @@ async function startServer() {
           // BVR 2-pass or audio-separator: output naming is model-defined — zip everything
           archive.directory(stemsPath, false);
         } else if (stemsToZip && Array.isArray(stemsToZip) && stemsToZip.length > 0) {
+          // Whitelist of valid stem IDs — anything else (e.g. "../../.env")
+          // is rejected before it can reach the filesystem or the ZIP archive.
+          const ALLOWED_STEMS = new Set([
+            'vocals', 'drums', 'bass', 'guitar', 'piano', 'other',
+            'lead_vocal', 'backing_vocal',
+          ]);
           for (const stem of stemsToZip) {
+              if (typeof stem !== 'string' || !ALLOWED_STEMS.has(stem)) {
+                reject(new Error(`Invalid stem name: ${String(stem)}`));
+                return;
+              }
               // Spleeter 2stems uses "accompaniment" for what we call "other"
               const spleeterVariant = (modelVariant && /^\d+stems$/.test(modelVariant)) ? modelVariant : '4stems';
               const stemFilename = (model === 'spleeter' && spleeterVariant === '2stems' && stem === 'other')
