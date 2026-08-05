@@ -4,9 +4,10 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ---
 
-## [Unreleased] — beta only
+## [Unreleased] — v2.2b1 "Reverie" (in progress)
 
-*Nothing cooking yet.*
+### Added
+- **Waveform player**: WaveSurfer.js renders a click-to-seek waveform under the Analyzer player card — shows animated playhead, BPM gridlines when analysis data is available, and per-stem waveform previews after splitting. Falls back to plain player if waveform rendering fails.
 
 ---
 
