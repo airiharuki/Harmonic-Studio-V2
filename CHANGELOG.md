@@ -10,6 +10,14 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ---
 
+## [v2.1.5] — Disk Cleanup
+
+### Added
+- **Automatic upload sweep**: untracked files in `downloads/` and `output/` older than **4 hours** are deleted on a background timer. Uploads, job leftovers, and orphaned output files no longer accumulate indefinitely and fill the disk.
+- Files that are still being actively processed are left alone — only untracked, stale files are swept.
+
+---
+
 ## [v2.1.4] — YouTube Download Rate Limiting
 
 ### Security
