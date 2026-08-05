@@ -1,6 +1,6 @@
 # VibeCoded Music Lab Setup (Harmonic Studio V2)
 Write-Host "🎵 VibeCoded Music Lab Setup 🎵" -ForegroundColor Cyan
-Write-Host "Fully automated: Git -> Repo -> Python/Node/FFmpeg -> AI Models -> React"
+Write-Host "Fully automated: Git -> Repo -> Python / Node / FFmpeg / Deno -> AI Models -> React"
 Write-Host ""
 
 if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -40,7 +40,7 @@ if (-not (Test-Path "package.json")) {
     Write-Host "✅ Repository files found locally." -ForegroundColor Green
 }
 
-# 2. Check for core dependencies (Node, Python, FFmpeg)
+# 2. Check for core dependencies (Node, Python, FFmpeg, Deno)
 $refreshPath = $false
 
 if (!(Get-Command npm -ErrorAction SilentlyContinue)) {
@@ -67,6 +67,16 @@ if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "✅ FFmpeg is already installed." -ForegroundColor Green
 }
 
+# Deno — required by yt-dlp to solve YouTube's n-challenge (throttling bypass)
+if (!(Get-Command deno -ErrorAction SilentlyContinue)) {
+    Write-Host "🛠️ Deno not found. Auto-installing via Winget..." -ForegroundColor Yellow
+    winget install DenoLand.Deno --accept-package-agreements --accept-source-agreements --silent
+    $refreshPath = $true
+} else {
+    $denoVer = deno --version 2>$null | Select-String "deno" | ForEach-Object { $_.ToString().Trim() }
+    Write-Host "✅ Deno is already installed ($denoVer)." -ForegroundColor Green
+}
+
 if ($refreshPath) {
     Write-Host "🔄 Refreshing environment variables..." -ForegroundColor Cyan
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -75,7 +85,10 @@ if ($refreshPath) {
 # 3. Python AI Separator & Downloader Dependencies
 Write-Host "`n🤖 Installing AI Audio Separators and yt-dlp..." -ForegroundColor Cyan
 python -m pip install --upgrade pip
-pip install -U demucs spleeter "audio-separator[gpu]" yt-dlp
+
+# GPU flag: swap [cpu] -> [gpu] if you have an NVIDIA GPU with CUDA set up.
+# Using [cpu] by default — works everywhere without extra driver setup.
+pip install -U demucs spleeter "audio-separator[cpu]" yt-dlp
 
 # 4. Node Dependencies
 Write-Host "`n📦 Installing Node dependencies..." -ForegroundColor Cyan
@@ -85,4 +98,8 @@ Write-Host "`n✅ Setup Complete!" -ForegroundColor Magenta
 Write-Host "--------------------------------------------------------"
 Write-Host "To start the lab, ensure your terminal is inside the Harmonic-Studio-V2 folder and run:"
 Write-Host "  npm run dev" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "💡 GPU tip: if you have an NVIDIA GPU with CUDA, re-run:" -ForegroundColor DarkGray
+Write-Host '  pip install -U "audio-separator[gpu]"' -ForegroundColor DarkGray
+Write-Host "for significantly faster stem splitting." -ForegroundColor DarkGray
 Write-Host "--------------------------------------------------------"
