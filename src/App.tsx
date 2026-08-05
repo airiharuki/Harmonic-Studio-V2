@@ -36,7 +36,8 @@ import {
   ChevronsUp,
   ChevronsDown,
   Music2,
-  Users
+  Users,
+  Github
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1414,6 +1415,21 @@ function MainApp() {
 
         <div className={`absolute right-4 flex items-center gap-2 transition-all duration-300 ${betaMode ? 'top-9 sm:top-11' : 'top-2 sm:top-6'}`}>
           <RecentTracksButton onClick={() => setRecentTracksOpen(true)} />
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 backdrop-blur-md hover:bg-black/10 dark:hover:bg-white/10"
+            asChild
+            title="Star on GitHub"
+          >
+            <a
+              href="https://github.com/airiharuki/Harmonic-Studio-V2"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Github className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </a>
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -2805,6 +2821,27 @@ function MainApp() {
       </TabsContent>
     </Tabs>
       </div>
+      {/* Footer */}
+      <footer className="text-center pb-6 pt-2 space-y-1 select-none">
+        <div className="text-[11px] opacity-35 hover:opacity-60 transition-opacity">
+          <a
+            href="https://github.com/airiharuki/Harmonic-Studio-V2"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 hover:underline underline-offset-2"
+          >
+            <Github className="w-3 h-3" />
+            airiharuki/Harmonic-Studio-V2
+          </a>
+          {" · "}
+          <span>
+            <s>Sponsored by Replit</s>
+            {" "}
+            <span className="italic">(or maybe not)</span>
+          </span>
+        </div>
+      </footer>
+
       <Toaster position="bottom-right" theme={theme as any} />
     </div>
     </>

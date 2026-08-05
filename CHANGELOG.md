@@ -10,6 +10,16 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ---
 
+## [v2.1.3] — Security Test Coverage
+
+### Added
+- Extracted `safeJoin` path guard and stem whitelist into `server/security.ts` — shared module used by the server and the test suite.
+- **Vitest unit tests** covering all traversal payloads: `../` escapes, encoded separators, null bytes, and symlinks pointing outside the base directory.
+- **HTTP integration tests** against `/api/files/:filename`, `/api/files/output/:filename`, and `/api/split` — regression suite that fails if any path-traversal hole reopens.
+- `npm test` and `npx tsc --noEmit` registered as named validation commands in `.replit` — run from the Security or Validations pane without touching the terminal.
+
+---
+
 ## [v2.1.2] — Upload Hardening
 
 ### Added
