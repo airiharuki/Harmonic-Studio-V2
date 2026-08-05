@@ -302,6 +302,107 @@ async function startServer() {
     }
   }, 10 * 60 * 1000);
 
+  // --- Rate limiting for YouTube download jobs (/api/download) ---
+  // Each download runs yt-dlp + ffmpeg and can take 30-120 s of CPU/network.
+  // Limits mirror the split limiter:
+  //   1. Per-IP: at most 1 active download at a time.
+  //   2. Per-IP: 30-second cooldown between download starts.
+  //   3. Global:  cap of 3 simultaneous downloads across all clients.
+  const DL_MAX_ACTIVE_PER_IP = 1;
+  const DL_COOLDOWN_MS = 30 * 1000; // 30 s between download starts per IP
+  const DL_MAX_GLOBAL_ACTIVE = 3;
+
+  interface DlEntry {
+    active: number;
+    lastStart: number;
+  }
+  const dlLimitStore = new Map<string, DlEntry>();
+  let dlGlobalActive = 0;
+
+  function checkDlRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number; reason?: string } {
+    const now = Date.now();
+    const entry = dlLimitStore.get(ip);
+
+    if (entry && entry.active >= DL_MAX_ACTIVE_PER_IP) {
+      return { allowed: false, retryAfterMs: DL_COOLDOWN_MS, reason: "You already have a download in progress. Wait for it to finish." };
+    }
+    if (entry && now - entry.lastStart < DL_COOLDOWN_MS) {
+      return { allowed: false, retryAfterMs: entry.lastStart + DL_COOLDOWN_MS - now, reason: "Please wait a moment between downloads." };
+    }
+    if (dlGlobalActive >= DL_MAX_GLOBAL_ACTIVE) {
+      return { allowed: false, retryAfterMs: DL_COOLDOWN_MS, reason: "The server is busy with other downloads. Please try again shortly." };
+    }
+    return { allowed: true };
+  }
+
+  function beginDlJob(ip: string) {
+    const now = Date.now();
+    const entry = dlLimitStore.get(ip) ?? { active: 0, lastStart: 0 };
+    entry.active++;
+    entry.lastStart = now;
+    dlLimitStore.set(ip, entry);
+    dlGlobalActive++;
+  }
+
+  function endDlJob(ip: string) {
+    const entry = dlLimitStore.get(ip);
+    if (entry) {
+      entry.active = Math.max(0, entry.active - 1);
+    }
+    dlGlobalActive = Math.max(0, dlGlobalActive - 1);
+  }
+
+  // Forget IPs with no active downloads whose cooldown has long passed.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of dlLimitStore.entries()) {
+      if (entry.active <= 0 && now - entry.lastStart > DL_COOLDOWN_MS) {
+        dlLimitStore.delete(ip);
+      }
+    }
+  }, 10 * 60 * 1000);
+
+  // --- Rate limiting for /api/info ---
+  // Info calls are cheaper (metadata-only, no file I/O) but still hit yt-dlp
+  // and cost real network/CPU. Allow a burst then throttle.
+  //   Per-IP: 5 requests per 30-second window.
+  const INFO_WINDOW_MS = 30 * 1000;
+  const INFO_MAX_PER_WINDOW = 5;
+
+  interface InfoEntry {
+    windowStart: number;
+    count: number;
+  }
+  const infoLimitStore = new Map<string, InfoEntry>();
+
+  function checkInfoRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number } {
+    const now = Date.now();
+    let entry = infoLimitStore.get(ip);
+    if (!entry) {
+      entry = { windowStart: now, count: 0 };
+      infoLimitStore.set(ip, entry);
+    }
+    if (now - entry.windowStart > INFO_WINDOW_MS) {
+      entry.windowStart = now;
+      entry.count = 0;
+    }
+    entry.count++;
+    if (entry.count > INFO_MAX_PER_WINDOW) {
+      return { allowed: false, retryAfterMs: entry.windowStart + INFO_WINDOW_MS - now };
+    }
+    return { allowed: true };
+  }
+
+  // Forget quiet IPs.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of infoLimitStore.entries()) {
+      if (now - entry.windowStart > INFO_WINDOW_MS) {
+        infoLimitStore.delete(ip);
+      }
+    }
+  }, 10 * 60 * 1000);
+
   function sweepExpiredFiles() {
     const now = Date.now();
     for (const [token, entry] of fileTokens.entries()) {
@@ -420,6 +521,16 @@ async function startServer() {
     const url = req.query.url as string;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+    const infoRate = checkInfoRateLimit(clientIp);
+    if (!infoRate.allowed) {
+      res.setHeader("Retry-After", Math.ceil((infoRate.retryAfterMs || 0) / 1000));
+      return res.status(429).json({
+        error: "Too many info requests. Please wait before trying again.",
+        retryAfterMs: infoRate.retryAfterMs,
+      });
+    }
+
     try {
       let info;
       let attempts = 0;
@@ -450,6 +561,17 @@ async function startServer() {
   app.post("/api/download", async (req, res) => {
     const { url, format, title } = req.body;
     if (!url || !format) return res.status(400).json({ error: "URL and format are required" });
+
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+    const dlRate = checkDlRateLimit(clientIp);
+    if (!dlRate.allowed) {
+      res.setHeader("Retry-After", Math.ceil((dlRate.retryAfterMs || 0) / 1000));
+      return res.status(429).json({
+        error: dlRate.reason || "Too many download requests. Please wait before trying again.",
+        retryAfterMs: dlRate.retryAfterMs,
+      });
+    }
+    beginDlJob(clientIp);
 
     try {
       // 1. Fetch metadata first
@@ -585,6 +707,8 @@ async function startServer() {
     } catch (error: any) {
       console.error("Download error:", error);
       res.status(500).json({ error: error.message });
+    } finally {
+      endDlJob(clientIp);
     }
   });
 
