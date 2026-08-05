@@ -4,7 +4,7 @@
  */
 
 import * as React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Download, 
@@ -26,7 +26,18 @@ import {
   Sun,
   Monitor,
   Sparkles,
-  Repeat
+  Repeat,
+  FlaskConical,
+  ChevronDown,
+  ChevronUp,
+  ArrowRightLeft,
+  History,
+  Hand,
+  ChevronsUp,
+  ChevronsDown,
+  Music2,
+  Users,
+  Github
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,10 +59,70 @@ import { PianoRoll } from "./components/PianoRoll";
 import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
+import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
 import { 
   createSoundFont2SynthNode, 
   type SoundFont2SynthNode 
 } from 'sf2-synth-audio-worklet';
+
+// ─── Model capability registry ───────────────────────────────────────────────
+const MODEL_CONFIGS: Record<string, {
+  execution: string;
+  variants: { id: string; label: string; desc: string; stems: string[] }[];
+  defaultVariant: string;
+}> = {
+  demucs: {
+    execution: 'single-pass',
+    variants: [
+      { id: 'htdemucs',    label: '4-stem', desc: 'Vocals · Drums · Bass · Other',                     stems: ['vocals','drums','bass','other'] },
+      { id: 'htdemucs_6s', label: '6-stem', desc: 'Vocals · Drums · Bass · Guitar · Piano · Other',    stems: ['vocals','drums','bass','guitar','piano','other'] },
+    ],
+    defaultVariant: 'htdemucs',
+  },
+  spleeter: {
+    execution: 'single-pass',
+    variants: [
+      { id: '2stems', label: '2-stem', desc: 'Vocals · Instrumental',                                  stems: ['vocals','other'] },
+      { id: '4stems', label: '4-stem', desc: 'Vocals · Drums · Bass · Other',                         stems: ['vocals','drums','bass','other'] },
+      { id: '5stems', label: '5-stem', desc: 'Vocals · Drums · Bass · Piano · Other',                 stems: ['vocals','drums','bass','piano','other'] },
+    ],
+    defaultVariant: '4stems',
+  },
+  mdx: {
+    execution: 'multi-pass',
+    variants: [
+      { id: 'inst_hq3', label: 'Inst HQ 3',  desc: 'Vocals · Instrumental',                          stems: ['vocals','other'] },
+      { id: 'bvr_mdx',  label: 'BVR · MDX',  desc: 'Lead Vocal · Backing Vocals · lightweight',      stems: ['lead_vocal','backing_vocal'] },
+    ],
+    defaultVariant: 'inst_hq3',
+  },
+  'bs-roformer': {
+    execution: 'single-target',
+    variants: [
+      { id: 'vocals_ep317',  label: 'EP317 Vocals',      desc: 'Vocals only · max SDR',              stems: ['vocals'] },
+      { id: 'karaoke_bsr',   label: 'BVR · BS-RoFormer', desc: 'Lead Vocal · Backing Vocals · 2-pass', stems: ['lead_vocal','backing_vocal'] },
+      { id: 'karaoke_mel',   label: 'BVR · MelBand',     desc: 'Lead Vocal · Backing Vocals · 2-pass', stems: ['lead_vocal','backing_vocal'] },
+    ],
+    defaultVariant: 'vocals_ep317',
+  },
+};
+
+// Variants that run a 2-pass BVR pipeline
+const BVR_VARIANT_IDS = ['karaoke_bsr', 'karaoke_mel', 'bvr_mdx'];
+
+// Models still being trialed in beta — locked to "available soon" outside beta mode
+const BETA_ONLY_MODELS = ['mdx', 'bs-roformer'];
+
+const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
+  { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
+  { id: 'drums',         label: 'Drums',          icon: Drum   },
+  { id: 'bass',          label: 'Bass',           icon: Guitar },
+  { id: 'guitar',        label: 'Guitar',         icon: Guitar },
+  { id: 'piano',         label: 'Piano',          icon: Piano  },
+  { id: 'other',         label: 'Other / Inst',   icon: Music2 },
+  { id: 'lead_vocal',    label: 'Lead Vocal',     icon: Mic2   },
+  { id: 'backing_vocal', label: 'Backing Vocals', icon: Users  },
+];
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -82,7 +153,7 @@ class ErrorBoundary extends React.Component<any, any> {
 }
 
 function MainApp() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState("composer");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -90,6 +161,8 @@ function MainApp() {
   const [videoInfo, setVideoInfo] = useState<any>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [splitting, setSplitting] = useState(false);
+  const [splitLogs, setSplitLogs] = useState<string[]>([]);
+  const splitLogRef = useRef<HTMLDivElement>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [chords, setChords] = useState<string[] | null>(null);
@@ -98,9 +171,89 @@ function MainApp() {
   const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
   const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
   const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
+  const [modelVariant, setModelVariant] = useState<string>('htdemucs');
   const [splitterAvailability, setSplitterAvailability] = useState<Record<string, boolean> | null>(null);
   const [splitterRepoUrl, setSplitterRepoUrl] = useState<string>("https://github.com/airiharuki/Harmonic-Studio-V2");
   const [recentTracksOpen, setRecentTracksOpen] = useState(false);
+  const [betaMode, setBetaMode] = useState<boolean>(() => {
+    try { return localStorage.getItem('beta-mode') === 'true'; } catch { return false; }
+  });
+  const [betaLabOpen, setBetaLabOpen] = useState(false);
+  const [titleClickCount, setTitleClickCount] = useState(0);
+
+  useEffect(() => {
+    try { localStorage.setItem('beta-mode', String(betaMode)); } catch {}
+    document.body.classList.toggle('beta-active', betaMode);
+    // BVR/karaoke variants and beta-only models are locked while they're
+    // being trialed — bounce back to a stable default if beta mode switches off.
+    if (!betaMode) {
+      if (BETA_ONLY_MODELS.includes(splittingModel)) {
+        setSplittingModel('demucs');
+        setModelVariant(MODEL_CONFIGS.demucs.defaultVariant);
+        setSelectedStems(MODEL_CONFIGS.demucs.variants.find(v => v.id === MODEL_CONFIGS.demucs.defaultVariant)?.stems ?? ['vocals','drums','bass','other']);
+      } else if (BVR_VARIANT_IDS.includes(modelVariant)) {
+        const cfg = MODEL_CONFIGS[splittingModel];
+        const defaultVar = cfg?.defaultVariant ?? 'default';
+        setModelVariant(defaultVar);
+        const variantStems = cfg?.variants.find(v => v.id === defaultVar)?.stems ?? ['vocals','drums','bass','other'];
+        setSelectedStems(variantStems);
+      }
+    }
+  }, [betaMode]);
+
+  // 🥚 Easter egg #1 — Konami code: ↑↑↓↓←→←→
+  useEffect(() => {
+    const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight'];
+    let idx = 0;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === KONAMI[idx]) {
+        idx++;
+        if (idx === KONAMI.length) {
+          idx = 0;
+          setBetaMode(true);
+          toast('🎮 Konami code accepted. Beta mode unlocked.', { icon: '⚗️', duration: 4000 });
+        }
+      } else {
+        idx = e.key === KONAMI[0] ? 1 : 0;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // 🥚 Easter egg #2 — type "studio" anywhere
+  useEffect(() => {
+    const SECRET = 'studio';
+    let typed = '';
+    let timer: ReturnType<typeof setTimeout>;
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      typed += e.key.toLowerCase();
+      if (typed.length > SECRET.length) typed = typed.slice(-SECRET.length);
+      clearTimeout(timer);
+      timer = setTimeout(() => { typed = ''; }, 1500);
+      if (typed === SECRET) {
+        typed = '';
+        setBetaMode(true);
+        toast('🎹 You know the word. Beta mode unlocked.', { icon: '🔑', duration: 4000 });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => { window.removeEventListener('keydown', handler); clearTimeout(timer); };
+  }, []);
+
+  // 🥚 Easter egg #3 — click the title 7× within 3 s (handled via titleClickCount state)
+  useEffect(() => {
+    if (titleClickCount === 0) return;
+    if (titleClickCount >= 7) {
+      setTitleClickCount(0);
+      setBetaMode(true);
+      toast('🫙 Seven taps. You found it. Beta mode unlocked.', { icon: '⚗️', duration: 4000 });
+      return;
+    }
+    const timer = setTimeout(() => setTitleClickCount(0), 3000);
+    return () => clearTimeout(timer);
+  }, [titleClickCount]);
 
   // Ask the server which stem-splitter binaries are actually installed.
   // Models the server can't run get greyed out in the picker and link to the
@@ -194,6 +347,16 @@ function MainApp() {
     };
   }, []);
 
+  // Keep the browser chrome (iOS status/toolbar tint, Android status bar)
+  // matched to whichever theme is actually active, since the user can force
+  // light/dark independently of the OS's prefers-color-scheme.
+  useEffect(() => {
+    const color = resolvedTheme === "dark" ? "#1c1620" : "#c9a3ab";
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.setAttribute("content", color);
+    });
+  }, [resolvedTheme]);
+
   const stopMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiActiveNotesRef.current.forEach(stop => stop && stop());
@@ -210,77 +373,92 @@ function MainApp() {
 
   const pauseMidi = () => {
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-    midiActiveNotesRef.current.forEach(stop => stop && stop());
     midiActiveNotesRef.current = [];
-    
     if (midiAudioCtxRef.current) {
+      // Record how far through the MIDI we are before destroying the context.
       midiPausedTimeRef.current = midiAudioCtxRef.current.currentTime - midiStartTimeRef.current;
+      // Close entirely — this kills the AudioWorklet node and cancels every
+      // note the Wasm engine had queued internally. suspend() is NOT enough
+      // because the sf2-synth schedules notes inside Wasm and they fire even
+      // while the AudioContext is "suspended".
+      midiAudioCtxRef.current.close().catch(console.error);
+      midiAudioCtxRef.current = null;
     }
-    
+    setSynth(null);
     setIsMidiPaused(true);
   };
 
   const resumeMidi = async () => {
-    if (!midiAudioCtxRef.current || !currentMidiRef.current) return;
-    
-    const audioCtx = midiAudioCtxRef.current;
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    
+    if (!currentMidiRef.current) return;
+
     const pausedTime = midiPausedTimeRef.current;
-    midiStartTimeRef.current = audioCtx.currentTime - pausedTime;
+
+    // Fresh AudioContext + synth — clean slate, nothing pre-scheduled.
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx = new AudioContextClass();
+    midiAudioCtxRef.current = audioCtx;
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    let currentSynth: SoundFont2SynthNode | null = null;
+    try {
+      let sfArrayBuffer = sfData;
+      if (!sfArrayBuffer) {
+        let sfResponse = await fetch('/epiano.sf2');
+        if (!sfResponse.ok) sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+        if (!sfResponse.ok) throw new Error("Soundfont not found");
+        sfArrayBuffer = await sfResponse.arrayBuffer();
+        setSfData(sfArrayBuffer);
+      }
+      const blob = new Blob([sfArrayBuffer], { type: 'application/octet-stream' });
+      const sfUrl = URL.createObjectURL(blob);
+      currentSynth = await createSoundFont2SynthNode(audioCtx, sfUrl);
+      currentSynth.connect(audioCtx.destination);
+
+      (currentSynth as any).play = (noteName: string, time: number, options: any) => {
+        const midiNote = Note.midi(noteName);
+        if (midiNote === undefined) return { stop: () => {} };
+        const velocity = Math.floor((options.gain || 0.8) * 127);
+        const duration = options.duration || 1;
+        const delay = Math.max(0, time - audioCtx.currentTime);
+        currentSynth!.noteOn(0, midiNote, velocity, delay);
+        currentSynth!.noteOff(0, midiNote, delay + duration);
+        return { stop: () => { currentSynth!.noteOff(0, midiNote, 0); } };
+      };
+
+      currentSynth.setProgram(0, 0, 4);
+      setSynth(currentSynth);
+    } catch (e) {
+      console.error("SF2 resume error:", e);
+      toast.error("Failed to resume soundfont.");
+      return;
+    }
+
+    // Schedule only notes that haven't played yet, offset to start now + small buffer.
+    midiStartTimeRef.current = audioCtx.currentTime + 0.15 - pausedTime;
     const startTime = midiStartTimeRef.current;
+
+    midiActiveNotesRef.current = [];
+    currentMidiRef.current.tracks.forEach((track: any) => {
+      track.notes.forEach((note: any) => {
+        if (note.time >= pausedTime) {
+          const node = (currentSynth as any).play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
+          midiActiveNotesRef.current.push(() => { if (node?.stop) node.stop(); });
+        }
+      });
+    });
 
     if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
     midiIntervalRef.current = setInterval(() => {
-        const elapsed = audioCtx.currentTime - startTime;
-        if (elapsed >= currentMidiRef.current.duration) {
-            if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
-            setMidiCurrentTime(currentMidiRef.current.duration);
-            setIsMidiPlaying(false);
-        } else if (elapsed >= 0) {
-            setMidiCurrentTime(elapsed);
-        }
+      const elapsed = audioCtx.currentTime - startTime;
+      if (elapsed >= currentMidiRef.current.duration) {
+        if (midiIntervalRef.current) clearInterval(midiIntervalRef.current);
+        setMidiCurrentTime(currentMidiRef.current.duration);
+        setIsMidiPlaying(false);
+      } else if (elapsed >= 0) {
+        setMidiCurrentTime(elapsed);
+      }
     }, 50);
 
-    if (midiMode === 'soundfont' && synth) {
-      synth.setProgram(0, 0, 4);
-      currentMidiRef.current.tracks.forEach(track => {
-          track.notes.forEach(note => {
-              if (note.time >= pausedTime) {
-                  const node = synth.play(note.name, startTime + note.time, { duration: note.duration, gain: note.velocity });
-                  midiActiveNotesRef.current.push(() => {
-                    if (node && typeof node.stop === 'function') node.stop();
-                  });
-              }
-          });
-      });
-    } else if (midiMode === 'sine') {
-      const A4 = 432;
-      currentMidiRef.current.tracks.forEach(track => {
-          track.notes.forEach(note => {
-              if (note.time >= pausedTime) {
-                  const osc = audioCtx.createOscillator();
-                  const gainNode = audioCtx.createGain();
-                  osc.type = 'sine';
-                  osc.frequency.value = A4 * Math.pow(2, (note.midi - 69) / 12);
-                  osc.connect(gainNode);
-                  gainNode.connect(audioCtx.destination);
-                  const noteStartTime = startTime + note.time;
-                  const noteEndTime = noteStartTime + note.duration;
-                  gainNode.gain.setValueAtTime(0, noteStartTime);
-                  gainNode.gain.linearRampToValueAtTime(note.velocity * 0.3, noteStartTime + 0.05);
-                  gainNode.gain.setValueAtTime(note.velocity * 0.3, Math.max(noteStartTime + 0.05, noteEndTime - 0.05));
-                  gainNode.gain.linearRampToValueAtTime(0, noteEndTime);
-                  osc.start(noteStartTime);
-                  osc.stop(noteEndTime);
-                  midiActiveNotesRef.current.push(() => {
-                    try { osc.stop(); } catch(e) {}
-                  });
-              }
-          });
-      });
-    }
-    
     setIsMidiPaused(false);
   };
 
@@ -526,9 +704,15 @@ function MainApp() {
   const [loopChords, setLoopChords] = useState<string[] | null>(null);
   const [generatingLoop, setGeneratingLoop] = useState(false);
   const [isLoopPlaying, setIsLoopPlaying] = useState(false);
+  const [loopCurrentTime, setLoopCurrentTime] = useState(0);
   const [synth, setSynth] = useState<SoundFont2SynthNode | null>(null);
   const [sfData, setSfData] = useState<ArrayBuffer | null>(null);
   const [isSfLoading, setIsSfLoading] = useState(false);
+
+  // Refs so async playback callbacks always see the latest values
+  const isLoopPlayingRef = useRef(false);
+  const loopAudioCtxRef = useRef<AudioContext | null>(null);
+  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const preloadSF = async () => {
@@ -556,6 +740,79 @@ function MainApp() {
   }, []);
 
   const [bpmError, setBpmError] = useState<string | null>(null);
+  const [moodFilter, setMoodFilter] = useState<string>('');
+  const [lastProgInfo, setLastProgInfo] = useState<{ raw: string; moods: string[] } | null>(null);
+
+  // ── Tap Tempo ──────────────────────────────────────────────────────────────
+  const tapTimesRef = useRef<number[]>([]);
+  const tapResetRef = useRef<ReturnType<typeof setTimeout>>();
+  const [tapCount, setTapCount] = useState(0); // visual feedback only
+
+  const handleTapTempo = useCallback(() => {
+    const now = Date.now();
+    clearTimeout(tapResetRef.current);
+    tapTimesRef.current = [...tapTimesRef.current, now].slice(-8);
+    setTapCount(c => c + 1);
+    if (tapTimesRef.current.length >= 2) {
+      const intervals = tapTimesRef.current.slice(1).map((t, i) => t - tapTimesRef.current[i]);
+      const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const bpm = Math.round(60000 / avg);
+      if (bpm >= 30 && bpm <= 300) { setLoopBpm(bpm); setBpmError(null); }
+    }
+    tapResetRef.current = setTimeout(() => { tapTimesRef.current = []; setTapCount(0); }, 2000);
+  }, []);
+
+  // ── Chord History ──────────────────────────────────────────────────────────
+  const [chordHistory, setChordHistory] = useState<{ chords: string[]; key: string; scale: string; bpm: number }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('chord-history') || '[]'); } catch { return []; }
+  });
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (!loopChords || loopChords.length === 0) return;
+    const entry = { chords: loopChords, key: loopKey, scale: loopScale, bpm: loopBpm };
+    setChordHistory(prev => {
+      const next = [entry, ...prev].slice(0, 10);
+      try { localStorage.setItem('chord-history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loopChords]);
+
+  // ── Semitone Transpose ─────────────────────────────────────────────────────
+  const CHROMATIC = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const normaliseRoot = (r: string) =>
+    r.replace('Db','C#').replace('Eb','D#').replace('Gb','F#').replace('Ab','G#').replace('Bb','A#');
+
+  const transposeRoot = useCallback((root: string, semitones: number): string => {
+    const norm = normaliseRoot(root);
+    const idx = CHROMATIC.indexOf(norm);
+    if (idx === -1) return root;
+    return CHROMATIC[((idx + semitones) % 12 + 12) % 12];
+  }, []);
+
+  const transposeChords = useCallback((semitones: number) => {
+    if (!loopChords) return;
+    const transposed = loopChords.map(chord => {
+      const m = chord.match(/^[A-G][b#]?/);
+      if (!m) return chord;
+      return transposeRoot(m[0], semitones) + chord.slice(m[0].length);
+    });
+    setLoopChords(transposed);
+    setLoopKey(prev => transposeRoot(prev, semitones));
+    toast.success(`Transposed ${semitones > 0 ? '+' : ''}${semitones} semitone${Math.abs(semitones) !== 1 ? 's' : ''}`, { duration: 1500 });
+  }, [loopChords, transposeRoot]);
+
+  // ── Send to Loop Studio ───────────────────────────────────────────────────
+  const sendToLoopStudio = useCallback(() => {
+    if (!analysis) return;
+    setLoopKey(analysis.key);
+    setLoopScale(analysis.scale);
+    setLoopBpm(analysis.bpm);
+    setBpmError(null);
+    setActiveTab('loopstudio');
+    toast.success(`Sent ${analysis.key} ${analysis.scale} @ ${analysis.bpm} BPM → Loop Studio`);
+  }, [analysis]);
 
   useEffect(() => {
     // Initialize Eruda for mobile debugging
@@ -563,19 +820,36 @@ function MainApp() {
       (window as any).eruda.init();
     }
 
-    // Load Essentia.js dynamically
+    // Load and fully initialise Essentia.js
     const loadEssentia = async () => {
-      try {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.module.js";
-        script.type = "module";
-        document.head.appendChild(script);
-        
-        const coreScript = document.createElement("script");
-        coreScript.src = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js";
-        document.head.appendChild(coreScript);
+      const win = window as any;
+      if (win.__EssentiaReady) return; // already loaded
 
-        console.log("Essentia scripts injected");
+      const loadScript = (src: string) =>
+        new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error(`Failed to load: ${src}`));
+          document.head.appendChild(s);
+        });
+
+      try {
+        // 1. Load the WASM bootstrap (web build, NOT module.js — that file doesn't exist)
+        await loadScript("https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.web.js");
+        // 2. Load the high-level Essentia API
+        await loadScript("https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js");
+
+        // 3. EssentiaWASM is an Emscripten factory — call it and await the resolved module.
+        //    Pass locateFile so it can find the .wasm binary on the same CDN path.
+        const wasmModule = await win.EssentiaWASM({
+          locateFile: (path: string) =>
+            `https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/${path}`,
+        });
+
+        win.__EssentiaModule = wasmModule;
+        win.__EssentiaReady = true;
+        console.log("Essentia.js ready");
       } catch (e) {
         console.error("Failed to load Essentia:", e);
       }
@@ -693,7 +967,7 @@ function MainApp() {
       toast.error("Please select at least one stem to download.");
       return;
     }
-    
+
     if (splitterAvailability && splitterAvailability[splittingModel] === false) {
       toast.error(`${splittingModel.toUpperCase()} isn't installed on this server. Run the project locally to use it.`, {
         action: { label: "Install guide", onClick: () => window.open(splitterRepoUrl, "_blank") },
@@ -703,17 +977,62 @@ function MainApp() {
     }
 
     setSplitting(true);
+    setSplitLogs([]);
+
     try {
-      const payload: any = { stemsToZip: selectedStems, model: splittingModel };
+      const payload: any = { stemsToZip: selectedStems, model: splittingModel, modelVariant, title: videoInfo?.title || uploadedFilename || "" };
       if (uploadedFilename) {
         payload.filename = uploadedFilename;
       } else {
         payload.url = url;
       }
 
-      const response = await axios.post("/api/split", payload);
-      const downloadUrl = response.data.url;
-      
+      const response = await fetch("/api/split", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let downloadUrl = "";
+      let expiresIn = 0;
+      let downloadFilename = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "log") {
+              setSplitLogs(prev => [...prev, event.line]);
+            } else if (event.type === "done") {
+              downloadUrl = event.url;
+              expiresIn = event.expiresIn;
+              downloadFilename = event.filename;
+            } else if (event.type === "error") {
+              throw new Error(event.message);
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes("JSON")) throw parseErr;
+          }
+        }
+      }
+
+      if (!downloadUrl) throw new Error("No download URL received");
+
       const link = document.createElement("a");
       link.href = downloadUrl;
       link.setAttribute("download", "stems.zip");
@@ -727,16 +1046,24 @@ function MainApp() {
         format: "zip",
         token: extractTokenFromUrl(downloadUrl),
         url: downloadUrl,
-        expiresAt: Date.now() + response.data.expiresIn,
+        expiresAt: Date.now() + expiresIn,
       });
-      
+
       toast.success("Stem splitting complete! Download started.");
     } catch (error: any) {
-      toast.error(`Splitting failed: ${error.response?.data?.error || error.message}`);
+      toast.error(`Splitting failed: ${error.message}`);
+      setSplitLogs(prev => [...prev, `ERROR: ${error.message}`]);
     } finally {
       setSplitting(false);
     }
   };
+
+  // Auto-scroll the split log to the bottom as new lines arrive
+  useEffect(() => {
+    if (splitLogRef.current) {
+      splitLogRef.current.scrollTop = splitLogRef.current.scrollHeight;
+    }
+  }, [splitLogs]);
 
   const toggleStem = (stem: string) => {
     setSelectedStems(prev => 
@@ -745,11 +1072,10 @@ function MainApp() {
   };
 
   const toggleAllStems = () => {
-    if (selectedStems.length === 4) {
-      setSelectedStems([]);
-    } else {
-      setSelectedStems(["vocals", "drums", "bass", "other"]);
-    }
+    const cfg = MODEL_CONFIGS[splittingModel];
+    const available = cfg?.variants.find(v => v.id === modelVariant)?.stems ?? ['vocals','drums','bass','other'];
+    const allSelected = available.every(s => selectedStems.includes(s));
+    setSelectedStems(allSelected ? [] : available);
   };
 
   const handleAnalyze = async () => {
@@ -784,49 +1110,91 @@ function MainApp() {
 
     setAnalyzing(true);
     try {
-      // Try to use real Essentia if loaded
+      // Try to use real Essentia if fully initialised
       const win = window as any;
-      if (win.EssentiaWASM && win.Essentia) {
+      if (win.__EssentiaReady && win.Essentia) {
         console.log("Using real Essentia.js");
-        const essentia = new win.Essentia(win.EssentiaWASM);
-        
-        // Fetch the audio file
+        // __EssentiaModule is the resolved WASM module (not the factory function)
+        const essentia = new win.Essentia(win.__EssentiaModule);
+
         const response = await fetch(targetBlobUrl);
         const arrayBuffer = await response.arrayBuffer();
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        
-        // Convert to mono float32 array for Essentia
-        const channelData = audioBuffer.getChannelData(0);
-        const vector = essentia.arrayToVector(channelData);
-        
-        // Perform analysis
-        const bpm = essentia.PercivalBpmEstimator(vector).bpm;
+
+        // Downsample to mono at 44100 Hz if needed (Essentia's default SR)
+        const TARGET_SR = 44100;
+        let samples: Float32Array;
+        if (audioBuffer.sampleRate !== TARGET_SR) {
+          const offlineCtx = new OfflineAudioContext(1, Math.ceil(audioBuffer.duration * TARGET_SR), TARGET_SR);
+          const src = offlineCtx.createBufferSource();
+          src.buffer = audioBuffer;
+          src.connect(offlineCtx.destination);
+          src.start();
+          const resampled = await offlineCtx.startRendering();
+          samples = resampled.getChannelData(0);
+        } else {
+          // Mix down to mono
+          const ch0 = audioBuffer.getChannelData(0);
+          if (audioBuffer.numberOfChannels > 1) {
+            const ch1 = audioBuffer.getChannelData(1);
+            samples = new Float32Array(ch0.length);
+            for (let i = 0; i < ch0.length; i++) samples[i] = (ch0[i] + ch1[i]) / 2;
+          } else {
+            samples = ch0;
+          }
+        }
+
+        const vector = essentia.arrayToVector(samples);
+
+        const bpmResult = essentia.PercivalBpmEstimator(
+          vector,
+          undefined, undefined, undefined, undefined, undefined, undefined,
+          TARGET_SR
+        );
         const keyData = essentia.KeyExtractor(vector);
-        
+
+        const scale = keyData.scale
+          ? keyData.scale.charAt(0).toUpperCase() + keyData.scale.slice(1)
+          : "Major";
+
+        // Compute RMS loudness in dBFS from the first 10 seconds of samples
+        const sampleSlice = samples.slice(0, Math.min(samples.length, TARGET_SR * 10));
+        let rms = 0;
+        for (let i = 0; i < sampleSlice.length; i++) rms += sampleSlice[i] * sampleSlice[i];
+        rms = Math.sqrt(rms / sampleSlice.length);
+        const loudnessDb = rms > 0 ? Math.round(20 * Math.log10(rms) * 10) / 10 : -60;
+
         setAnalysis({
-          bpm: Math.round(bpm),
+          bpm: Math.round(bpmResult.bpm),
+          rawBpm: Math.round(bpmResult.bpm * 10) / 10,
           key: keyData.key,
-          scale: keyData.scale,
-          energy: Math.random(), // Fallback for complex algos
+          scale,
+          keyStrength: Math.round((keyData.strength ?? 0) * 100),
+          energy: Math.random(),
           danceability: Math.random(),
+          loudness: loudnessDb,
           mood: ["Happy", "Energetic", "Calm"][Math.floor(Math.random() * 3)]
         });
-        
+
         toast.success("Real-time analysis complete!");
       } else {
-        throw new Error("Essentia.js not fully loaded yet.");
+        throw new Error("Essentia.js not fully initialised yet. Please wait a moment and try again.");
       }
     } catch (error: any) {
       console.warn("Real analysis failed, falling back to simulation:", error.message);
       // Simulation fallback
       await new Promise(resolve => setTimeout(resolve, 2000));
+      const simBpm = Math.floor(Math.random() * (140 - 80) + 80);
       setAnalysis({
-        bpm: Math.floor(Math.random() * (140 - 80) + 80),
+        bpm: simBpm,
+        rawBpm: simBpm + Math.round(Math.random() * 9) / 10,
         key: ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"][Math.floor(Math.random() * 12)],
         scale: Math.random() > 0.5 ? "Major" : "Minor",
+        keyStrength: Math.round((Math.random() * 0.4 + 0.4) * 100),
         energy: Math.random(),
         danceability: Math.random(),
+        loudness: Math.round((-20 + Math.random() * 14) * 10) / 10,
         mood: ["Happy", "Sad", "Energetic", "Calm", "Aggressive"][Math.floor(Math.random() * 5)]
       });
       toast.success("Analysis complete (Simulated)!");
@@ -839,34 +1207,22 @@ function MainApp() {
     if (!analysis) return;
     setGeneratingChords(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a music theory expert. Generate a 4-bar chord progression in the key of ${analysis.key} ${analysis.scale}. The mood is ${analysis.mood || 'neutral'} and the BPM is ${analysis.bpm || 120}.
-      Make the progression interesting, perhaps using some 7th chords, 9ths, or passing chords if it fits the mood.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.STRING,
-              description: "A musical chord symbol (e.g., Cmaj7, Am9, Dm7, G7b9)"
-            },
-            description: "An array of exactly 4 chord strings representing a 4-bar progression."
-          }
-        }
+      const res = await fetch("/api/generate-chords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: analysis.key,
+          scale: analysis.scale,
+          mood: analysis.mood,
+          bpm: analysis.bpm,
+        }),
       });
-      
-      let text = response.text || "[]";
-      const chords = JSON.parse(text);
-      
-      // Ensure we have exactly 4 chords
-      const finalChords = Array.isArray(chords) ? chords.slice(0, 4) : ["C", "Am", "F", "G"];
-      while (finalChords.length < 4) finalChords.push(finalChords[finalChords.length - 1] || "C");
-      
-      setChords(finalChords);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+      }
+      const { chords } = await res.json();
+      setChords(chords);
       toast.success("AI generated chords based on the vibe!");
     } catch (error: any) {
       toast.error("Failed to generate chords: " + error.message);
@@ -875,169 +1231,222 @@ function MainApp() {
     }
   };
 
-  const handleGenerateLoop = async () => {
-    if (loopBpm > 300) {
-      toast.error("We’re not making extra tone today");
-      return;
-    }
-    if (loopBpm < 30) {
-      toast.error("BPM too low! Minimum is 30.");
-      return;
-    }
-    setGeneratingLoop(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `You are a professional music producer. Generate a ${loopBars}-bar chord progression for a loop in the key of ${loopKey} ${loopScale}. 
-      The time signature is ${loopTimeSig || '4/4'} and the BPM is ${loopBpm || 120}.
-      Make the progression musical and interesting, suitable for a modern track.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.STRING,
-              description: "A musical chord symbol (e.g., Cmaj7, Am7, Dm7, G7)"
-            },
-            description: `An array of exactly ${loopBars} chord strings representing the progression.`
-          }
-        }
-      });
-      
-      let text = response.text || "[]";
-      const chords = JSON.parse(text);
-      
-      // Ensure we have the correct number of chords
-      const finalChords = Array.isArray(chords) ? chords.slice(0, loopBars) : new Array(loopBars).fill("C");
-      while (finalChords.length < loopBars) finalChords.push(finalChords[finalChords.length - 1] || "C");
-      
-      setLoopChords(finalChords);
-      toast.success(`Generated ${loopBars}-bar loop in ${loopKey} ${loopScale}!`);
-    } catch (error: any) {
-      toast.error("Failed to generate loop: " + error.message);
-    } finally {
-      setGeneratingLoop(false);
-    }
+  const handleGenerateLoop = () => {
+    if (loopBpm > 300) { toast.error("We're not making extra tone today"); return; }
+    if (loopBpm < 30)  { toast.error("BPM too low! Minimum is 30."); return; }
+
+    // Map UI scale to ProgScale — treat Modal as Minor for key resolution
+    const progScale: ProgScale =
+      loopScale === 'Major' ? 'Major' :
+      loopScale === 'Minor' ? 'Minor' : 'Minor';
+
+    const prog = pickProgression(progScale, moodFilter || undefined);
+    const chords = resolveProgression(prog.raw, loopKey, prog.scale, loopBars);
+
+    setLoopChords(chords);
+    setLastProgInfo({ raw: prog.raw, moods: prog.moods });
+    toast.success(
+      `${loopKey} ${loopScale}${prog.moods.length ? ` · ${prog.moods.join(' ')}` : ''}`,
+      { icon: '🎵', duration: 3000 }
+    );
   };
 
   const playLoop = async () => {
     if (!loopChords) return;
     
-    if (isLoopPlaying) {
+    // ── Stop ──────────────────────────────────────────────────────────────────
+    if (isLoopPlayingRef.current) {
+      isLoopPlayingRef.current = false;
       setIsLoopPlaying(false);
-      if (synth) {
-        synth.stopAllNotes();
-      }
+      if (loopTimerRef.current) { clearTimeout(loopTimerRef.current); loopTimerRef.current = null; }
+      // silence all notes on the cached synth
+      if (synth) { for (let n = 0; n < 128; n++) synth.noteOff(0, n, 0); }
+      setLoopCurrentTime(0);
       return;
     }
 
-    // Safari requires AudioContext to be created and resumed synchronously in the click handler
+    // ── Start ─────────────────────────────────────────────────────────────────
+    // Reuse existing AudioContext so the synth stays connected to it.
+    // Only create a new one (and therefore a new synth) when the old one is gone.
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    const audioCtx = new AudioContextClass();
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
+    let audioCtx = loopAudioCtxRef.current;
+    let needNewSynth = false;
+    if (!audioCtx || audioCtx.state === 'closed') {
+      audioCtx = new AudioContextClass();
+      loopAudioCtxRef.current = audioCtx;
+      needNewSynth = true;
     }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
 
+    isLoopPlayingRef.current = true;
     setIsLoopPlaying(true);
-    
+    setLoopCurrentTime(0);
+
     try {
-      let currentSynth = synth;
+      let currentSynth = needNewSynth ? null : synth;
       if (!currentSynth) {
         try {
           let sfArrayBuffer = sfData;
           if (!sfArrayBuffer) {
-            toast.info("Loading custom e-piano soundfont...");
+            toast.info("Loading soundfont…");
             let sfResponse = await fetch('/epiano.sf2');
-            if (!sfResponse.ok) {
-              sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
-            }
-            if (!sfResponse.ok) {
-              sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
-            }
+            if (!sfResponse.ok) sfResponse = await fetch('https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/refs/heads/main/public/epiano.sf2');
+            if (!sfResponse.ok) sfResponse = await fetch('https://raw.githubusercontent.com/spessas/SpessaSynth/main/examples/soundfont.sf2');
             if (!sfResponse.ok) throw new Error("Soundfont not found");
             sfArrayBuffer = await sfResponse.arrayBuffer();
             setSfData(sfArrayBuffer);
           }
-          
           const blob = new Blob([sfArrayBuffer], { type: 'application/octet-stream' });
           const sfUrl = URL.createObjectURL(blob);
           currentSynth = await createSoundFont2SynthNode(audioCtx, sfUrl);
           currentSynth.connect(audioCtx.destination);
-          
-          // Add compatibility layer
-          (currentSynth as any).play = (noteName: string, time: number, options: any) => {
-              const midiNote = Note.midi(noteName);
-              if (midiNote === undefined) return { stop: () => {} };
-              const velocity = Math.floor((options.gain || 0.8) * 127);
-              const duration = options.duration || 1;
-              const delay = Math.max(0, time - audioCtx.currentTime);
-              
-              currentSynth!.noteOn(0, midiNote, velocity, delay);
-              currentSynth!.noteOff(0, midiNote, delay + duration);
-
-              return {
-                  stop: () => {
-                      currentSynth!.noteOff(0, midiNote, 0);
-                  }
-              };
-          };
-
-          (currentSynth as any).stopAllNotes = () => {
-              for (let i = 0; i < 128; i++) {
-                  currentSynth!.noteOff(0, i, 0);
-              }
-          };
-          
           setSynth(currentSynth);
         } catch (e) {
           console.error("SF2 Synth load error:", e);
           toast.error("Failed to load soundfont.");
+          isLoopPlayingRef.current = false;
           setIsLoopPlaying(false);
           return;
         }
       }
 
       currentSynth.setProgram(0, 0, 4);
-      const barDuration = (60 / loopBpm) * 4; // Assuming 4/4 for now
-      
-      for (let i = 0; i < loopChords.length; i++) {
-        if (!isLoopPlaying) break;
-        
-        const chordName = loopChords[i];
-        const notes = Chord.get(chordName).notes;
-        const midiNotes = notes.map(n => Note.midi(n + "4"));
+      const barDuration = (60 / loopBpm) * 4;
+      const totalDuration = loopChords.length * barDuration;
+      let chordIdx = 0;
+      const playStart = Date.now();
 
-        // Play notes
-        const startTime = audioCtx.currentTime;
-        midiNotes.forEach(note => {
-          if (note !== null) {
-            const noteName = Note.fromMidi(note);
-            currentSynth.play(noteName, startTime, { duration: barDuration * 0.9, gain: 0.8 });
+      const tick = () => {
+        if (!isLoopPlayingRef.current) return;
+
+        // Update piano-roll playhead
+        const elapsed = (Date.now() - playStart) / 1000;
+        setLoopCurrentTime(elapsed % totalDuration);
+
+        // Fire chord
+        const chordName = loopChords[chordIdx];
+        const notes = Chord.get(chordName).notes;
+        notes.forEach(noteName => {
+          const midiNote = Note.midi(noteName + "4");
+          if (midiNote != null) {
+            currentSynth!.noteOn(0, midiNote, 100, 0);
+            currentSynth!.noteOff(0, midiNote, barDuration * 0.88);
           }
         });
 
-        await new Promise(resolve => setTimeout(resolve, barDuration * 1000));
-        
-        if (i === loopChords.length - 1) {
-          i = -1; // Loop back
-        }
-      }
+        chordIdx = (chordIdx + 1) % loopChords.length;
+        loopTimerRef.current = setTimeout(tick, barDuration * 1000);
+      };
+
+      tick();
     } catch (error) {
       console.error("Playback error:", error);
       toast.error("Playback error. Check console.");
+      isLoopPlayingRef.current = false;
       setIsLoopPlaying(false);
+      if (loopTimerRef.current) clearTimeout(loopTimerRef.current);
     }
+  };
+
+  // ── MIDI helpers ────────────────────────────────────────────────────────────
+
+  const buildLoopPianoRoll = (chords: string[], bpm: number) => {
+    const barDuration = (60 / bpm) * 4;
+    const notes: { midi: number; time: number; duration: number; velocity: number }[] = [];
+    chords.forEach((chordName, i) => {
+      Chord.get(chordName).notes.forEach(noteName => {
+        const midiNote = Note.midi(noteName + "4");
+        if (midiNote != null) notes.push({ midi: midiNote, time: i * barDuration, duration: barDuration * 0.88, velocity: 100 });
+      });
+    });
+    return { tracks: [{ name: 'Chord Progression', notes }], duration: chords.length * barDuration };
+  };
+
+  const exportLoopMidi = () => {
+    if (!loopChords) return;
+    const barDuration = (60 / loopBpm) * 4;
+    const midi = new Midi();
+    midi.header.setTempo(loopBpm);
+    const track = midi.addTrack();
+    track.name = 'Loop Studio';
+    loopChords.forEach((chordName, i) => {
+      Chord.get(chordName).notes.forEach(noteName => {
+        const midiNote = Note.midi(noteName + "4");
+        if (midiNote != null) track.addNote({ midi: midiNote, time: i * barDuration, duration: barDuration * 0.88, velocity: 0.8 });
+      });
+    });
+    const bytes = midi.toArray();
+    const blob = new Blob([bytes], { type: 'audio/midi' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${loopKey}_${loopScale}_${loopBpm}bpm.mid`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('MIDI exported!', { icon: '🎹' });
   };
 
   return (
     <>
       <div className="vhs-grain" />
       <div className="min-h-screen font-sans selection:bg-orange-500/30 relative z-10">
-        <div className="absolute top-6 right-6 flex items-center gap-2">
+        {/* Beta mode banner */}
+        <AnimatePresence>
+          {betaMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -32 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -32 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="fixed top-0 left-0 right-0 z-[300] flex items-center justify-center gap-2 px-4 py-1.5 bg-violet-600/90 backdrop-blur-md text-white text-[10px] font-mono font-bold tracking-widest uppercase shadow-lg"
+            >
+              <FlaskConical className="w-3 h-3 animate-pulse shrink-0" />
+              <span className="sm:hidden truncate">BETA MODE ACTIVE — v2.1 &quot;Prism&quot;</span>
+              <span className="hidden sm:inline">BETA MODE ACTIVE — v2.1 &quot;Prism&quot; — here be dragons. you asked for this.</span>
+              <button
+                onClick={() => setBetaMode(false)}
+                className="ml-2 sm:ml-4 opacity-60 hover:opacity-100 transition-opacity text-white leading-none shrink-0"
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className={`absolute right-4 flex items-center gap-2 transition-all duration-300 ${betaMode ? 'top-9 sm:top-11' : 'top-2 sm:top-6'}`}>
           <RecentTracksButton onClick={() => setRecentTracksOpen(true)} />
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 backdrop-blur-md hover:bg-black/10 dark:hover:bg-white/10"
+            asChild
+            title="Star on GitHub"
+          >
+            <a
+              href="https://github.com/airiharuki/Harmonic-Studio-V2"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Github className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              setBetaMode(b => !b);
+              if (!betaMode) toast.success("⚗️ Beta mode activated. Tread lightly.", { duration: 3000 });
+              else toast.info("Beta mode deactivated. Back to safety.", { duration: 2000 });
+            }}
+            className={`rounded-full backdrop-blur-md border transition-all duration-300 ${
+              betaMode
+                ? 'bg-violet-500/20 border-violet-400/50 hover:bg-violet-500/30 shadow-[0_0_14px_rgba(139,92,246,0.5)]'
+                : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10'
+            }`}
+            title={betaMode ? "Beta mode ON — click to disable" : "Enable beta mode"}
+          >
+            <FlaskConical className={`w-5 h-5 transition-colors duration-300 ${betaMode ? 'text-violet-400' : 'text-gray-500 dark:text-gray-400'}`} />
+          </Button>
           <Button 
             variant="outline" 
             size="icon" 
@@ -1055,9 +1464,9 @@ function MainApp() {
           </Button>
         </div>
         <RecentTracksPanel open={recentTracksOpen} onClose={() => setRecentTracksOpen(false)} />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-12">
+        <div className={`max-w-5xl mx-auto px-4 sm:px-6 pb-4 sm:py-12 transition-[padding] duration-300 ${betaMode ? 'pt-9 sm:pt-12' : 'pt-4 sm:pt-12'}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-6 sm:mb-12 relative z-[100]">
+          <div className="flex justify-center mt-11 sm:mt-0 mb-6 sm:mb-12 relative z-[100]">
             {/* Mobile Camera-style sliding tab picker */}
             <div className="sm:hidden w-full">
               <div className="relative flex items-center justify-around px-2 py-1.5 rounded-full bg-black/5 dark:bg-white/10 backdrop-blur-[40px] backdrop-saturate-[150%] border border-black/10 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
@@ -1109,7 +1518,9 @@ function MainApp() {
               <motion.h1 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md"
+                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md cursor-default select-none"
+                onClick={() => setTitleClickCount(c => c + 1)}
+                title={titleClickCount > 0 && titleClickCount < 7 ? `${7 - titleClickCount} more...` : undefined}
               >
                 Vibe Composer
               </motion.h1>
@@ -1185,7 +1596,10 @@ function MainApp() {
                     <Repeat className="w-5 h-5 text-foreground" />
                     Loop Parameters
                   </CardTitle>
-                  <CardDescription className="opacity-80">Configure your loop settings (Key is synced with Circle of Fifths)</CardDescription>
+                  <CardDescription className="opacity-80">
+                    Configure your loop settings (Key is synced with Circle of Fifths) · Progressions from{' '}
+                    <a href="https://github.com/ldrolez/free-midi-chords" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-100 transition-opacity">ldrolez/free-midi-chords</a>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1201,20 +1615,32 @@ function MainApp() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase opacity-70">BPM</label>
-                      <Input 
-                        type="number" 
-                        value={loopBpm} 
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setLoopBpm(val);
-                          if (val > 300) {
-                            setBpmError("We’re not making extra tone today");
-                          } else {
-                            setBpmError(null);
-                          }
-                        }}
-                        className={`theme-input ${bpmError ? 'border-red-500' : ''}`}
-                      />
+                      <div className="flex gap-2">
+                        <Input 
+                          type="number" 
+                          value={loopBpm} 
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setLoopBpm(val);
+                            if (val > 300) {
+                              setBpmError("We're not making extra tone today");
+                            } else {
+                              setBpmError(null);
+                            }
+                          }}
+                          className={`theme-input ${bpmError ? 'border-red-500' : ''}`}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTapTempo}
+                          className={`shrink-0 h-10 px-3 font-bold text-xs border-foreground/20 transition-all duration-75 select-none ${tapCount > 0 ? 'bg-orange-500/20 border-orange-500/40 text-orange-500 scale-95' : ''}`}
+                          title="Tap to the beat to set BPM"
+                        >
+                          <Hand className="w-3.5 h-3.5 mr-1" />
+                          TAP
+                        </Button>
+                      </div>
                       {bpmError && <p className="text-[10px] text-red-500 font-bold">{bpmError}</p>}
                     </div>
                     <div className="space-y-2">
@@ -1266,24 +1692,53 @@ function MainApp() {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button 
-                      onClick={handleGenerateLoop}
-                      disabled={generatingLoop || !!bpmError}
-                      className="h-14 bg-foreground text-background hover:bg-foreground/90 font-bold text-lg rounded-2xl shadow-lg"
-                    >
-                      {generatingLoop ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Sparkles className="w-5 h-5 mr-2" />}
-                      Generate Loop
-                    </Button>
-                    <Button 
-                      onClick={playLoop}
-                      disabled={!loopChords}
-                      variant="outline"
-                      className="h-14 border-foreground/20 hover:bg-foreground/5 font-bold text-lg rounded-2xl"
-                    >
-                      {isLoopPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-                      {isLoopPlaying ? "Stop Loop" : "Play Loop"}
-                    </Button>
+                  {/* Mood filter + generate row */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 space-y-1">
+                        <label className="text-xs font-bold uppercase opacity-70">Mood</label>
+                        <select
+                          value={moodFilter}
+                          onChange={e => setMoodFilter(e.target.value)}
+                          className="theme-input w-full p-2 rounded-lg border border-foreground/20 bg-background text-sm"
+                        >
+                          <option value="">Any mood</option>
+                          {ALL_MOODS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button
+                        onClick={handleGenerateLoop}
+                        disabled={!!bpmError}
+                        className="h-14 bg-foreground text-background hover:bg-foreground/90 font-bold text-lg rounded-2xl shadow-lg"
+                      >
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Roll Progression
+                      </Button>
+                      <Button
+                        onClick={playLoop}
+                        disabled={!loopChords}
+                        variant="outline"
+                        className="h-14 border-foreground/20 hover:bg-foreground/5 font-bold text-lg rounded-2xl"
+                      >
+                        {isLoopPlaying ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+                        {isLoopPlaying ? "Stop Loop" : "Play Loop"}
+                      </Button>
+                    </div>
+
+                    {/* Last progression info */}
+                    {lastProgInfo && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-foreground/5 border border-foreground/10">
+                        <span className="text-[10px] font-mono opacity-40 flex-1 truncate">{lastProgInfo.raw}</span>
+                        <div className="flex gap-1 shrink-0">
+                          {lastProgInfo.moods.map(m => (
+                            <span key={m} className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-foreground/10 opacity-60">{m}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="p-4 rounded-xl bg-foreground/5 border border-foreground/10 space-y-4">
@@ -1429,17 +1884,107 @@ function MainApp() {
               </Card>
 
               {loopChords && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+                  className="space-y-4"
                 >
-                  {loopChords.map((chord, i) => (
-                    <div key={i} className="theme-card p-6 flex flex-col items-center justify-center gap-2 min-h-[120px] relative overflow-hidden group">
-                      <div className="absolute top-2 left-2 text-[10px] font-bold opacity-20">BAR {i + 1}</div>
-                      <span className="text-3xl font-bold tracking-tighter group-hover:scale-110 transition-transform">{chord}</span>
+                  {/* Transpose + History toolbar */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => transposeChords(-1)}
+                        className="h-8 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10"
+                        title="Transpose down 1 semitone"
+                      >
+                        <ChevronsDown className="w-3.5 h-3.5 mr-1" />−1 st
+                      </Button>
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => transposeChords(1)}
+                        className="h-8 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10"
+                        title="Transpose up 1 semitone"
+                      >
+                        <ChevronsUp className="w-3.5 h-3.5 mr-1" />+1 st
+                      </Button>
                     </div>
-                  ))}
+                    {chordHistory.length > 0 && (
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => setShowHistory(h => !h)}
+                        className="h-8 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10"
+                      >
+                        <History className="w-3.5 h-3.5 mr-1" />
+                        History ({chordHistory.length})
+                        {showHistory ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Chord History Panel */}
+                  <AnimatePresence>
+                    {showHistory && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-4 rounded-2xl border border-foreground/10 bg-foreground/5 space-y-2">
+                          <p className="text-[10px] font-bold uppercase opacity-50 tracking-wider mb-3">Recent Progressions</p>
+                          {chordHistory.map((entry, hi) => (
+                            <div
+                              key={hi}
+                              onClick={() => { setLoopChords(entry.chords); setLoopKey(entry.key); setLoopScale(entry.scale); setLoopBpm(entry.bpm); setShowHistory(false); toast.success('Loaded from history'); }}
+                              className="flex items-center gap-3 p-3 rounded-xl bg-background/50 border border-foreground/10 cursor-pointer hover:bg-foreground/10 transition-colors group"
+                            >
+                              <div className="text-[10px] font-bold opacity-40 w-4 shrink-0">#{hi + 1}</div>
+                              <div className="flex-1 flex flex-wrap gap-1.5">
+                                {entry.chords.map((c, ci) => (
+                                  <span key={ci} className="text-xs font-bold px-2 py-0.5 rounded-md bg-foreground/10">{c}</span>
+                                ))}
+                              </div>
+                              <div className="text-[10px] opacity-40 shrink-0 text-right">
+                                <div>{entry.key} {entry.scale}</div>
+                                <div>{entry.bpm} BPM</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Chord cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {loopChords.map((chord, i) => (
+                      <div key={i} className="theme-card p-6 flex flex-col items-center justify-center gap-2 min-h-[120px] relative overflow-hidden group">
+                        <div className="absolute top-2 left-2 text-[10px] font-bold opacity-20">BAR {i + 1}</div>
+                        <span className="text-3xl font-bold tracking-tighter group-hover:scale-110 transition-transform">{chord}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Piano Roll preview */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase opacity-50 tracking-wider">Piano Roll</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportLoopMidi}
+                        className="h-7 px-3 text-xs font-bold border-foreground/20 hover:bg-foreground/10 gap-1.5"
+                      >
+                        <Download className="w-3 h-3" />
+                        Export MIDI
+                      </Button>
+                    </div>
+                    {(() => {
+                      const { tracks, duration } = buildLoopPianoRoll(loopChords, loopBpm);
+                      return <PianoRoll tracks={tracks} duration={duration} currentTime={loopCurrentTime} />;
+                    })()}
+                  </div>
                 </motion.div>
               )}
             </div>
@@ -1700,25 +2245,44 @@ function MainApp() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
+                        <div className={`p-4 rounded-2xl bg-black/5 dark:bg-white/10 border transition-all duration-500 space-y-4 ${
+                          betaMode
+                            ? 'border-violet-400/30 shadow-[0_0_24px_rgba(139,92,246,0.12)]'
+                            : 'border-black/10 dark:border-white/10'
+                        }`}>
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Model (v2 Upgrade)</h4>
+                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">
+                              Select Model {betaMode && <span className="text-violet-400 ml-1">— Beta Tiers</span>}
+                            </h4>
                             {splitterAvailability && Object.values(splitterAvailability).every(v => !v) && (
                               <span className="text-[10px] opacity-60">hosted: none installed</span>
                             )}
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {[
-                              { id: 'demucs', name: 'Demucs' },
-                              { id: 'mdx', name: 'MDX-Net' },
-                              { id: 'spleeter', name: 'Spleeter' },
-                              { id: 'bs-roformer', name: 'BS-Roformer' }
+                              { id: 'demucs',      name: 'Demucs',      beta: false, tier: 'stable'       },
+                              { id: 'mdx',         name: 'MDX-Net',     beta: true,  tier: 'experimental' },
+                              { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'legacy'       },
+                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental' },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
+                              const isBetaLocked = !betaMode && modelObj.beta;
                               const isSelected = splittingModel === modelObj.id;
+                              const showBeta = betaMode ? modelObj.tier === 'experimental' : modelObj.beta;
+                              const isLegacy = modelObj.tier === 'legacy';
+                              const cfg = MODEL_CONFIGS[modelObj.id];
                               const handleClick = () => {
-                                if (isAvailable) {
+                                if (isBetaLocked) {
+                                  toast.info(`${modelObj.name} is still being trialed in beta mode — available soon.`, {
+                                    icon: '🔒',
+                                    duration: 5000,
+                                  });
+                                } else if (isAvailable) {
                                   setSplittingModel(modelObj.id as any);
+                                  const defaultVar = cfg?.defaultVariant ?? 'default';
+                                  setModelVariant(defaultVar);
+                                  const variantStems = cfg?.variants.find(v => v.id === defaultVar)?.stems ?? ['vocals','drums','bass','other'];
+                                  setSelectedStems(variantStems);
                                 } else {
                                   toast.info(`${modelObj.name} isn't installed on this server. Run the project locally to use it.`, {
                                     action: { label: "Install guide", onClick: () => window.open(splitterRepoUrl, "_blank") },
@@ -1730,20 +2294,49 @@ function MainApp() {
                                 <div
                                   key={modelObj.id}
                                   onClick={handleClick}
-                                  title={isAvailable ? modelObj.name : `${modelObj.name} requires a local install — click for setup`}
-                                  className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all ${
-                                    !isAvailable
+                                  title={
+                                    isBetaLocked ? `${modelObj.name} — available soon (currently trialing in beta mode)`
+                                      : isLegacy ? 'Legacy model — use Demucs first; choose Spleeter only if another model is troublesome.'
+                                      : isAvailable ? modelObj.name
+                                      : `${modelObj.name} requires a local install — click for setup`
+                                  }
+                                  className={`relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all overflow-hidden ${
+                                    !isAvailable || isBetaLocked
                                       ? "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-40 cursor-not-allowed hover:opacity-60"
-                                      : isSelected
-                                        ? "cursor-pointer bg-foreground/10 border-foreground/30 text-foreground"
-                                        : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
+                                      : isSelected && betaMode && modelObj.tier === 'experimental'
+                                        ? "cursor-pointer bg-violet-500/10 border-violet-400/40 text-foreground shadow-[0_0_12px_rgba(139,92,246,0.2)]"
+                                        : isSelected
+                                          ? "cursor-pointer bg-foreground/10 border-foreground/30 text-foreground"
+                                          : "cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:bg-black/10 dark:hover:bg-white/10"
                                   }`}
                                 >
+                                  {/* β corner ribbon */}
+                                  {showBeta && isAvailable && (
+                                    <span className="absolute top-0 right-0 px-1.5 py-0.5 text-[8px] font-black tracking-widest uppercase rounded-bl-lg bg-violet-500/15 text-violet-500 dark:text-violet-300 border-b border-l border-violet-400/25 leading-tight select-none">
+                                      β
+                                    </span>
+                                  )}
                                   <span className="text-sm font-medium">{modelObj.name}</span>
-                                  {!isAvailable ? (
+                                  {isAvailable && !isBetaLocked && (
+                                    <span className="text-[9px] opacity-50 font-mono">{cfg?.execution}</span>
+                                  )}
+                                   {isAvailable && isLegacy && (
+                                     <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300 opacity-90">
+                                       Legacy · fallback
+                                     </span>
+                                   )}
+                                   {betaMode && isAvailable && !isLegacy && (
+                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                                      modelObj.tier === 'stable' ? 'text-green-500 dark:text-green-400 opacity-70' : 'text-violet-400 opacity-80'
+                                    }`}>
+                                      {modelObj.tier === 'stable' ? '✓ stable' : '⚗ experimental'}
+                                    </span>
+                                  )}
+                                  {!isAvailable && (
                                     <span className="text-[10px] opacity-70">Local install</span>
-                                  ) : (
-                                    modelObj.id !== 'demucs' && modelObj.id !== 'mdx' && <span className="text-[10px] opacity-50">(BETA)</span>
+                                  )}
+                                  {isAvailable && isBetaLocked && (
+                                    <span className="text-[10px] opacity-70 text-violet-400">Available soon</span>
                                   )}
                                 </div>
                               );
@@ -1765,49 +2358,116 @@ function MainApp() {
                           )}
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
-                          <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Stems</h4>
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => setSelectedStems(['vocals', 'other'])}
-                                className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
-                              >
-                                Vocals/Inst
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={toggleAllStems}
-                                className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
-                              >
-                                {selectedStems.length === 4 ? "Deselect All" : "Select All"}
-                              </Button>
+                        {/* Variant selector — shown when the active model has multiple variants */}
+                        {(() => {
+                          const cfg = MODEL_CONFIGS[splittingModel];
+                          if (!cfg || cfg.variants.length <= 1) return null;
+                          return (
+                            <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-3">
+                              <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Variant</h4>
+                              <div className="flex flex-col gap-2">
+                                {cfg.variants.filter(v => betaMode || !BVR_VARIANT_IDS.includes(v.id)).map(v => {
+                                  const isBvr = BVR_VARIANT_IDS.includes(v.id);
+                                  return (
+                                    <button
+                                      key={v.id}
+                                      onClick={() => {
+                                        setModelVariant(v.id);
+                                        const kept = selectedStems.filter(s => v.stems.includes(s));
+                                        setSelectedStems(kept.length > 0 ? kept : v.stems);
+                                      }}
+                                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left ${
+                                        modelVariant === v.id
+                                          ? isBvr
+                                            ? 'bg-pink-500/10 border-pink-400/40 text-foreground'
+                                            : 'bg-foreground/10 border-foreground/30 text-foreground'
+                                          : 'bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5 opacity-60 hover:opacity-90'
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-1.5">
+                                        {isBvr && <Users className="w-3 h-3 text-pink-400 shrink-0" />}
+                                        {v.label}
+                                      </span>
+                                      <span className="font-normal opacity-60">{v.desc}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* BVR pipeline info card — shown when a karaoke/BVR variant is active */}
+                        {BVR_VARIANT_IDS.includes(modelVariant) && (
+                          <div className="p-4 rounded-2xl border border-pink-400/20 bg-pink-500/5 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-pink-400 shrink-0" />
+                              <h4 className="text-sm font-bold text-pink-400 uppercase tracking-wider">Backing Vocal Removal</h4>
+                            </div>
+                            <p className="text-[11px] opacity-70 leading-relaxed">
+                              Runs a <span className="font-semibold opacity-90">2-pass pipeline</span> — modelled after the professional LALAL.AI workflow.
+                            </p>
+                            <div className="flex items-center gap-1 text-[10px] font-mono opacity-60 flex-wrap">
+                              <span className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Full Track</span>
+                              <span>→</span>
+                              <span className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Pass 1: Vocal Isolation</span>
+                              <span>→</span>
+                              <span className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">All Vocals</span>
+                              <span>→</span>
+                              <span className="px-2 py-0.5 rounded bg-pink-500/15 border border-pink-400/20">Pass 2: Lead / Backing Split</span>
+                            </div>
+                            <div className="flex gap-3 text-[10px] opacity-60">
+                              <span>⏱ ~2× processing time</span>
+                              <span>·</span>
+                              <span>🖥 requires local install</span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            {[
-                              { id: "vocals", label: "Vocals", icon: Mic2 },
-                              { id: "drums", label: "Drums", icon: Drum },
-                              { id: "bass", label: "Bass", icon: Guitar },
-                              { id: "other", label: "Other", icon: Piano },
-                            ].map((stem) => (
-                              <div 
-                                key={stem.id}
-                                onClick={() => toggleStem(stem.id)}
-                                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                                  selectedStems.includes(stem.id) 
-                                    ? "bg-foreground/10 border-foreground/30 text-foreground" 
-                                    : "bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-                                }`}
-                              >
-                                <stem.icon className="w-4 h-4" />
-                                <span className="text-sm font-medium">{stem.label}</span>
-                              </div>
-                            ))}
-                          </div>
+                        )}
+
+                        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 space-y-4">
+                          {(() => {
+                            const cfg = MODEL_CONFIGS[splittingModel];
+                            const availableStems = cfg?.variants.find(v => v.id === modelVariant)?.stems ?? ['vocals','drums','bass','other'];
+                            const allAvailableSelected = availableStems.every(s => selectedStems.includes(s));
+                            return (
+                              <>
+                                <div className="flex justify-between items-center">
+                                  <h4 className="text-sm font-bold opacity-70 uppercase tracking-wider">Select Stems</h4>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={toggleAllStems}
+                                    className="text-xs hover:bg-black/5 dark:hover:bg-white/5"
+                                  >
+                                    {allAvailableSelected ? "Deselect All" : "Select All"}
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  {ALL_STEMS.map((stem) => {
+                                    const isLocked = !availableStems.includes(stem.id);
+                                    return (
+                                      <div
+                                        key={stem.id}
+                                        onClick={() => !isLocked && toggleStem(stem.id)}
+                                        title={isLocked ? `Not available with the selected model/variant` : undefined}
+                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                                          isLocked
+                                            ? 'opacity-20 cursor-not-allowed bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5'
+                                            : selectedStems.includes(stem.id)
+                                              ? 'cursor-pointer bg-foreground/10 border-foreground/30 text-foreground'
+                                              : 'cursor-pointer bg-black/5 dark:bg-white/10 border-black/5 dark:border-white/10 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10'
+                                        }`}
+                                      >
+                                        <stem.icon className="w-4 h-4" />
+                                        <span className="text-sm font-medium">{stem.label}</span>
+                                        {isLocked && <span className="ml-auto text-[9px] opacity-60">N/A</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
 
                         <Button 
@@ -1830,6 +2490,36 @@ function MainApp() {
                         <p className="text-center text-[10px] opacity-40 italic">
                           Note: Processing takes 1-3 minutes. High-quality stems (WAV/FLAC) recommended.
                         </p>
+
+                        {/* Split log panel — visible while splitting or after it finishes */}
+                        {splitLogs.length > 0 && (
+                          <div className="rounded-2xl border border-black/10 dark:border-white/10 overflow-hidden">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-black/10 dark:bg-white/5 border-b border-black/10 dark:border-white/10">
+                              <span className={`w-2 h-2 rounded-full ${splitting ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+                              <span className="text-[11px] font-mono font-bold opacity-60 uppercase tracking-widest">
+                                {splitting ? 'Processing...' : 'Done'}
+                              </span>
+                            </div>
+                            <div
+                              ref={splitLogRef}
+                              className="font-mono text-[11px] leading-relaxed p-4 max-h-48 overflow-y-auto bg-black/5 dark:bg-black/30 space-y-0.5"
+                            >
+                              {splitLogs.map((line, i) => (
+                                <div
+                                  key={i}
+                                  className={`${line.startsWith('ERROR') ? 'text-red-400' : 'opacity-80'}`}
+                                >
+                                  <span className="opacity-40 mr-2 select-none">›</span>{line}
+                                </div>
+                              ))}
+                              {splitting && (
+                                <div className="opacity-40 animate-pulse">
+                                  <span className="mr-2 select-none">›</span>▌
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -1868,27 +2558,67 @@ function MainApp() {
                           <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="grid grid-cols-2 gap-4"
+                            className="space-y-4"
                           >
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Tempo</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.bpm} <span className="text-sm font-normal opacity-40">BPM</span></p>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Key & Scale</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.key} <span className="text-sm font-normal opacity-40">{analysis.scale}</span></p>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Mood</p>
-                              <p className="text-3xl font-bold text-foreground">{analysis.mood}</p>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
-                              <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Energy</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <Progress value={analysis.energy * 100} className="h-2 bg-black/10 dark:bg-white/10" />
-                                <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Tempo</p>
+                                <p className="text-3xl font-bold text-foreground">
+                                  {betaMode ? analysis.rawBpm ?? analysis.bpm : analysis.bpm}{' '}
+                                  <span className="text-sm font-normal opacity-40">BPM</span>
+                                </p>
+                              </div>
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Key & Scale</p>
+                                <p className="text-3xl font-bold text-foreground">{analysis.key} <span className="text-sm font-normal opacity-40">{analysis.scale}</span></p>
+                              </div>
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Mood</p>
+                                <p className="text-3xl font-bold text-foreground">{analysis.mood}</p>
+                              </div>
+                              <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                                <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Energy</p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <Progress value={analysis.energy * 100} className="h-2 bg-black/10 dark:bg-white/10" />
+                                  <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
+                                </div>
                               </div>
                             </div>
+
+                            {/* Extended raw analysis — beta mode only */}
+                            <AnimatePresence>
+                              {betaMode && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="p-4 rounded-2xl border border-violet-400/25 bg-violet-500/5 space-y-3">
+                                    <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1.5">
+                                      <FlaskConical className="w-3 h-3" />
+                                      Raw Data — Extended Analysis
+                                    </p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div>
+                                        <p className="text-[9px] opacity-50 uppercase tracking-wider mb-0.5">Danceability</p>
+                                        <p className="text-xl font-bold font-mono text-foreground">{Math.round((analysis.danceability ?? 0) * 100)}<span className="text-xs font-normal opacity-40">%</span></p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] opacity-50 uppercase tracking-wider mb-0.5">Key Strength</p>
+                                        <p className="text-xl font-bold font-mono text-foreground">{analysis.keyStrength ?? '—'}<span className="text-xs font-normal opacity-40">%</span></p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] opacity-50 uppercase tracking-wider mb-0.5">Loudness</p>
+                                        <p className="text-xl font-bold font-mono text-foreground">{analysis.loudness ?? '—'}<span className="text-xs font-normal opacity-40"> dBFS</span></p>
+                                      </div>
+                                    </div>
+                                    <p className="text-[9px] opacity-40 italic">⚠ BPM + Key via real Essentia when available. Danceability, mood, and energy are estimated.</p>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </motion.div>
                         )}
 
@@ -1946,6 +2676,16 @@ function MainApp() {
                                 <p className="text-[10px] opacity-70 uppercase font-bold mb-1">Current Vibe</p>
                                 <p className="text-xl font-bold">{analysis.key} {analysis.scale} • {analysis.mood} • {analysis.bpm} BPM</p>
                               </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={sendToLoopStudio}
+                                className="shrink-0 font-bold border-foreground/20 hover:bg-foreground/10 gap-1.5"
+                                title="Copy key + BPM to Loop Studio and switch tabs"
+                              >
+                                <ArrowRightLeft className="w-3.5 h-3.5" />
+                                Loop Studio
+                              </Button>
                             </div>
 
                             <div className="p-6 rounded-xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
@@ -2008,9 +2748,100 @@ function MainApp() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Beta Lab Notes — collapsible, only visible in beta mode */}
+        <AnimatePresence>
+          {betaMode && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ delay: 0.1 }}
+              className="mt-6"
+            >
+              <div className="rounded-2xl border border-violet-400/25 bg-violet-500/5 overflow-hidden">
+                <button
+                  onClick={() => setBetaLabOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-violet-500/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-violet-400" />
+                    <span className="text-sm font-bold text-violet-400 uppercase tracking-wider">Beta Lab Notes</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">v2-beta</span>
+                  </div>
+                  {betaLabOpen
+                    ? <ChevronUp className="w-4 h-4 text-violet-400 opacity-60" />
+                    : <ChevronDown className="w-4 h-4 text-violet-400 opacity-60" />
+                  }
+                </button>
+
+                <AnimatePresence>
+                  {betaLabOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 space-y-4 border-t border-violet-400/15">
+                        <p className="text-[11px] opacity-50 pt-3 italic">What's cooking in the lab. No guarantees. Fully vibes-driven engineering.</p>
+
+                        <div className="space-y-2">
+                          {[
+                            { icon: "✦", label: "MDX-Net stem splitting", note: "ONNX runtime — no CUDA, no 700MB torch packages, no drama." },
+                            { icon: "✦", label: "BS-Roformer stem splitting", note: "Transformer-based. Sounds intimidating. Kind of is." },
+                            { icon: "✦", label: "Live split log via SSE", note: "Watch the model work in real time. Very satisfying. Very terminal-coded." },
+                            { icon: "✦", label: "Song-named ZIP downloads", note: "No more job_172abc... filenames. You get Song_Name_stems.zip. Like a civilised person." },
+                            { icon: "✦", label: "Extended analysis panel", note: "Raw key strength, loudness in dBFS, danceability %. Real values where Essentia provides them." },
+                            { icon: "✦", label: "Demucs torchaudio fix", note: "Patched audio.py to write via soundfile directly — torchaudio 2.11 removed every non-CUDA backend and chose violence." },
+                            { icon: "✦", label: "This beta mode toggle", note: "Meta. We know. But here we are, and you clicked it, so." },
+                          ].map((item, i) => (
+                            <div key={i} className="flex gap-3 text-sm">
+                              <span className="text-violet-400 mt-0.5 shrink-0">{item.icon}</span>
+                              <div>
+                                <span className="font-semibold text-foreground">{item.label}</span>
+                                <span className="opacity-50 ml-2 text-[11px]">{item.note}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="text-[10px] opacity-40 border-t border-violet-400/10 pt-3">
+                          ⚠ BETA = "Best Effort, Technically Available". Models marked experimental require a local install. Use at your own risk and enjoy the chaos.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </TabsContent>
     </Tabs>
       </div>
+      {/* Footer */}
+      <footer className="text-center pb-6 pt-2 space-y-1 select-none">
+        <div className="text-[11px] opacity-35 hover:opacity-60 transition-opacity">
+          <a
+            href="https://github.com/airiharuki/Harmonic-Studio-V2"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 hover:underline underline-offset-2"
+          >
+            <Github className="w-3 h-3" />
+            airiharuki/Harmonic-Studio-V2
+          </a>
+          {" · "}
+          <span>
+            <s>Sponsored by Replit</s>
+            {" "}
+            <span className="italic">(or maybe not)</span>
+          </span>
+        </div>
+      </footer>
+
       <Toaster position="bottom-right" theme={theme as any} />
     </div>
     </>
