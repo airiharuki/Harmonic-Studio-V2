@@ -515,8 +515,27 @@ async function startServer() {
     });
   };
 
+  // --- Audio content validation via ffprobe ---
+  // Checks that the saved file is a real audio/container by probing it with
+  // ffprobe. Returns true when at least one audio stream is found.
+  // This runs AFTER multer writes the file so it cannot be fooled by a renamed
+  // non-audio payload.
+  function probeHasAudio(filePath: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      ffmpeg.ffprobe(filePath, (err: any, metadata: any) => {
+        if (err) {
+          // ffprobe itself errored — treat as invalid
+          return resolve(false);
+        }
+        const streams: any[] = metadata?.streams ?? [];
+        const hasAudio = streams.some((s: any) => s.codec_type === "audio");
+        resolve(hasAudio);
+      });
+    });
+  }
+
   // API Routes
-  app.post("/api/upload", uploadSingle("file"), (req: any, res) => {
+  app.post("/api/upload", uploadSingle("file"), async (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     
     // Rename file to include original extension
@@ -524,6 +543,17 @@ async function startServer() {
     const filename = `${req.file.filename}${ext}`;
     const newPath = path.join(downloadsDir, filename);
     fs.renameSync(req.file.path, newPath);
+
+    // Validate the file content — extension/MIME alone are client-controlled.
+    // ffprobe reads actual container headers; a renamed image/text/etc. will
+    // fail here and be deleted immediately.
+    const isAudio = await probeHasAudio(newPath);
+    if (!isAudio) {
+      try { fs.unlinkSync(newPath); } catch { /* already gone */ }
+      return res.status(400).json({
+        error: "The uploaded file does not appear to be a valid audio file. Please upload a real audio file (mp3, wav, flac, ogg, m4a, aac, …).",
+      });
+    }
 
     res.json({ 
       filename, 
