@@ -25,6 +25,7 @@
 [![Status](https://img.shields.io/badge/status-experimental-f97316?style=for-the-badge)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-22c55e?style=for-the-badge&logo=github)](CONTRIBUTING.md)
 [![License](https://img.shields.io/badge/license-MIT-3b82f6?style=for-the-badge)](LICENSE)
+[![Changelog](https://img.shields.io/badge/changelog-what%27s%20new-6366f1?style=for-the-badge)](CHANGELOG.md)
 [![Vibes](https://img.shields.io/badge/vibes-dangerously%20immaculate-ec4899?style=for-the-badge)]()
 [![Dragons](https://img.shields.io/badge/here%20be-dragons-dc2626?style=for-the-badge)]()
 
