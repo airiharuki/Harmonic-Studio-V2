@@ -265,6 +265,67 @@ async function startServer() {
     }
   }, 10 * 60 * 1000);
 
+  // --- Rate limiting for stem-splitting jobs ---
+  // /api/split launches heavy ML processes (Demucs/Spleeter/audio-separator)
+  // that each take minutes of CPU. Without limits, a single client can spam
+  // requests and exhaust CPU/disk for everyone. Limits:
+  //   1. Per-IP: at most 1 active job at a time.
+  //   2. Per-IP: cooldown between job starts.
+  //   3. Global: cap on simultaneous jobs across all clients.
+  const SPLIT_MAX_ACTIVE_PER_IP = 1;
+  const SPLIT_COOLDOWN_MS = 60 * 1000; // 1 minute between job starts per IP
+  const SPLIT_MAX_GLOBAL_ACTIVE = 2;
+
+  interface SplitEntry {
+    active: number;
+    lastStart: number;
+  }
+  const splitLimitStore = new Map<string, SplitEntry>();
+  let splitGlobalActive = 0;
+
+  function checkSplitRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number; reason?: string } {
+    const now = Date.now();
+    const entry = splitLimitStore.get(ip);
+
+    if (entry && entry.active >= SPLIT_MAX_ACTIVE_PER_IP) {
+      return { allowed: false, retryAfterMs: SPLIT_COOLDOWN_MS, reason: "You already have a stem-splitting job running. Wait for it to finish." };
+    }
+    if (entry && now - entry.lastStart < SPLIT_COOLDOWN_MS) {
+      return { allowed: false, retryAfterMs: entry.lastStart + SPLIT_COOLDOWN_MS - now, reason: "Please wait a moment between stem-splitting jobs." };
+    }
+    if (splitGlobalActive >= SPLIT_MAX_GLOBAL_ACTIVE) {
+      return { allowed: false, retryAfterMs: SPLIT_COOLDOWN_MS, reason: "The server is busy processing other jobs. Please try again shortly." };
+    }
+    return { allowed: true };
+  }
+
+  function beginSplitJob(ip: string) {
+    const now = Date.now();
+    const entry = splitLimitStore.get(ip) ?? { active: 0, lastStart: 0 };
+    entry.active++;
+    entry.lastStart = now;
+    splitLimitStore.set(ip, entry);
+    splitGlobalActive++;
+  }
+
+  function endSplitJob(ip: string) {
+    const entry = splitLimitStore.get(ip);
+    if (entry) {
+      entry.active = Math.max(0, entry.active - 1);
+    }
+    splitGlobalActive = Math.max(0, splitGlobalActive - 1);
+  }
+
+  // Forget IPs with no active jobs whose cooldown has long passed.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of splitLimitStore.entries()) {
+      if (entry.active <= 0 && now - entry.lastStart > SPLIT_COOLDOWN_MS) {
+        splitLimitStore.delete(ip);
+      }
+    }
+  }, 10 * 60 * 1000);
+
   function sweepExpiredFiles() {
     const now = Date.now();
     for (const [token, entry] of fileTokens.entries()) {
@@ -515,6 +576,18 @@ async function startServer() {
     const { url, filename, stemsToZip, model, modelVariant, title } = req.body;
     if (!url && !filename) return res.status(400).json({ error: "URL or filename is required" });
 
+    // Rate limit BEFORE opening the SSE stream so we can return a proper 429.
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+    const splitRate = checkSplitRateLimit(clientIp);
+    if (!splitRate.allowed) {
+      res.setHeader("Retry-After", Math.ceil((splitRate.retryAfterMs || 0) / 1000));
+      return res.status(429).json({
+        error: splitRate.reason || "Too many stem-splitting requests. Please wait before trying again.",
+        retryAfterMs: splitRate.retryAfterMs,
+      });
+    }
+    beginSplitJob(clientIp);
+
     // --- SSE setup ---
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -528,13 +601,14 @@ async function startServer() {
 
     const jobId = `job_${Date.now()}`;
     const jobDir = path.join(downloadsDir, jobId);
-    fs.mkdirSync(jobDir);
 
     const inputFilename = "input.wav";
     const inputPath = path.join(jobDir, inputFilename);
     const tempFile = path.join(jobDir, `temp_input.m4a`);
 
     try {
+      fs.mkdirSync(jobDir);
+
       if (url) {
         log("Downloading audio from URL...");
 
@@ -765,6 +839,8 @@ async function startServer() {
       console.error("Split error:", error);
       send("error", { message: error.message });
       res.end();
+    } finally {
+      endSplitJob(clientIp);
     }
   });
 
