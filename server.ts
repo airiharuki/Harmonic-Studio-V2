@@ -405,6 +405,8 @@ async function startServer() {
 
   function sweepExpiredFiles() {
     const now = Date.now();
+
+    // 1. Sweep token-registered files that have passed their TTL.
     for (const [token, entry] of fileTokens.entries()) {
       if (now >= entry.expiresAt) {
         try {
@@ -423,6 +425,49 @@ async function startServer() {
         fileTokens.delete(token);
       }
     }
+
+    // 2. Sweep untracked files/dirs in downloads/ and output/.
+    //    Uploaded files (from /api/upload) and any leftover job artefacts from
+    //    crashed runs are never registered in fileTokens, so they would
+    //    accumulate forever without this second pass.
+    //    We use mtime so recently-created files are left alone even if they
+    //    haven't been registered yet (race window is tiny — multer writes are
+    //    synchronous before the route returns).
+    const trackedPaths = new Set<string>();
+    for (const entry of fileTokens.values()) {
+      trackedPaths.add(path.resolve(entry.filepath));
+    }
+
+    const sweepDir = (dir: string) => {
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return; // directory doesn't exist or isn't readable — skip
+      }
+
+      for (const dirent of entries) {
+        const fullPath = path.join(dir, dirent.name);
+        if (trackedPaths.has(path.resolve(fullPath))) continue; // still live
+        try {
+          const stat = fs.lstatSync(fullPath);
+          const ageMs = now - stat.mtimeMs;
+          if (ageMs < FILE_TTL_MS) continue; // not old enough yet
+
+          if (stat.isDirectory()) {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(fullPath);
+          }
+          console.log(`[cleanup] Deleted untracked old path: ${fullPath} (age ${Math.round(ageMs / 60000)} min)`);
+        } catch (err) {
+          console.error(`[cleanup] Error deleting untracked path ${fullPath}:`, err);
+        }
+      }
+    };
+
+    sweepDir(downloadsDir);
+    sweepDir(outputDir);
   }
 
   // Sweep every 30 minutes
