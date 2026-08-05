@@ -7,13 +7,13 @@ echo "=========================================================="
 
 echo -e "\n[1/5] Checking System Dependencies..."
 
-if ! command -v git &> /dev/null; then
+if ! command -v git &>/dev/null; then
     echo "Installing Git..."
-    sudo apt-get update
+    sudo apt-get update -qq
     sudo apt-get install -y git
 fi
 
-if ! command -v docker &> /dev/null; then
+if ! command -v docker &>/dev/null; then
     echo "Installing Docker..."
     curl -fsSL https://get.docker.com -o get-docker.sh
     sudo sh get-docker.sh
@@ -22,9 +22,9 @@ if ! command -v docker &> /dev/null; then
     sudo systemctl start docker
 fi
 
-if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
+if ! docker compose version &>/dev/null && ! command -v docker-compose &>/dev/null; then
     echo "Installing Docker Compose Plugin..."
-    sudo apt-get update
+    sudo apt-get update -qq
     sudo apt-get install -y docker-compose-plugin || sudo apt-get install -y docker-compose
 fi
 
@@ -33,28 +33,36 @@ if [ ! -f "docker-compose.yml" ]; then
     if [ ! -d "Harmonic-Studio-V2" ]; then
         git clone https://github.com/airiharuki/Harmonic-Studio-V2.git
     fi
-    cd Harmonic-Studio-V2 || exit
+    cd Harmonic-Studio-V2 || exit 1
 fi
 
 echo -e "\n[3/5] Setting up Environment Variables..."
 if [ ! -f ".env" ]; then
-    echo -e "\n🔑 The application requires a Gemini API Key for AI features."
+    echo ""
+    echo "🔑 The application needs a Gemini API Key for AI features (chord generation)."
     echo -n "Enter your GEMINI_API_KEY (or press Enter to skip for now): "
-    read -r api_key
-    echo "GEMINI_API_KEY=$api_key" > .env
+    read -r gemini_key
+    echo "GEMINI_API_KEY=${gemini_key}" > .env
     echo "NODE_ENV=production" >> .env
+    echo "PORT=3000" >> .env
+    echo ""
+    echo "✅ .env file created."
 else
-    echo ".env file already exists. Skipping..."
+    # Ensure PORT is set even in an existing .env
+    if ! grep -q "^PORT=" .env; then
+        echo "PORT=3000" >> .env
+        echo "PORT=3000 added to existing .env."
+    fi
+    echo ".env file already exists — skipping key prompts."
 fi
 
 echo -e "\n[4/5] Preparing File Storage Permissions..."
 mkdir -p downloads output
-# Make directories writable for the docker container
 sudo chmod -R 777 downloads output
 
 echo -e "\n[5/5] Building and Launching Docker Containers..."
-# Try modern docker compose first, fallback to older docker-compose
-if docker compose version &> /dev/null; then
+# Modern docker compose first, fallback to older docker-compose
+if docker compose version &>/dev/null; then
     sudo docker compose up -d --build
 else
     sudo docker-compose up -d --build
@@ -64,9 +72,15 @@ echo -e "\n=========================================================="
 echo "✅ SERVER DEPLOYED SUCCESSFULLY!"
 echo "=========================================================="
 echo "The application is running in the background via Docker on port 3000."
-echo "To view live logs: sudo docker compose logs -f"
-echo "To stop the server: sudo docker compose down"
+echo ""
+echo "Useful commands:"
+echo "  View logs:    sudo docker compose logs -f"
+echo "  Stop server:  sudo docker compose down"
+echo "  Restart:      sudo docker compose restart"
 echo ""
 echo "Next steps if you are on a VPS:"
 echo "1. Forward port 80/443 to port 3000 using Nginx or Caddy."
-echo "2. Don't forget to set up your DNS and an SSL certificate!"
+echo "2. Set up your DNS and an SSL certificate (Caddy handles this automatically)."
+echo ""
+echo "Note: yt-dlp uses Deno to bypass YouTube throttling. The server"
+echo "auto-downloads a pinned Deno build on first run — no manual install needed."

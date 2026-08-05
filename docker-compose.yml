@@ -9,7 +9,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # Add your Gemini API key here
+      - PORT=3000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       # Persist downloads and output between container restarts
