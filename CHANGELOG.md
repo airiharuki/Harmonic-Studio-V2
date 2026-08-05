@@ -6,8 +6,15 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ## [Unreleased] — beta only
 
+*Nothing cooking yet.*
+
+---
+
+## [v2.1.2] — Upload Hardening
+
 ### Added
-- **Upload validation**: file size cap and audio-extension/MIME filter on `/api/upload` — oversized and non-audio files are now rejected with a clear error before they touch disk.
+- **Upload size cap**: requests over **300 MB** are rejected with a `413` before Multer reads the body — the file never touches disk.
+- **Audio-only file filter**: uploads are checked against extension and MIME type; anything that isn't a recognised audio format gets a `400` with a plain-English error message. Renamed executables and mystery blobs no longer land in `downloads/`.
 
 ---
 
