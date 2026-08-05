@@ -137,6 +137,19 @@ async function startServer() {
   if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
+  // Path traversal guard — resolves user-controlled filename segments and
+  // refuses anything that escapes the base directory (e.g. "../.env").
+  // Returns null for unsafe paths.
+  const safeJoin = (baseDir: string, userPath: string): string | null => {
+    if (!userPath || userPath.includes("\0")) return null;
+    const resolved = path.resolve(baseDir, userPath);
+    const baseResolved = path.resolve(baseDir);
+    if (resolved !== baseResolved && !resolved.startsWith(baseResolved + path.sep)) {
+      return null;
+    }
+    return resolved;
+  };
+
   // --- Secure file token store ---
   // Each processed file gets a 12-character alphanumeric token (mixed-case +
   // digits = 62 possibilities/char, ~3.2 sextillion combinations). That's
@@ -542,14 +555,14 @@ async function startServer() {
         });
         log("WAV conversion done.");
       } else if (filename) {
-        const sourcePath = path.join(downloadsDir, filename);
-        if (!fs.existsSync(sourcePath)) {
+        const sourcePath = safeJoin(downloadsDir, filename);
+        if (!sourcePath || !fs.existsSync(sourcePath)) {
           send("error", { message: "Uploaded file not found" });
           res.end();
           return;
         }
         fs.copyFileSync(sourcePath, inputPath);
-        log(`Using uploaded file: ${filename}`);
+        log(`Using uploaded file: ${path.basename(sourcePath)}`);
       }
 
       // 2. Run Splitting
@@ -787,8 +800,8 @@ async function startServer() {
   });
 
   app.get("/api/files/output/:filename", (req, res) => {
-    const filepath = path.join(outputDir, req.params.filename);
-    if (fs.existsSync(filepath)) {
+    const filepath = safeJoin(outputDir, req.params.filename);
+    if (filepath && fs.existsSync(filepath)) {
       res.download(filepath);
     } else {
       res.status(404).send("File not found");
@@ -797,11 +810,15 @@ async function startServer() {
 
   app.get("/api/files/:filename", (req, res) => {
     const filename = req.params.filename;
-    const filepath = path.join(downloadsDir, filename);
-    
+    const filepath = safeJoin(downloadsDir, filename);
+
+    if (!filepath) {
+      return res.status(404).send("File not found");
+    }
+
     // Disable timeout for large file downloads
     req.setTimeout(0);
-    
+
     if (fs.existsSync(filepath)) {
       const stats = fs.statSync(filepath);
       console.log(`Serving file: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
