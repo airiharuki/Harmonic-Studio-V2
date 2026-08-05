@@ -6,15 +6,23 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ## [Unreleased] — beta only
 
+*Nothing cooking yet.*
+
+---
+
+## [v2.1.7] — SoundCloud Streaming Player
+
 ### Added
 - **SoundCloud streaming player**: paste a SoundCloud track link in the Analyzer and get the official artwork-forward player inline — streams directly, no download required. Metadata (title, artist, 500px artwork) resolved server-side via SoundCloud's oEmbed API with strict hostname validation.
 
 ---
 
-## [v2.1.6] — Real Audio Verification
+## [v2.1.6] — Real Audio Verification & History Scrub
 
 ### Security
 - **Content-based audio validation**: uploaded files are now probed with `ffprobe` after the extension/MIME check — a renamed `.exe` or random blob with a `.mp3` filename fails the stream check and is rejected before it can reach the stem splitter.
+- **Git history purged**: `attached_assets/` (including a committed `cookies.txt`) was scrubbed from the full commit history on both branches using `git filter-repo` — the files are no longer recoverable from any past commit.
+- **`attached_assets/` blocked from git**: `.gitignore` updated so session cookies, uploaded screenshots, and other workspace assets can never be accidentally committed again.
 
 ---
 
