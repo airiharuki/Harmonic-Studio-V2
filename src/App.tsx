@@ -135,22 +135,6 @@ const SPLIT_STEPS = [
   { id: "package", label: "Package" },
   { id: "done", label: "Ready" },
 ];
-
-/** Build the ordered step list for the progress indicator. */
-function buildSplitSteps(isLocalFile: boolean, isBvr: boolean): SplitStep[] {
-  const steps: SplitStep[] = [];
-  if (!isLocalFile) steps.push({ id: "download", label: "Download" });
-  steps.push({ id: "convert", label: isLocalFile ? "Prepare" : "Convert" });
-  if (isBvr) {
-    steps.push({ id: "separate_1", label: "Split · Pass 1" });
-    steps.push({ id: "separate_2", label: "Split · Pass 2" });
-  } else {
-    steps.push({ id: "separate", label: "Split" });
-  }
-  steps.push({ id: "package", label: "Package" });
-  steps.push({ id: "done", label: "Ready" });
-  return steps;
-}
 const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
   { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
   { id: 'drums',         label: 'Drums',          icon: Drum   },
@@ -1105,12 +1089,14 @@ function MainApp() {
     let lastPass: number | null = null;
 
     try {
-      const payload: any = { stemsToZip: selectedStems, model: splittingModel, modelVariant, title: videoInfo?.title || uploadedFilename || "" };
-      if (uploadedFilename) {
-        payload.filename = uploadedFilename;
-      } else {
-        payload.url = videoInfo?.loadedUrl ?? videoInfo?.soundcloudUrl ?? url;
-      }
+      const payload = buildSplitPayload({
+        uploadedFilename,
+        videoInfo,
+        url,
+        selectedStems,
+        splittingModel,
+        modelVariant,
+      });
 
       const response = await fetch("/api/split", {
         method: "POST",
@@ -3237,14 +3223,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-
-/** Map a (stage, pass) SSE event onto a step id from buildSplitSteps. */
-function stageToStepId(stage: string | null, pass: number | null, isBvr: boolean): string | null {
-  if (!stage) return null;
-  if (stage === "separate" && isBvr) return pass === 2 ? "separate_2" : "separate_1";
-  return stage;
-}
-
 /** Return a short time-estimate hint for the UI. */
 function getSplitEstimate(model: string, isBvr: boolean): string {
   if (isBvr) return "BVR runs 2 passes — typically 4–8 min for a 4-min track";
