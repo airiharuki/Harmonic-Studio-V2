@@ -7,7 +7,8 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 ## [Unreleased] — v2.2b1 "Reverie" (in progress)
 
 ### Added
-- **Waveform player**: WaveSurfer.js renders a click-to-seek waveform under the Analyzer player card — shows animated playhead, BPM gridlines when analysis data is available, and per-stem waveform previews after splitting. Falls back to plain player if waveform rendering fails.
+- **Stem mixer**: after splitting, remix live in the browser — per-stem volume sliders, solo/mute buttons, and sample-accurate synchronized Web Audio playback. "Bounce Remix" exports the current mix state as a downloadable WAV via OfflineAudioContext rendering.
+- **Waveform player**: WaveSurfer.js renders a click-to-seek waveform under the Analyzer player card — animated playhead, BPM gridlines when analysis data is available. Falls back to plain player if waveform rendering fails.
 
 ---
 

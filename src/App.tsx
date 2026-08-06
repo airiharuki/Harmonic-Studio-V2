@@ -2518,32 +2518,6 @@ function MainApp() {
                           </div>
                         )}
 
-                        {/* Stem previews — seekable waveform per split stem */}
-                        {stemPreviews.length > 0 && (
-                          <div className="rounded-2xl border border-black/10 dark:border-white/10 p-4 space-y-4 bg-black/5 dark:bg-white/[0.04]">
-                            <h4 className="text-xs font-bold opacity-40 uppercase tracking-wider">Stem Previews</h4>
-                            {stemPreviews.map((stem) => {
-                              const meta = ALL_STEMS.find(s => s.id === stem.name);
-                              const StemIcon = meta?.icon ?? Music2;
-                              return (
-                                <div key={stem.url}>
-                                <WaveformPlayer
-                                  url={stem.url}
-                                  bpm={analysis?.bpm ?? null}
-                                  height={48}
-                                  label={
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <StemIcon className="w-3 h-3" />
-                                      {meta?.label ?? stem.name}
-                                    </span>
-                                  }
-                                />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
                         {/* Live stem mixer — volume / solo / mute + bounce */}
                         {stemPreviews.length > 0 && (
                           <StemMixer
