@@ -6,7 +6,6 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 
 ## [Unreleased] — v2.2b2 "Reverie" (in progress)
-## [Unreleased] — v2.2b2 "Reverie" (in progress)
 ### Added
 - **Beta mode toggle** (flask icon, top-right) — reveals model tier labels, extended analysis metrics (`spectral_centroid`, `loudness`, `dissonance`, `tuning`), lab-notes panel, and experimental model access.
 - **Holographic frosted glass aesthetic** — aurora breathing animation (dark mode), iridescent hairline card edges, VHS grain + scanlines overlay, deep backdrop blur. The app now looks like it was designed at 4am in the best possible way.
