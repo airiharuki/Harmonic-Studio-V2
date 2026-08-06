@@ -58,6 +58,7 @@ import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
 import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
 import { WaveformPlayer } from "./components/WaveformPlayer";
+import { StemMixer, type ChannelState } from "./components/StemMixer";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
 import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
@@ -170,6 +171,9 @@ function MainApp() {
   const [generatingChords, setGeneratingChords] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [stemPreviews, setStemPreviews] = useState<{ name: string; url: string }[]>([]);
+  // Mixer channel state keyed by stem name — lifted here so settings persist
+  // across stem-variant switches and re-splits.
+  const [mixerChannels, setMixerChannels] = useState<Record<string, ChannelState>>({});
   const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
   const [selectedStems, setSelectedStems] = useState<string[]>(["vocals", "drums", "bass", "other"]);
   const [splittingModel, setSplittingModel] = useState<'demucs' | 'mdx' | 'spleeter' | 'bs-roformer'>('demucs');
@@ -2538,6 +2542,24 @@ function MainApp() {
                               );
                             })}
                           </div>
+                        )}
+
+                        {/* Live stem mixer — volume / solo / mute + bounce */}
+                        {stemPreviews.length > 0 && (
+                          <StemMixer
+                            stems={stemPreviews.map((stem) => {
+                              const meta = ALL_STEMS.find(s => s.id === stem.name);
+                              return {
+                                name: stem.name,
+                                url: stem.url,
+                                label: meta?.label ?? stem.name,
+                                icon: meta?.icon ?? Music2,
+                              };
+                            })}
+                            channels={mixerChannels}
+                            onChannelsChange={setMixerChannels}
+                            exportName={videoInfo?.title ?? uploadedFilename ?? "remix"}
+                          />
                         )}
                       </CardContent>
                     </Card>
