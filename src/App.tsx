@@ -336,6 +336,9 @@ function MainApp() {
   const [targetKey, setTargetKey] = useState('A');
   const [targetScale, setTargetScale] = useState('Minor');
 
+  // Highlighted key on the Circle of Fifths — set when navigating from Analyzer → Composer
+  const [composerHighlightKey, setComposerHighlightKey] = useState<{ key: string; scale: string } | null>(null);
+
   // Loop Studio State
   const [loopBars, setLoopBars] = useState(4);
   const [loopBpm, setLoopBpm] = useState(120);
@@ -1820,6 +1823,8 @@ function MainApp() {
               <CircleOfFifths 
                 onSetBaseKey={(k: string, s: string) => { setSourceKey(k); setSourceScale(s); }}
                 onSetTargetKey={(k: string, s: string) => { setTargetKey(k); setTargetScale(s); }}
+                highlightKey={composerHighlightKey}
+                onHighlightCleared={() => setComposerHighlightKey(null)}
               />
             </div>
           </TabsContent>
@@ -2911,8 +2916,10 @@ function MainApp() {
                                 size="sm"
                                 className="rounded-xl text-xs"
                                 onClick={() => {
+                                  const normScale = analysis.scale?.toLowerCase() === 'minor' ? 'Minor' : 'Major';
                                   setSourceKey(analysis.key);
-                                  setSourceScale(analysis.scale?.toLowerCase() === 'minor' ? 'Minor' : 'Major');
+                                  setSourceScale(normScale);
+                                  setComposerHighlightKey({ key: analysis.key, scale: normScale });
                                   setActiveTab('composer');
                                   toast.success(`Sent ${analysis.key} ${analysis.scale} → Composer`);
                                 }}
