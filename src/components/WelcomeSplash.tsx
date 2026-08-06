@@ -31,7 +31,7 @@ const FEATURES = [
   {
     icon: Unlock,
     title: "MDX-Net & BS-Roformer",
-    desc: "Both experimental models are now open to everyone — no hidden toggle required.",
+    desc: "Both models are now available to everyone — no hidden toggle, no waitlist. Just pick one and go.",
     accent: "text-emerald-500 dark:text-emerald-400",
     bg: "bg-emerald-500/10 dark:bg-emerald-400/10",
   },
@@ -90,14 +90,14 @@ export function WelcomeSplash() {
                   variant="secondary"
                   className="text-[10px] tracking-widest uppercase font-bold bg-violet-500/15 text-violet-500 dark:text-violet-300 border-violet-400/20"
                 >
-                  v2.2 beta · Reverie
+                  What's new in v2.2
                 </Badge>
               </div>
               <h1 className="text-2xl font-bold leading-tight tracking-tight">
                 Welcome to Harmonic Studio
               </h1>
               <p className="text-sm opacity-60 leading-relaxed">
-                A music theory toolbox that doesn't make you cry. Here's what landed since you last stopped by.
+                A music theory toolbox that doesn't make you cry. Here's what's new — everything below shipped in this release.
               </p>
             </div>
 
