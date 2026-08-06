@@ -51,11 +51,44 @@ function effectiveGain(ch: ChannelState, anySolo: boolean): number {
   return ch.volume / 100;
 }
 
+/**
+ * Return the canonical export frame count for a bounce: the shortest stem
+ * duration across ALL loaded buffers, converted to frames at the given sample
+ * rate. This is intentionally independent of solo/mute so that muting or
+ * soloing the shortest stem never extends the exported file to a padded tail.
+ */
+export function computeBounceFrameCount(
+  buffers: Map<string, AudioBuffer>,
+  sampleRate: number,
+): number {
+  if (buffers.size === 0) return 0;
+  const minDuration = Math.min(...Array.from(buffers.values()).map((b) => b.duration));
+  return Math.ceil(minDuration * sampleRate);
+}
+
+/**
+ * Apply a linear fade-out over `fadeFrames` ending at `endFrame` (inclusive).
+ * The last frame is multiplied by exactly 0. Mutates the buffer in-place.
+ */
+export function applyFadeOut(buffer: AudioBuffer, endFrame: number, fadeFrames: number): void {
+  if (fadeFrames <= 0) return;
+  const fadeStart = Math.max(0, endFrame - fadeFrames + 1);
+  const steps = endFrame - fadeStart; // 0 when single-frame fade
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c);
+    for (let i = fadeStart; i <= endFrame; i++) {
+      // t=0 at fadeStart → t=1 at endFrame (last frame always → 0).
+      const t = steps === 0 ? 1 : (i - fadeStart) / steps;
+      data[i] *= 1 - t;
+    }
+  }
+}
+
 /** Encode an AudioBuffer to a 16-bit PCM WAV Blob. */
-function audioBufferToWav(buffer: AudioBuffer): Blob {
+function audioBufferToWav(buffer: AudioBuffer, frameCount?: number): Blob {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
-  const numFrames = buffer.length;
+  const numFrames = Math.min(frameCount ?? buffer.length, buffer.length);
   const bytesPerSample = 2;
   const blockAlign = numChannels * bytesPerSample;
   const dataSize = numFrames * blockAlign;
@@ -400,7 +433,19 @@ export function StemMixer({
         src.start(0);
       });
       const rendered = await offline.startRendering();
-      const wav = audioBufferToWav(rendered);
+
+      // Trim to shortest stem across ALL loaded buffers (see computeBounceFrameCount).
+      const FADE_SECS = 0.08; // 80 ms linear fade-out
+      const trimmedLength = Math.min(
+        computeBounceFrameCount(buffers, rendered.sampleRate),
+        rendered.length,
+      );
+      // Apply a short fade-out ending at the trim point so the export closes cleanly.
+      const fadeFrames = Math.ceil(FADE_SECS * rendered.sampleRate);
+      const fadeEnd = trimmedLength - 1;
+      applyFadeOut(rendered, fadeEnd, Math.min(fadeFrames, trimmedLength));
+
+      const wav = audioBufferToWav(rendered, trimmedLength);
       const url = URL.createObjectURL(wav);
       const a = document.createElement("a");
       a.href = url;
