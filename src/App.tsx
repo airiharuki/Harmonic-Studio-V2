@@ -962,6 +962,7 @@ function MainApp() {
           duration: 0,
           view_count: 0,
           soundcloudUrl: effectiveUrl,
+          loadedUrl: effectiveUrl,
         });
         toast.success("SoundCloud track loaded — streaming, no download needed.");
       } else {
@@ -978,7 +979,8 @@ function MainApp() {
         
         setVideoInfo({
           ...response.data,
-          targetVideoId: videoId
+          targetVideoId: videoId,
+          loadedUrl: effectiveUrl,
         });
         
         toast.success("Video info fetched!");
@@ -987,7 +989,7 @@ function MainApp() {
         // automatically — no Download or Analyze click needed. Tied to this
         // load generation, so a stale info response can't overwrite a newer
         // track's audio.
-        autoFetchTrackAudio(loadId, url, response.data.title);
+        autoFetchTrackAudio(loadId, effectiveUrl, response.data.title);
       }
     } catch (error: any) {
       toast.error("Couldn't load that track: " + friendlyError(error.response?.data?.error || error.message), {
@@ -1014,7 +1016,7 @@ function MainApp() {
   const handleDownload = async (format: "mp3" | "wav" | "flac") => {
     setDownloading(format);
     try {
-      const response = await axios.post("/api/download", { url, format, title: videoInfo?.title });
+      const response = await axios.post("/api/download", { url: videoInfo?.loadedUrl ?? videoInfo?.soundcloudUrl ?? url, format, title: videoInfo?.title });
       const downloadUrl = response.data.url;
       const fileResponse = await axios.get(downloadUrl, { responseType: "blob" });
       const contentType = String(fileResponse.headers["content-type"] || "").toLowerCase();
@@ -1076,7 +1078,7 @@ function MainApp() {
       if (uploadedFilename) {
         payload.filename = uploadedFilename;
       } else {
-        payload.url = url;
+        payload.url = videoInfo?.loadedUrl ?? videoInfo?.soundcloudUrl ?? url;
       }
 
       const response = await fetch("/api/split", {
@@ -2701,7 +2703,7 @@ function MainApp() {
                         {splitting && (
                           <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap px-1">
                             {SPLIT_STEPS.map((step, i) => {
-                              const currentIdx = SPLIT_STEPS.findIndex(s => s.id === (splitStage ?? "download"));
+                              const currentIdx = SPLIT_STEPS.findIndex(s => s.id === (splitStage ?? (uploadedFilename ? "separate" : "download")));
                               const state = i < currentIdx ? "done" : i === currentIdx ? "active" : "pending";
                               const stepLabel = step.id === "separate" && splitPass ? `Split · pass ${splitPass}/2` : step.label;
                               return (
