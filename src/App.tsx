@@ -120,7 +120,7 @@ const MODEL_CONFIGS: Record<string, {
 const BVR_VARIANT_IDS = ['karaoke_bsr', 'karaoke_mel', 'bvr_mdx'];
 
 // Models still being trialed in beta — locked to "available soon" outside beta mode
-const BETA_ONLY_MODELS = ['mdx', 'bs-roformer'];
+const BETA_ONLY_MODELS: string[] = [];
 
 const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
   { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
@@ -2367,9 +2367,9 @@ function MainApp() {
                           <div className="grid grid-cols-2 gap-3">
                             {[
                               { id: 'demucs',      name: 'Demucs',      beta: false, tier: 'stable'       },
-                              { id: 'mdx',         name: 'MDX-Net',     beta: true,  tier: 'experimental' },
+                              { id: 'mdx',         name: 'MDX-Net',     beta: false, tier: 'experimental' },
                               { id: 'spleeter',    name: 'Spleeter',    beta: false, tier: 'legacy'       },
-                              { id: 'bs-roformer', name: 'BS-Roformer', beta: true,  tier: 'experimental' },
+                              { id: 'bs-roformer', name: 'BS-Roformer', beta: false, tier: 'experimental' },
                             ].map((modelObj) => {
                               const isAvailable = splitterAvailability?.[modelObj.id] ?? true;
                               const isBetaLocked = !betaMode && modelObj.beta;
