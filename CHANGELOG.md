@@ -4,14 +4,7 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 ---
 
-## [Unreleased] — v2.2b2 "Reverie" (in progress)
-
-### Added
-- **Chromatic tuner**: a fourth tab — real-time pitch detection from the microphone via autocorrelation, fully client-side. Big note readout with octave, a smoothed ±50¢ needle that glows emerald when you're within 5 cents of true, frequency readout, and a switchable A4 reference (432 / 440 / 442 Hz — yes, 432, we know our audience). Mic permission failures get clear, actionable messages; the mic always releases on tab close.
-
----
-
-## [v2.2b1] — "Reverie"
+## [Unreleased] — v2.2b1 "Reverie" (in progress)
 
 ### Added
 - **Step-by-step split progress**: the splitter now narrates itself — Download → Convert → Split → Package → Ready light up as the server advances through each stage, with BVR 2-pass jobs showing which pass is running. No more staring at a spinner wondering if it froze.

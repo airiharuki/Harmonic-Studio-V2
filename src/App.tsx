@@ -60,7 +60,6 @@ import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks
 import { WaveformPlayer } from "./components/WaveformPlayer";
 import { StemMixer, type ChannelState } from "./components/StemMixer";
 import { WelcomeSplash } from "./components/WelcomeSplash";
-import { Tuner } from "./components/Tuner";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
 import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
@@ -1654,7 +1653,6 @@ function MainApp() {
                   { id: 'composer',   label: 'Composer'    },
                   { id: 'loopstudio', label: 'Loop Studio' },
                   { id: 'analyzer',   label: 'Analyzer'    },
-                  { id: 'tuner',      label: 'Tuner'       },
                 ].map((tab) => {
                   const isActive = activeTab === tab.id;
                   return (
@@ -1691,7 +1689,6 @@ function MainApp() {
               <TabsTrigger value="composer" className="pill-tab-trigger">Composer</TabsTrigger>
               <TabsTrigger value="loopstudio" className="pill-tab-trigger">Loop Studio</TabsTrigger>
               <TabsTrigger value="analyzer" className="pill-tab-trigger">Analyzer</TabsTrigger>
-              <TabsTrigger value="tuner" className="pill-tab-trigger">Tuner</TabsTrigger>
             </TabsList>
           </div>
 
@@ -3010,27 +3007,6 @@ function MainApp() {
                       </CardContent>
                     </Card>
                   </TabsContent>
-
-          <TabsContent value="tuner" className="space-y-6 sm:space-y-12 outline-none">
-            <header className="text-center mb-6 sm:mb-12">
-              <motion.h1
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-3xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-4 drop-shadow-md"
-              >
-                Tuner
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-base sm:text-lg max-w-2xl mx-auto opacity-80"
-              >
-                Real-time chromatic tuning from your mic. Voice, guitar, kazoo — if it holds a pitch, we can tune it.
-              </motion.p>
-            </header>
-            <Tuner />
-          </TabsContent>
                 </Tabs>
               </div>
             </motion.div>
