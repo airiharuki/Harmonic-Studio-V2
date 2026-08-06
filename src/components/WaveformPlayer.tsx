@@ -151,6 +151,39 @@ export function WaveformPlayer({
     wavesurferRef.current?.playPause();
   }, []);
 
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // Space play/pause · ←/→ seek 5s · Shift+←/→ start/end · M mute.
+  // Scoped: never fires while the user is typing in a field.
+  useEffect(() => {
+    if (!isReady) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      const ws = wavesurferRef.current;
+      if (!ws) return;
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          ws.playPause();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          ws.setTime(e.shiftKey ? 0 : Math.max(0, ws.getCurrentTime() - 5));
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          ws.setTime(e.shiftKey ? ws.getDuration() : Math.min(ws.getDuration(), ws.getCurrentTime() + 5));
+          break;
+        case "KeyM":
+          e.preventDefault();
+          ws.setMuted(!ws.getMuted());
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isReady]);
+
   // ── Plain-player fallback ────────────────────────────────────────────────
   if (failed) {
     return (
@@ -227,6 +260,12 @@ export function WaveformPlayer({
           </div>
         </div>
       </div>
+
+      {isReady && (
+        <p className="hidden sm:block text-center text-[10px] font-mono opacity-35 select-none">
+          Space play · ← → seek 5s · ⇧← ⇧→ start/end · M mute
+        </p>
+      )}
     </div>
   );
 }

@@ -123,6 +123,16 @@ const BVR_VARIANT_IDS = ['karaoke_bsr', 'karaoke_mel', 'bvr_mdx'];
 // Models still being trialed in beta — locked to "available soon" outside beta mode
 const BETA_ONLY_MODELS: string[] = [];
 
+const DEMO_TRACK_URL = "https://on.soundcloud.com/P1Kx0dxKH277zQS21A";
+
+const SPLIT_STEPS = [
+  { id: "download", label: "Download" },
+  { id: "convert", label: "Convert" },
+  { id: "separate", label: "Split" },
+  { id: "package", label: "Package" },
+  { id: "done", label: "Ready" },
+];
+
 const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
   { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
   { id: 'drums',         label: 'Drums',          icon: Drum   },
@@ -173,6 +183,10 @@ function MainApp() {
   const [splitting, setSplitting] = useState(false);
   const [splitLogs, setSplitLogs] = useState<string[]>([]);
   const splitLogRef = useRef<HTMLDivElement>(null);
+  const [splitStage, setSplitStage] = useState<string | null>(null);
+  const [splitPass, setSplitPass] = useState<number | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [chords, setChords] = useState<string[] | null>(null);
@@ -884,8 +898,27 @@ function MainApp() {
     }
   };
 
-  const handleFetchInfo = async () => {
-    if (!url && !file) return;
+  // Map cryptic downloader/network errors to messages a human can act on.
+  const friendlyError = (msg: string): string => {
+    const m = (msg || "").toLowerCase();
+    if (m.includes("sign in") || m.includes("log in") || m.includes("bot"))
+      return "This site is blocking automated downloads right now. Try another link or upload the file directly.";
+    if (m.includes("too long") || m.includes("duration"))
+      return "That track is too long to process. Try something under ~15 minutes.";
+    if (m.includes("region") || m.includes("unavailable") || m.includes("not available") || m.includes("private"))
+      return "This track is region-blocked or unavailable. Try another source, or upload the file directly.";
+    if (m.includes("429") || m.includes("too many") || m.includes("cooldown") || m.includes("wait"))
+      return "Easy there — the server is catching its breath. Give it a few seconds and retry.";
+    if (m.includes("network") || m.includes("econnreset") || m.includes("epipe") || m.includes("timeout") || m.includes("socket"))
+      return "Connection hiccup mid-transfer. Give it another go.";
+    if (m.includes("copyright") || m.includes("drm") || m.includes("protected"))
+      return "This track is copy-protected and can't be pulled. Try another source.";
+    return msg;
+  };
+
+  const handleFetchInfo = async (overrideUrl?: string) => {
+    const effectiveUrl = overrideUrl ?? url;
+    if (!effectiveUrl && !file) return;
     setLoading(true);
     setVideoInfo(null);
     setAnalysis(null);
@@ -919,27 +952,27 @@ function MainApp() {
           isLocal: true
         });
         toast.success("File uploaded successfully!");
-      } else if (isSoundCloudUrl(url)) {
+      } else if (isSoundCloudUrl(effectiveUrl)) {
         // SoundCloud: stream via official widget — artwork-forward player, no download.
-        const sc = await axios.get(`/api/sc/resolve?url=${encodeURIComponent(url)}`);
+        const sc = await axios.get(`/api/sc/resolve?url=${encodeURIComponent(effectiveUrl)}`);
         setVideoInfo({
           title: sc.data.title,
           uploader: sc.data.author,
           thumbnail: sc.data.thumbnail,
           duration: 0,
           view_count: 0,
-          soundcloudUrl: url,
+          soundcloudUrl: effectiveUrl,
         });
         toast.success("SoundCloud track loaded — streaming, no download needed.");
       } else {
-        const response = await axios.get(`/api/info?url=${encodeURIComponent(url)}`);
+        const response = await axios.get(`/api/info?url=${encodeURIComponent(effectiveUrl)}`);
 
         let videoId = '';
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-          if (url.includes('youtu.be/')) {
-            videoId = url.split('youtu.be/')[1].split('?')[0];
-          } else if (url.includes('v=')) {
-            videoId = url.split('v=')[1].split('&')[0];
+        if (effectiveUrl.includes('youtube.com') || effectiveUrl.includes('youtu.be')) {
+          if (effectiveUrl.includes('youtu.be/')) {
+            videoId = effectiveUrl.split('youtu.be/')[1].split('?')[0];
+          } else if (effectiveUrl.includes('v=')) {
+            videoId = effectiveUrl.split('v=')[1].split('&')[0];
           }
         }
         
@@ -957,22 +990,25 @@ function MainApp() {
         autoFetchTrackAudio(loadId, url, response.data.title);
       }
     } catch (error: any) {
-      toast.error("Failed to fetch video info: " + (error.response?.data?.error || error.message));
+      toast.error("Couldn't load that track: " + friendlyError(error.response?.data?.error || error.message), {
+        duration: 8000,
+        action: { label: "Retry", onClick: () => handleFetchInfo() },
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setUrl(""); // Clear URL if file is selected
-      
-      if (selectedFile.name.toLowerCase().endsWith(".mp3")) {
-        toast.warning("Warning: MP3s are compressed and may reduce the quality of stem splitting and analysis. WAV or FLAC is recommended.", { duration: 5000 });
-      }
+  const handleNewFile = (selectedFile: File) => {
+    setFile(selectedFile);
+    setUrl(""); // Clear URL if file is selected
+    if (selectedFile.name.toLowerCase().endsWith(".mp3")) {
+      toast.warning("Warning: MP3s are compressed and may reduce the quality of stem splitting and analysis. WAV or FLAC is recommended.", { duration: 5000 });
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) handleNewFile(e.target.files[0]);
   };
 
   const handleDownload = async (format: "mp3" | "wav" | "flac") => {
@@ -1006,7 +1042,10 @@ function MainApp() {
       
       toast.success(`Download started for ${format.toUpperCase()}`);
     } catch (error: any) {
-      toast.error(`Download failed: ${error.response?.data?.error || error.message}`);
+      toast.error(`Download failed: ${friendlyError(error.response?.data?.error || error.message)}`, {
+        duration: 8000,
+        action: { label: "Retry", onClick: () => handleDownload(format) },
+      });
     } finally {
       setDownloading(null);
     }
@@ -1029,6 +1068,8 @@ function MainApp() {
     setSplitting(true);
     setSplitLogs([]);
     setStemPreviews([]);
+    setSplitStage(null);
+    setSplitPass(null);
 
     try {
       const payload: any = { stemsToZip: selectedStems, model: splittingModel, modelVariant, title: videoInfo?.title || uploadedFilename || "" };
@@ -1069,6 +1110,9 @@ function MainApp() {
             const event = JSON.parse(line.slice(6));
             if (event.type === "log") {
               setSplitLogs(prev => [...prev, event.line]);
+            } else if (event.type === "stage") {
+              setSplitStage(event.stage);
+              if (event.pass) setSplitPass(event.pass);
             } else if (event.type === "done") {
               downloadUrl = event.url;
               expiresIn = event.expiresIn;
@@ -1103,10 +1147,15 @@ function MainApp() {
 
       toast.success("Stem splitting complete! Download started.");
     } catch (error: any) {
-      toast.error(`Splitting failed: ${error.message}`);
+      toast.error(`Splitting failed: ${friendlyError(error.message)}`, {
+        duration: 8000,
+        action: { label: "Retry", onClick: () => handleSplit() },
+      });
       setSplitLogs(prev => [...prev, `ERROR: ${error.message}`]);
     } finally {
       setSplitting(false);
+      setSplitStage(null);
+      setSplitPass(null);
     }
   };
 
@@ -1116,6 +1165,13 @@ function MainApp() {
       splitLogRef.current.scrollTop = splitLogRef.current.scrollHeight;
     }
   }, [splitLogs]);
+
+  // Smooth-scroll to the results panel the moment stems are ready
+  useEffect(() => {
+    if (stemPreviews.length > 0) {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [stemPreviews]);
 
   const toggleStem = (stem: string) => {
     setSelectedStems(prev => 
@@ -2156,15 +2212,40 @@ function MainApp() {
                     <span className="ml-2">Load</span>
                   </Button>
                 </div>
+                {!videoInfo && !loading && !file && (
+                  <button
+                    onClick={() => { setUrl(DEMO_TRACK_URL); handleFetchInfo(DEMO_TRACK_URL); }}
+                    className="self-center text-xs opacity-50 hover:opacity-90 transition-opacity underline underline-offset-4 decoration-dotted"
+                  >
+                    No track handy? Try a demo from SoundCloud →
+                  </button>
+                )}
                 <div className="flex items-center gap-4">
                   <div className="flex-1 h-px bg-black/10 dark:bg-white/10"></div>
                   <span className="text-[10px] opacity-40 uppercase tracking-widest font-bold">OR</span>
                   <div className="flex-1 h-px bg-black/10 dark:bg-white/10"></div>
                 </div>
-                <div className="flex items-center justify-center w-full">
-                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-24 border-2 border-black/10 dark:border-white/10 border-dashed rounded-[24px] cursor-pointer bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors active:scale-[0.98]">
+                <div
+                  className="flex items-center justify-center w-full"
+                  onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragActive(false);
+                    const dropped = e.dataTransfer.files?.[0];
+                    if (dropped) handleNewFile(dropped);
+                  }}
+                >
+                  <label htmlFor="dropzone-file" className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-[24px] cursor-pointer transition-all active:scale-[0.98] ${
+                    dragActive
+                      ? "border-violet-400/60 bg-violet-500/10 ring-4 ring-violet-400/20 scale-[1.01]"
+                      : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10"
+                  }`}>
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <p className="mb-1 text-sm opacity-60"><span className="font-semibold">Click to upload</span> local audio</p>
+                          <p className="mb-1 text-sm opacity-60">
+                            <span className="font-semibold">{dragActive ? "Drop it!" : "Click to upload"}</span>
+                            {dragActive ? "" : " local audio — or drag & drop"}
+                          </p>
                           <p className="text-xs opacity-40 font-mono">WAV, FLAC, or MP3</p>
                           {file && <p className="mt-2 text-sm text-foreground font-medium">{file.name}</p>}
                       </div>
@@ -2187,7 +2268,25 @@ function MainApp() {
             </motion.div>
 
         <AnimatePresence mode="wait">
-          {videoInfo ? (
+          {loading && !videoInfo ? (
+            <motion.div
+              key="loading-skeleton"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+              aria-hidden="true"
+            >
+              <div className="lg:col-span-5 space-y-6">
+                <div className="theme-card aspect-video animate-pulse bg-black/5 dark:bg-white/5" />
+                <div className="theme-card h-24 animate-pulse bg-black/5 dark:bg-white/5" />
+              </div>
+              <div className="lg:col-span-7 space-y-6">
+                <div className="theme-card h-12 animate-pulse bg-black/5 dark:bg-white/5" />
+                <div className="theme-card h-72 animate-pulse bg-black/5 dark:bg-white/5" />
+              </div>
+            </motion.div>
+          ) : videoInfo ? (
             <motion.div
               key="content"
               initial={{ opacity: 0, y: 20 }}
@@ -2595,8 +2694,35 @@ function MainApp() {
                           )}
                         </Button>
                         <p className="text-center text-[10px] opacity-40 italic">
-                          Note: Processing takes 1-3 minutes. High-quality stems (WAV/FLAC) recommended.
+                          ~1–3 min for a typical 4-min track · BVR runs 2 passes (~2×) · WAV/FLAC recommended.
                         </p>
+
+                        {/* Step-by-step progress — orients users during long splits */}
+                        {splitting && (
+                          <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap px-1">
+                            {SPLIT_STEPS.map((step, i) => {
+                              const currentIdx = SPLIT_STEPS.findIndex(s => s.id === (splitStage ?? "download"));
+                              const state = i < currentIdx ? "done" : i === currentIdx ? "active" : "pending";
+                              const stepLabel = step.id === "separate" && splitPass ? `Split · pass ${splitPass}/2` : step.label;
+                              return (
+                                <div key={step.id} className="flex items-center gap-1 sm:gap-2">
+                                  {i > 0 && <span className="opacity-20 text-[10px] select-none">→</span>}
+                                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                    state === "done"
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                      : state === "active"
+                                        ? "bg-foreground text-background shadow-sm"
+                                        : "bg-black/5 dark:bg-white/5 opacity-40"
+                                  }`}>
+                                    {state === "done" && <span aria-hidden="true">✓</span>}
+                                    {state === "active" && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    {stepLabel}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
 
                         {/* Split log panel — visible while splitting or after it finishes */}
                         {splitLogs.length > 0 && (
@@ -2630,6 +2756,7 @@ function MainApp() {
 
                         {/* Live stem mixer — volume / solo / mute + bounce */}
                         {stemPreviews.length > 0 && (
+                          <div ref={resultsRef} className="scroll-mt-24">
                           <StemMixer
                             stems={stemPreviews.map((stem) => {
                               const meta = ALL_STEMS.find(s => s.id === stem.name);
@@ -2644,6 +2771,7 @@ function MainApp() {
                             onChannelsChange={setMixerChannels}
                             exportName={videoInfo?.title ?? uploadedFilename ?? "remix"}
                           />
+                          </div>
                         )}
                       </CardContent>
                     </Card>
@@ -2708,6 +2836,31 @@ function MainApp() {
                                   <span className="text-sm font-bold">{Math.round(analysis.energy * 100)}%</span>
                                 </div>
                               </div>
+                            </div>
+
+                            {/* Cross-tab jumps — bridge analysis into the other tools */}
+                            <div className="flex flex-wrap gap-2 justify-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl text-xs"
+                                onClick={() => {
+                                  setSourceKey(analysis.key);
+                                  setSourceScale(analysis.scale?.toLowerCase() === 'minor' ? 'Minor' : 'Major');
+                                  setActiveTab('composer');
+                                  toast.success(`Sent ${analysis.key} ${analysis.scale} → Composer`);
+                                }}
+                              >
+                                → Open key in Composer
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl text-xs"
+                                onClick={sendToLoopStudio}
+                              >
+                                → Send to Loop Studio
+                              </Button>
                             </div>
 
                             {/* Extended raw analysis — beta mode only */}
