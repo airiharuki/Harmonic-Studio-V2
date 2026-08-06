@@ -484,6 +484,37 @@ body.beta-active .pill-tab-trigger[data-state="active"] {
   border-radius: inherit;
 }
 
+/* ─── Instant analysis badge shimmer ─────────────────────────── */
+/* Skeleton pills shown while auto BPM/key detection runs */
+.quick-badge-shimmer {
+  display: inline-block;
+  height: 1.375rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    rgba(120, 100, 220, 0.10) 25%,
+    rgba(120, 100, 220, 0.22) 50%,
+    rgba(120, 100, 220, 0.10) 75%
+  );
+  background-size: 200% 100%;
+  animation: quick-badge-shimmer 1.4s ease-in-out infinite;
+}
+
+.dark .quick-badge-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(200, 190, 255, 0.08) 25%,
+    rgba(200, 190, 255, 0.18) 50%,
+    rgba(200, 190, 255, 0.08) 75%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes quick-badge-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* ─── Holographic shimmer animation ──────────────────────────── */
 /* Applied to iridescent accents and border elements */
 @keyframes holo-shift {

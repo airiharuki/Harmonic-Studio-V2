@@ -66,6 +66,13 @@ import {
   createSoundFont2SynthNode, 
   type SoundFont2SynthNode 
 } from 'sf2-synth-audio-worklet';
+import {
+  LatestRunGate,
+  runInstantAnalysis,
+  autoFetchRemoteAudio,
+  fetchSamplesFromAudioUrl,
+  type InstantAnalysisResult,
+} from './lib/instantAnalysis';
 
 // ─── Model capability registry ───────────────────────────────────────────────
 const MODEL_CONFIGS: Record<string, {
@@ -861,7 +868,10 @@ function MainApp() {
         console.error("Failed to load Essentia:", e);
       }
     };
-    loadEssentia();
+    // Shared init promise so instant analysis can await startup instead of
+    // giving up if a track loads before Essentia finishes initialising.
+    // loadEssentia catches its own errors, so this always settles.
+    (window as any).__EssentiaInitPromise = loadEssentia();
   }, []);
 
   const isSoundCloudUrl = (raw: string): boolean => {
@@ -879,6 +889,11 @@ function MainApp() {
     setVideoInfo(null);
     setAnalysis(null);
     setAudioUrl(null);
+    // Release the previous track's blob so the new track's auto-fetch can
+    // install audio, and claim a fresh load generation — this invalidates any
+    // in-flight info/audio fetches from a previous track.
+    releaseDownloadedAudioBlobUrl();
+    const loadId = autoFetchGateRef.current.next();
     try {
       if (file) {
         // Handle local file upload
@@ -933,6 +948,12 @@ function MainApp() {
         });
         
         toast.success("Video info fetched!");
+
+        // Kick off a background audio fetch so BPM/key badges can appear
+        // automatically — no Download or Analyze click needed. Tied to this
+        // load generation, so a stale info response can't overwrite a newer
+        // track's audio.
+        autoFetchTrackAudio(loadId, url, response.data.title);
       }
     } catch (error: any) {
       toast.error("Failed to fetch video info: " + (error.response?.data?.error || error.message));
@@ -1106,6 +1127,75 @@ function MainApp() {
     const available = cfg?.variants.find(v => v.id === modelVariant)?.stems ?? ['vocals','drums','bass','other'];
     const allSelected = available.every(s => selectedStems.includes(s));
     setSelectedStems(allSelected ? [] : available);
+  };
+
+  // ── Instant analysis — lightweight auto BPM/key detection ─────────────────
+  // Runs a fast first-pass as soon as a track's audio is available so BPM/key
+  // badges appear without clicking Analyze. Full Analyze flow is untouched.
+  const [quickAnalysis, setQuickAnalysis] = useState<InstantAnalysisResult | null>(null);
+  const [quickAnalyzing, setQuickAnalyzing] = useState(false);
+  const quickGateRef = useRef(new LatestRunGate());
+  const analyzingRef = useRef(false);
+  useEffect(() => { analyzingRef.current = analyzing; }, [analyzing]);
+
+  useEffect(() => {
+    const runId = quickGateRef.current.next();
+    // New track (or track cleared) — reset badge state immediately.
+    setQuickAnalysis(null);
+    setQuickAnalyzing(false);
+    if (!audioUrl) return;
+    // If a full Analyze run is already in flight (it may have just fetched
+    // this audio itself), don't double-run detection.
+    if (analyzingRef.current) return;
+
+    let cancelled = false;
+    const run = async () => {
+      setQuickAnalyzing(true);
+      const result = await runInstantAnalysis(audioUrl, {
+        getEssentia: () => {
+          const win = window as any;
+          return win.__EssentiaReady && win.Essentia
+            ? new win.Essentia(win.__EssentiaModule)
+            : null;
+        },
+        waitForEssentia: async () => {
+          const p = (window as any).__EssentiaInitPromise;
+          if (p) await p.catch(() => {});
+        },
+        fetchSamples: fetchSamplesFromAudioUrl,
+        isCancelled: () => cancelled || !quickGateRef.current.isCurrent(runId),
+      });
+      if (cancelled || !quickGateRef.current.isCurrent(runId)) return;
+      // Failure is silent by design — result is simply null, no badges shown.
+      setQuickAnalysis(result);
+      setQuickAnalyzing(false);
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [audioUrl]);
+
+  // Auto-fetch playable audio for remote (yt-dlp) tracks so instant analysis
+  // can run right after info loads, without the user clicking Download/Analyze.
+  // The gate id is minted at the START of each track load (handleFetchInfo),
+  // so a superseded load can never install audio over a newer track.
+  const autoFetchGateRef = useRef(new LatestRunGate());
+  const autoFetchTrackAudio = (loadId: number, trackUrl: string, title?: string) => {
+    autoFetchRemoteAudio(loadId, trackUrl, title, {
+      gate: autoFetchGateRef.current,
+      requestDownloadUrl: async (u, t) => {
+        const response = await axios.post("/api/download", { url: u, format: "mp3", title: t });
+        return response.data.url;
+      },
+      fetchBlob: async (downloadUrl) => {
+        const fileResponse = await axios.get(downloadUrl, { responseType: "blob" });
+        return {
+          data: fileResponse.data,
+          contentType: String(fileResponse.headers["content-type"] || ""),
+        };
+      },
+      hasManualAudio: () => !!audioBlobUrlRef.current,
+      installAudio: (blob) => { setPlayableAudioFromBlob(blob); },
+    });
   };
 
   const handleAnalyze = async () => {
@@ -2214,7 +2304,26 @@ function MainApp() {
 
                     {audioUrl && (
                       <div className="pt-4 border-t border-black/10 dark:border-white/10">
-                        <WaveformPlayer url={audioUrl} bpm={analysis?.bpm ?? null} />
+                        <WaveformPlayer url={audioUrl} bpm={analysis?.bpm ?? quickAnalysis?.bpm ?? null} />
+                        {(quickAnalyzing || quickAnalysis || analysis) && (
+                          <div className="flex items-center gap-2 mt-3" data-testid="instant-badges">
+                            {quickAnalyzing && !quickAnalysis && !analysis ? (
+                              <>
+                                <span className="quick-badge-shimmer w-16" aria-hidden="true" />
+                                <span className="quick-badge-shimmer w-24" aria-hidden="true" />
+                              </>
+                            ) : (
+                              <>
+                                <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-90 border-none" data-testid="badge-bpm">
+                                  {analysis?.bpm ?? quickAnalysis?.bpm} BPM
+                                </Badge>
+                                <Badge variant="secondary" className="bg-black/10 dark:bg-white/10 opacity-90 border-none" data-testid="badge-key">
+                                  {analysis?.key ?? quickAnalysis?.key} {analysis?.scale ?? quickAnalysis?.scale}
+                                </Badge>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
