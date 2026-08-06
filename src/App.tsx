@@ -62,6 +62,7 @@ import { StemMixer, type ChannelState } from "./components/StemMixer";
 import { WelcomeSplash } from "./components/WelcomeSplash";
 import { Tuner } from "./components/Tuner";
 import { Metronome } from "./components/Metronome";
+import { StepProgress, type SplitStep } from "./components/StepProgress";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
 import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
@@ -135,6 +136,21 @@ const SPLIT_STEPS = [
   { id: "done", label: "Ready" },
 ];
 
+/** Build the ordered step list for the progress indicator. */
+function buildSplitSteps(isLocalFile: boolean, isBvr: boolean): SplitStep[] {
+  const steps: SplitStep[] = [];
+  if (!isLocalFile) steps.push({ id: "download", label: "Download" });
+  steps.push({ id: "convert", label: isLocalFile ? "Prepare" : "Convert" });
+  if (isBvr) {
+    steps.push({ id: "separate_1", label: "Split · Pass 1" });
+    steps.push({ id: "separate_2", label: "Split · Pass 2" });
+  } else {
+    steps.push({ id: "separate", label: "Split" });
+  }
+  steps.push({ id: "package", label: "Package" });
+  steps.push({ id: "done", label: "Ready" });
+  return steps;
+}
 const ALL_STEMS: { id: string; label: string; icon: React.ElementType }[] = [
   { id: 'vocals',        label: 'Vocals',         icon: Mic2   },
   { id: 'drums',         label: 'Drums',          icon: Drum   },
@@ -187,6 +203,8 @@ function MainApp() {
   const splitLogRef = useRef<HTMLDivElement>(null);
   const [splitStage, setSplitStage] = useState<string | null>(null);
   const [splitPass, setSplitPass] = useState<number | null>(null);
+  /** Set when a split job fails — tracks which step failed + the error message. */
+  const [splitError, setSplitError] = useState<{ stage: string | null; pass: number | null; message: string } | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -1077,6 +1095,11 @@ function MainApp() {
     setStemPreviews([]);
     setSplitStage(null);
     setSplitPass(null);
+    setSplitError(null);
+
+    // Declared outside try so the catch block can read the last-known values.
+    let lastStage: string | null = null;
+    let lastPass: number | null = null;
 
     try {
       const payload: any = { stemsToZip: selectedStems, model: splittingModel, modelVariant, title: videoInfo?.title || uploadedFilename || "" };
@@ -1118,6 +1141,8 @@ function MainApp() {
             if (event.type === "log") {
               setSplitLogs(prev => [...prev, event.line]);
             } else if (event.type === "stage") {
+              lastStage = event.stage;
+              if (event.pass) lastPass = event.pass;
               setSplitStage(event.stage);
               if (event.pass) setSplitPass(event.pass);
             } else if (event.type === "done") {
@@ -1154,6 +1179,13 @@ function MainApp() {
 
       toast.success("Stem splitting complete! Download started.");
     } catch (error: any) {
+      // Capture which step was active when the failure happened so the
+      // StepProgress component can highlight it with the error message.
+      setSplitError({
+        stage: lastStage,
+        pass: lastPass,
+        message: friendlyError(error.message),
+      });
       toast.error(`Splitting failed: ${friendlyError(error.message)}`, {
         duration: 8000,
         action: { label: "Retry", onClick: () => handleSplit() },
@@ -2706,36 +2738,25 @@ function MainApp() {
                             </>
                           )}
                         </Button>
-                        <p className="text-center text-[10px] opacity-40 italic">
-                          ~1–3 min for a typical 4-min track · BVR runs 2 passes (~2×) · WAV/FLAC recommended.
-                        </p>
-
-                        {/* Step-by-step progress — orients users during long splits */}
-                        {splitting && (
-                          <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap px-1">
-                            {SPLIT_STEPS.map((step, i) => {
-                              const currentIdx = SPLIT_STEPS.findIndex(s => s.id === (splitStage ?? (uploadedFilename ? "separate" : "download")));
-                              const state = i < currentIdx ? "done" : i === currentIdx ? "active" : "pending";
-                              const stepLabel = step.id === "separate" && splitPass ? `Split · pass ${splitPass}/2` : step.label;
-                              return (
-                                <div key={step.id} className="flex items-center gap-1 sm:gap-2">
-                                  {i > 0 && <span className="opacity-20 text-[10px] select-none">→</span>}
-                                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-                                    state === "done"
-                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                      : state === "active"
-                                        ? "bg-foreground text-background shadow-sm"
-                                        : "bg-black/5 dark:bg-white/5 opacity-40"
-                                  }`}>
-                                    {state === "done" && <span aria-hidden="true">✓</span>}
-                                    {state === "active" && <Loader2 className="w-3 h-3 animate-spin" />}
-                                    {stepLabel}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                        {/* Step-by-step progress — shown while splitting or on error */}
+                        {(splitting || splitError) && (() => {
+                          const isBvr = BVR_VARIANT_IDS.includes(modelVariant);
+                          const isLocalFile = !!uploadedFilename;
+                          const steps = buildSplitSteps(isLocalFile, isBvr);
+                          const activeId = stageToStepId(splitStage, splitPass, isBvr);
+                          const errorId = splitError
+                            ? stageToStepId(splitError.stage, splitError.pass, isBvr)
+                            : null;
+                          return (
+                            <StepProgress
+                              steps={steps}
+                              activeId={activeId}
+                              errorId={errorId}
+                              errorMessage={splitError?.message}
+                              estimateHint={getSplitEstimate(splittingModel, isBvr)}
+                            />
+                          );
+                        })()}
 
                         {/* Split log panel — visible while splitting or after it finishes */}
                         {splitLogs.length > 0 && (
@@ -3191,4 +3212,20 @@ export default function App() {
       </ThemeProvider>
     </ErrorBoundary>
   );
+}
+
+/** Map a (stage, pass) SSE event onto a step id from buildSplitSteps. */
+function stageToStepId(stage: string | null, pass: number | null, isBvr: boolean): string | null {
+  if (!stage) return null;
+  if (stage === "separate" && isBvr) return pass === 2 ? "separate_2" : "separate_1";
+  return stage;
+}
+
+/** Return a short time-estimate hint for the UI. */
+function getSplitEstimate(model: string, isBvr: boolean): string {
+  if (isBvr) return "BVR runs 2 passes — typically 4–8 min for a 4-min track";
+  if (model === "spleeter") return "Spleeter typically finishes in ~1 min";
+  if (model === "mdx") return "MDX-Net typically takes 2–3 min for a 4-min track";
+  if (model === "bs-roformer") return "BS-RoFormer typically takes 2–4 min for a 4-min track";
+  return "Demucs typically takes 2–4 min for a 4-min track";
 }
