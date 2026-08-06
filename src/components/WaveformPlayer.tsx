@@ -6,9 +6,11 @@
 import * as React from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import WaveSurfer from "wavesurfer.js";
-import { Play, Pause, Loader2 } from "lucide-react";
+import { Play, Pause, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
+
+const HINT_DISMISSED_KEY = "waveform-kb-hint-dismissed";
 
 // ── Spectrum visualizer helpers ───────────────────────────────────────────────
 const ANALYSER_FFT  = 256;
@@ -134,6 +136,9 @@ export function WaveformPlayer({
   const [failed, setFailed]       = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration]   = useState(0);
+  const [hintDismissed, setHintDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem(HINT_DISMISSED_KEY) === "1"; } catch { return false; }
+  });
 
   // ── Spectrum visualizer refs ─────────────────────────────────────────────
   const spectrumCanvasRef  = useRef<HTMLCanvasElement>(null);
@@ -372,10 +377,22 @@ export function WaveformPlayer({
         style={{ opacity: isPlaying ? 1 : 0, display: isReady ? "block" : "none" }}
       />
 
-      {isReady && (
-        <p className="hidden sm:block text-center text-[10px] font-mono opacity-35 select-none">
-          Space play · ← → seek 5s · ⇧← ⇧→ start/end · M mute
-        </p>
+      {isReady && !hintDismissed && (
+        <div className="hidden sm:flex items-center justify-center gap-2 group">
+          <p className="text-center text-[10px] font-mono opacity-35 select-none">
+            Space play · ← → seek 5s · ⇧← ⇧→ start/end · M mute
+          </p>
+          <button
+            onClick={() => {
+              setHintDismissed(true);
+              try { localStorage.setItem(HINT_DISMISSED_KEY, "1"); } catch {}
+            }}
+            aria-label="Dismiss keyboard shortcut hint"
+            className="opacity-0 group-hover:opacity-40 hover:!opacity-70 transition-opacity text-foreground"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
       )}
     </div>
   );
