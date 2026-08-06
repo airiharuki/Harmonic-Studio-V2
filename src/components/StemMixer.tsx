@@ -45,7 +45,7 @@ const formatTime = (seconds: number) => {
 };
 
 /** DAW gain law: mute wins; if any solo is active, only soloed stems sound. */
-function effectiveGain(ch: ChannelState, anySolo: boolean): number {
+export function effectiveGain(ch: ChannelState, anySolo: boolean): number {
   if (ch.mute) return 0;
   if (anySolo && !ch.solo) return 0;
   return ch.volume / 100;
@@ -85,7 +85,7 @@ export function applyFadeOut(buffer: AudioBuffer, endFrame: number, fadeFrames: 
 }
 
 /** Encode an AudioBuffer to a 16-bit PCM WAV Blob. */
-function audioBufferToWav(buffer: AudioBuffer, frameCount?: number): Blob {
+export function audioBufferToWav(buffer: AudioBuffer, frameCount?: number): Blob {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
   const numFrames = Math.min(frameCount ?? buffer.length, buffer.length);
