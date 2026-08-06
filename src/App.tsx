@@ -2016,21 +2016,6 @@ function MainApp() {
                       }}
                       className="theme-input"
                     />
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold uppercase opacity-70">Demo MIDI</label>
-                      <a 
-                        href="https://filebin.net/5fq1dfcwulxjlhtf/%E6%83%B3%E5%BF%B5%E4%BD%A0%E6%83%B3%E6%88%91_%E5%91%A8%E5%85%B4%E5%93%B2.mid" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Music className="w-5 h-5 text-primary" />
-                          <span className="text-sm font-medium">想念你想我_周兴哲.mid</span>
-                        </div>
-                        <Download className="w-4 h-4 text-primary" />
-                      </a>
-                    </div>
                     
                     <div className="flex gap-2">
                       <Button 
