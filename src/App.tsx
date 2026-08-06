@@ -59,6 +59,7 @@ import { PianoRoll } from "./components/PianoRoll";
 import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
 import { WaveformPlayer } from "./components/WaveformPlayer";
 import { StemMixer, type ChannelState } from "./components/StemMixer";
+import { WelcomeSplash } from "./components/WelcomeSplash";
 import { addRecentTrack, extractTokenFromUrl } from "@/lib/recentTracks";
 import { GoogleGenAI, Type } from "@google/genai";
 import { pickProgression, resolveProgression, ALL_MOODS, type ProgScale } from './chordProgressions';
@@ -2967,6 +2968,7 @@ function MainApp() {
       </footer>
 
       <Toaster position="bottom-right" theme={theme as any} />
+      <WelcomeSplash />
     </div>
     </>
   );
