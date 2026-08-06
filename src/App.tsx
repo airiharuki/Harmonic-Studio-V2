@@ -1717,22 +1717,22 @@ function MainApp() {
         <div className={`max-w-5xl mx-auto px-4 sm:px-6 pb-4 sm:py-12 transition-[padding] duration-300 ${betaMode ? 'pt-9 sm:pt-12' : 'pt-4 sm:pt-12'}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mt-11 sm:mt-0 mb-6 sm:mb-12 relative z-[100]">
-            {/* Mobile Camera-style sliding tab picker */}
+            {/* Mobile icon + label tab bar */}
             <div className="sm:hidden w-full">
-              <div className="relative flex items-center justify-around px-2 py-1.5 rounded-full bg-black/5 dark:bg-white/10 backdrop-blur-[40px] backdrop-saturate-[150%] border border-black/10 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-                {[
-                  { id: 'composer',   label: 'Composer'    },
-                  { id: 'loopstudio', label: 'Loop Studio' },
-                  { id: 'analyzer',   label: 'Analyzer'    },
-                  { id: 'tuner',      label: 'Tuner'       },
-                  { id: 'metronome',  label: 'Metronome'   },
-                ].map((tab) => {
-                  const isActive = activeTab === tab.id;
+              <div className="relative flex items-center justify-around px-1 py-1 rounded-full bg-black/5 dark:bg-white/10 backdrop-blur-[40px] backdrop-saturate-[150%] border border-black/10 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+                {([
+                  { id: 'composer',   Icon: Piano,    label: 'Compose' },
+                  { id: 'loopstudio', Icon: Repeat,   label: 'Loop'    },
+                  { id: 'analyzer',   Icon: BarChart3, label: 'Analyze'},
+                  { id: 'tuner',      Icon: Guitar,   label: 'Tuner'   },
+                  { id: 'metronome',  Icon: Drum,     label: 'Metro'   },
+                ] as const).map(({ id, Icon, label }) => {
+                  const isActive = activeTab === id;
                   return (
                     <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className="relative flex-1 flex items-center justify-center py-2.5 z-10 transition-all duration-200 active:scale-95"
+                      key={id}
+                      onClick={() => setActiveTab(id)}
+                      className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 z-10 transition-all duration-200 active:scale-95"
                     >
                       {isActive && (
                         <motion.div
@@ -1741,15 +1741,15 @@ function MainApp() {
                           transition={{ type: "spring", damping: 26, stiffness: 340 }}
                         />
                       )}
+                      <Icon
+                        className={`relative w-5 h-5 transition-all duration-200 ${isActive ? 'text-foreground' : 'text-foreground/35'}`}
+                        style={isActive ? { color: 'var(--pill-active)' } : {}}
+                      />
                       <span
-                        className={`relative text-sm font-semibold tracking-tight transition-all duration-200 ${
-                          isActive
-                            ? 'text-foreground scale-105'
-                            : 'text-foreground/35 scale-95'
-                        }`}
+                        className={`relative text-[10px] font-bold tracking-tight leading-none transition-opacity duration-200 ${isActive ? '' : 'opacity-35'}`}
                         style={isActive ? { color: 'var(--pill-active)' } : {}}
                       >
-                        {tab.label}
+                        {label}
                       </span>
                     </button>
                   );
