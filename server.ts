@@ -1300,7 +1300,16 @@ async function startServer() {
       res.json({ chords: finalChords });
     } catch (error: any) {
       console.error("[generate-chords]", error.message);
-      res.status(500).json({ error: error.message });
+      const msg: string = error.message ?? "";
+      if (/RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+        const delayMatch = msg.match(/retry.*?(\d+(?:\.\d+)?)\s*s/i);
+        const retryAfter = delayMatch ? Math.ceil(parseFloat(delayMatch[1])) : null;
+        return res.status(429).json({
+          error: "Gemini quota exceeded",
+          ...(retryAfter ? { retryAfter } : {}),
+        });
+      }
+      res.status(500).json({ error: "Chord generation failed — please try again." });
     }
   });
 

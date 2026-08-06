@@ -53,7 +53,7 @@ import { ThemeProvider, useTheme } from "next-themes";
 import axios from "axios";
 import { CircleOfFifths } from "./CircleOfFifths";
 import { PitchShifter } from "./PitchShifter";
-import { Chord, Note } from "tonal";
+import { Chord, Note, Key } from "tonal";
 import { Midi } from "@tonejs/midi";
 import { PianoRoll } from "./components/PianoRoll";
 import { RecentTracksButton, RecentTracksPanel } from "./components/RecentTracks";
@@ -1419,6 +1419,31 @@ function MainApp() {
     }
   };
 
+  /** Theory-based fallback when the AI quota is exhausted. */
+  const buildFallbackChords = (key: string, scale: string, mood?: string): string[] => {
+    try {
+      const isMinor = /minor/i.test(scale);
+      const isDark  = /dark|sad|melancholy|tense|angry/i.test(mood ?? "");
+      if (isMinor) {
+        const k = Key.minorKey(key);
+        const c = k.natural.chords; // [i, iidim, III, iv, v, VI, VII]
+        // i-VI-III-VII or i-iv-VII-III
+        return isDark
+          ? [c[0], c[3], c[6], c[2]]
+          : [c[0], c[5], c[2], c[6]];
+      } else {
+        const k = Key.majorKey(key);
+        const c = k.chords; // [I, ii, iii, IV, V, vi, viidim]
+        // I-V-vi-IV or vi-IV-I-V (darker feel)
+        return isDark
+          ? [c[5], c[3], c[0], c[4]]
+          : [c[0], c[4], c[5], c[3]];
+      }
+    } catch {
+      return ["C", "Am", "F", "G"];
+    }
+  };
+
   const handleGenerateChords = async () => {
     if (!analysis) return;
     setGeneratingChords(true);
@@ -1434,14 +1459,21 @@ function MainApp() {
         }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
+        const errData = await res.json().catch(() => ({ error: res.statusText }));
+        if (res.status === 429) {
+          // Quota exhausted — fall back to theory-based chords silently
+          const fallback = buildFallbackChords(analysis.key, analysis.scale, analysis.mood);
+          setChords(fallback);
+          toast("AI quota hit — using theory-based chords instead", { icon: "⚗️" });
+          return;
+        }
+        throw new Error(errData.error || res.statusText);
       }
       const { chords } = await res.json();
       setChords(chords);
       toast.success("AI generated chords based on the vibe!");
     } catch (error: any) {
-      toast.error("Failed to generate chords: " + error.message);
+      toast.error("Failed to generate chords — " + (error.message ?? "please try again."));
     } finally {
       setGeneratingChords(false);
     }
