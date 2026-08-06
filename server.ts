@@ -927,6 +927,7 @@ async function startServer() {
         }
         fs.copyFileSync(sourcePath, inputPath);
         log(`Using uploaded file: ${path.basename(sourcePath)}`);
+        send("stage", { stage: "convert" });
       }
 
       // 2. Run Splitting
