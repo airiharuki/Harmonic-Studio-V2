@@ -205,7 +205,10 @@ function MainApp() {
   const [splitterAvailability, setSplitterAvailability] = useState<Record<string, boolean> | null>(null);
   const [splitterRepoUrl, setSplitterRepoUrl] = useState<string>("https://github.com/airiharuki/Harmonic-Studio-V2");
   const [recentTracksOpen, setRecentTracksOpen] = useState(false);
+  // Beta mode is only available in the dev environment — hidden on the public build.
+  const IS_DEV = import.meta.env.DEV;
   const [betaMode, setBetaMode] = useState<boolean>(() => {
+    if (!import.meta.env.DEV) return false;
     try { return localStorage.getItem('beta-mode') === 'true'; } catch { return false; }
   });
   const [betaLabOpen, setBetaLabOpen] = useState(false);
@@ -1611,6 +1614,7 @@ function MainApp() {
               <Github className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </a>
           </Button>
+          {IS_DEV && (
           <Button
             variant="outline"
             size="icon"
@@ -1628,6 +1632,7 @@ function MainApp() {
           >
             <FlaskConical className={`w-5 h-5 transition-colors duration-300 ${betaMode ? 'text-violet-400' : 'text-gray-500 dark:text-gray-400'}`} />
           </Button>
+          )}
           <Button 
             variant="outline" 
             size="icon" 
