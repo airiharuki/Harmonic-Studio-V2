@@ -1,294 +1,241 @@
-<div align="center">
+# 🎵 VibeCoded Music Lab 🧪✨
 
-```
-██╗  ██╗ █████╗ ██████╗ ███╗   ███╗ ██████╗ ███╗   ██╗██╗ ██████╗
-██║  ██║██╔══██╗██╔══██╗████╗ ████║██╔═══██╗████╗  ██║██║██╔════╝
-███████║███████║██████╔╝██╔████╔██║██║   ██║██╔██╗ ██║██║██║
-██╔══██║██╔══██║██╔══██╗██║╚██╔╝██║██║   ██║██║╚██╗██║██║██║
-██║  ██║██║  ██║██║  ██║██║ ╚═╝ ██║╚██████╔╝██║ ╚████║██║╚██████╗
-╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚═════╝
+A music theory tool that actually doesn't suck. Calculate pitch shifts, generate chord progressions, analyze tracks, split stems, and stare at a Circle of Fifths that actually looks good — all while vibing at A=432Hz because we're fancy like that.
 
- ░░░░░░░░░░░░░░░░░░░   S T U D I O   V 2   ░░░░░░░░░░░░░░░░░░░
-          ⚗️  L A B S   B U I L D  —  B E T A  B R A N C H  ⚗️
-```
+> **Wait, is this that old project?**
+> If you're looking for that old comp project from months ago, you're in the wrong place. This is the spiritual successor — faster, smarter, and significantly more unhinged. It's refined, powered by a robust suite of tools, and doesn't rely on fragile, over-hyped hosting platforms that shall remain nameless (looking at you, Vercel. We see you. We do not respect you). This version is a massive upgrade over that v0 prototype, kind of like how a spaceship is a massive upgrade over a tricycle.
 
-</div>
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Vite + React](https://img.shields.io/badge/vite-react-black.svg)
+![Vibes](https://img.shields.io/badge/vibes-immaculate-ff69b4.svg)
+[![Changelog](https://img.shields.io/badge/changelog-what's%20new-6366f1.svg)](CHANGELOG.md)
 
-> **You're on the `beta` branch.**
-> This is not the stable app. This is the lab. The garage. The 3am prototype that actually works. The place where things get weird before they get good.
-> If you want calm and collected, [main is right there](https://github.com/airiharuki/Harmonic-Studio-V2/tree/main). We'll be here making noise.
-
-<div align="center">
-
-[![Branch](https://img.shields.io/badge/branch-beta-8b5cf6?style=for-the-badge&logo=git&logoColor=white)](https://github.com/airiharuki/Harmonic-Studio-V2/tree/beta)
-[![Version](https://img.shields.io/badge/version-v2.1%20%22Prism%22-a855f7?style=for-the-badge)]()
-[![Status](https://img.shields.io/badge/status-experimental-f97316?style=for-the-badge)]()
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-22c55e?style=for-the-badge&logo=github)](CONTRIBUTING.md)
-[![License](https://img.shields.io/badge/license-MIT-3b82f6?style=for-the-badge)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-what%27s%20new-6366f1?style=for-the-badge)](CHANGELOG.md)
-[![Vibes](https://img.shields.io/badge/vibes-dangerously%20immaculate-ec4899?style=for-the-badge)]()
-[![Dragons](https://img.shields.io/badge/here%20be-dragons-dc2626?style=for-the-badge)]()
-
-</div>
-
----
-
-## 🚀 Try It Live (Stable Build)
+## 🚀 Try It Live
 
 **👉 [harmonic-studio-v-2--aiharu.replit.app](https://harmonic-studio-v-2--aiharu.replit.app)**
 
-The live site runs `main`. But here's the thing — the beta features are in there too. Hidden. Waiting. There are at least three ways to unlock them and we're not going to tell you what they are. Consider it a scavenger hunt for people who read READMEs.
+No install needed — just open it and vibe.
 
----
+## ✨ What's This Thing Do?
 
-## 🧪 What's Different in Labs
+### 🎹 Vibe Composer (Main Tab)
+Have you ever listened to a song and thought, "Wow, this pitch is in a weird scale," and wondered exactly how many semitones you should pitch it up or down in your DAW? Or maybe you just want to know if a **Yuno Miles** track is technically in the same key as a **Skrillex** drop? Welcome. You're among friends. Weird, math-obsessed friends.
 
-`beta` is where features get stress-tested before they're trusted with real humans. Right now, it's shipping with things `main` doesn't have yet:
+- 🎯 **Pitch Shift Calculator**: Tells you exactly how many semitones to pitch that thing (+7, -3, whatever) so it actually fits your project. Live key/scale display for your base and target keys. No more guessing. No more crying.
+- ⭕ **Interactive Circle of Fifths**: Completely redesigned with a beautiful horizontal layout, inner/outer rings for minor/major keys, and a harmonic relationship guide. Supports both Musical and Camelot modes. Your music teacher would be jealous.
+- 🔗 **Cross-tab Sync**: The key you set here talks to the Loop Studio, talks to the Analyzer. Everything stays in sync.
 
-### ⚗️ Beta Mode — The Hidden Layer
+### 🧠 Music Analyzer (Analyzer Tab)
+Paste a link or upload a file, get the audio, and extract the vibe. That's it. That's the feature. No PhD required.
 
-Somewhere in the app there's a toggle. Find it (or discover one of the secret ways to activate it) and a whole second layer of the app unfolds:
-
-- **🏷️ Model Tiers** — The stem splitter stops pretending all models are equal. Each one gets an honest label: `✓ stable` means it's been through the fire and came out fine. `⚗ experimental` means it's trying its best and we're rooting for it.
-- **📊 Extended Raw Analysis** — The Analyzer now surfaces metrics the standard view doesn't show: danceability %, key strength %, loudness in dBFS (real RMS from audio samples), and BPM to one decimal place. For when "it sounds around 128" isn't good enough.
-- **🗒️ Beta Lab Notes** — A collapsible card at the bottom of the Analyzer tab. Plain-English explanations of every experimental feature. What it is, what it does, what might still go sideways. Documentation as a love language.
-- **📣 Beta Banner** — A sleek violet announcement strip at the top so you always know you're in experiment mode. Has a `✕` dismiss button because we're not animals.
-
-### 🌌 Holographic Aesthetic — The Visual Upgrade
-
-The CSS on this branch has been significantly revised. Light touches that add up to something that feels unmistakably different:
-
-| Feature | What it does |
-|---|---|
-| **Aurora Background** | A slow-breathing `radial-gradient` (violet/cyan/rose) behind all content in dark mode. 14s animation cycle. `filter: blur(30px)`. It breathes. |
-| **Iridescent Card Edges** | Every `.theme-card` gets a 1px gradient hairline — cyan → violet → rose — across its top edge via `::before`. You'll notice it without knowing why. |
-| **Deeper Glass Blur** | Cards blur at `80px` now (up from default). You're not looking at UI, you're looking *through* it. |
-| **Y2K Scanlines** | A repeating 2px scanline texture on every card in dark mode at ~1.2% opacity. Nostalgia, tastefully encoded into CSS. |
-| **Holographic Tab Pill** | The active tab in dark mode glows with a translucent cyan/violet/rose gradient. Main gets a normal highlight. You get this. |
-| **Heading Glow** | `h1` and `h2` in dark mode have a soft violet/cyan `text-shadow`. Barely there. Completely intentional. |
-| **Lavender Light Mode** | Background shifted from pure white to `oklch(0.99 0.004 280)`. A barely-there lavender tint. Your brain registers it as *premium* without knowing why. |
-| **VHS Grain** | Tightened to 2px scan pitch with a slight RGB chromatic split enhancement. Still aggressive. Still art. No notes. |
-
----
-
-## 🔬 The Feature Pipeline
-
-This is how ideas move from "someone thought of this at 3am" to "a real person is using it":
-
-```
-                                                        
-  💡 Idea          ⚗️ Beta Branch       🚀 Main          
-  ─────────   →    ──────────────   →   ──────────      
-  Open issue       PR merged here       Promoted         
-  Discuss it       Live & testing       after testing    
-  Plan it          You're here →        Powers the       
-                                        live site        
-                                                        
-```
-
-**If your code lands in `beta`, it's already running live.** That's not a waiting room — that's a deployment. One more lap and it hits the live site for everyone.
-
-> Read [CONTRIBUTING.md](CONTRIBUTING.md) for the full breakdown. The PR section has a thing or two to say about what landing in `beta` actually means for you.
-
----
-
-## ✨ Full Feature Breakdown
-
-### 🎹 Vibe Composer
-
-The pitch tools. The reason this whole thing started.
-
-- 🎯 **Pitch Shift Calculator** — Pick your current key/scale and your target. Get the exact semitones: "+7 means pitch up 7 in your DAW, you're done, go make music." No crying. No math.
-- ⭕ **Interactive Circle of Fifths** — Completely redesigned with a beautiful horizontal layout, inner/outer rings for relative minor/major keys, and a harmonic relationship guide built in. Supports both **Musical** and **Camelot** modes. Clicking a key syncs the whole app. Your music teacher would be jealous. We'd let them be.
-- 🔗 **Cross-tab Sync** — The key you set in the Composer talks to the Loop Studio talks to the Analyzer. Everything is in sync. The app knows what you're doing.
-
-### 🧠 Music Analyzer
-
-Drop a link or a file. Get the audio. Get the data. It's fast and it doesn't need a PhD to operate.
-
-- 📥 **Universal Downloader (`yt-dlp`)** — Pulls audio from 1,000+ sites. YouTube, SoundCloud, Bandcamp, TikTok, Twitch, Mixcloud, Twitter/X — if it streams, we eat it. Files are auto-named to the actual track title because `video_1080p_final_v3_REAL.mp3` is not a personality.
-- 🎧 **In-Browser Preview** — Hidden iframe player for downloaded tracks. Doesn't clutter the UI. Just works.
-- 🧠 **Essentia.js Analysis** — BPM, Key, Scale, Energy, Mood — extracted with actual DSP math. A tiny, very pedantic music major now lives in your browser tab. They don't ask to be followed on SoundCloud.
-- 🎙️ **Stem Splitting (4 Models, 8 Stem Types)** — Pull tracks apart with the right model for the job, each with its own variant selector:
-  - **Demucs** `✓ stable` — Single-pass. `4-stem` (Vocals/Drums/Bass/Other) or `6-stem` (+ Guitar & Piano).
-  - **Spleeter** `legacy · fallback` — Single-pass. `2-stem`, `4-stem`, or `5-stem` (+ Piano). Start with Demucs; use Spleeter only when another model is troublesome for your track or setup.
-  - **MDX-Net** `⚗ experimental` — Multi-pass. `Inst HQ 3` (Vocals + Instrumental) or `BVR · MDX` (Lead/Backing split).
-  - **BS-Roformer** `⚗ experimental` — `EP317` (max-SDR vocal isolation), `BVR · BS-RoFormer`, or `BVR · MelBand` (see below).
-  - Stem grid shows all 8 types (Vocals, Drums, Bass, Guitar, Piano, Other/Inst, Lead Vocal, Backing Vocals) — unavailable stems grey out automatically per variant. Outputs as a ZIP named after the song.
-- 🎤 **Backing Vocal Removal (BVR)** — A 2-pass pipeline matching LALAL.AI quality, open-source and free: Pass 1 isolates all vocals via BS-RoFormer EP317, Pass 2 splits Lead vs Backing via a karaoke fine-tuned checkpoint (BS-RoFormer Karaoke or MelBand-RoFormer Karaoke). Select any BVR variant and a pink pipeline card shows the flow in-app. Requires local install.
-- ✨ **Vibe Studio (AI Chords)** — After analysis, feed the track's vibe into Gemini's brain. It writes you a 4-bar chord progression. You didn't play a single note and yet here you are, a composer.
+- 📥 **Universal Downloader (`yt-dlp`)**: Pulls audio from 1,000+ sites. Files are automatically renamed to the actual track title, because `video_1080p_final_v3_REAL.mp3` is not a personality.
+- 🎧 **Hidden Iframe Player**: Preview your downloaded tracks directly in the browser without cluttering the UI.
+- 🧠 **Music Analysis (`essentia.js`)**: We use actual, literal math to tell you the BPM, Key, Scale, Energy, and Mood of a track. A tiny, very pedantic music major now lives in your browser tab.
+- 🎙️ **Stem Splitting** — pull tracks apart with the model that fits the job:
+  - **Demucs** — reliable, single-pass. `4-stem` (Vocals/Drums/Bass/Other) or `6-stem` (+ Guitar & Piano).
+  - **Spleeter** `legacy · fallback` — single-pass. `2-stem`, `4-stem`, or `5-stem` (+ Piano). Start with Demucs; use Spleeter only when another model is troublesome for your track or setup.
+  - **MDX-Net** and **BS-Roformer** — currently in trial. They're in the codebase and being stress-tested before general release; there's a hidden power-user layer of the app that unlocks them early (see below 👀).
+  - Outputs as a ZIP named after the song.
+- ✨ **Vibe Studio**: After analysis, generate a 4-bar chord progression from the track's detected key and mood.
 
 > 🚨 **WAV or FLAC only** for the analyzer and splitter. MP3s are lossy and the models make faces. You've been warned, kindly.
 
-### 🔁 Loop Studio
+### 🔁 Loop Studio (Loop Studio Tab)
+The ultimate playground for creating custom chord loops. No DAW subscription required. No monthly fee. No upsell. Just vibes.
 
-Build custom chord progressions and actually hear them. No DAW. No subscription. No upsell. No monthly fee email.
+- 🎲 **Progression Generator**: 4–16 bars, any key, any scale. Pulls from a local pack of 128 real chord progressions ported from [ldrolez/free-midi-chords](https://github.com/ldrolez/free-midi-chords) (MIT) — no API call, no wait, no cost, works offline. Filter by mood (Hopeful, Romantic, Dark, Triumphant, and more) or leave it on "Any mood" for chaos.
+- ⏱️ **Full Parameter Control**: Custom BPM (30–300) and time signature. Yes, 7/8 is supported.
+- 🔊 **SoundFont Playback**: Hear your progression with a high-quality electric piano instantly.
+- 🎹 **MIDI Preview + Piano Roll**: Upload a `.mid` file and see it rendered in a piano roll editor with playback, including multi-track MIDI. Generated loops get a live piano roll too, with a scrolling playhead.
+- 💾 **MIDI Export**: One click builds a proper `.mid` file, correctly timed, ready to drop into your DAW.
+- 🥁 **Tap Tempo**: Tap the beat, the BPM field updates live — up to 8 taps averaged.
+- 🎚️ **Semitone Transpose**: Shift every chord in a progression up or down without regenerating.
+- 📜 **Chord History**: Your last 10 generated progressions are saved locally — reload any of them in one click.
+- 📝 **Lyrics Display**: Synchronized lyrics pulled from `public/lyrics.txt`.
+- ⭕ **Synced Theory**: Automatically syncs with the Circle of Fifths so your loops are always in the right key.
 
-- 🎲 **Progression Generator** — 4–16 bars, any key, any scale. Pulls from a local pack of 128 real chord progressions — no API call, no wait, no cost. Instant every time.
-- ⏱️ **Full Parameter Control** — Custom BPM (30–300) and time signature. Yes, 7/8 is supported. We respect that about you.
-- 🔊 **SoundFont Playback** — Hear your progression with a high-quality electric piano instantly. No more staring at chord names wondering if they sound right. They do.
-- 🎹 **MIDI Preview + Piano Roll** — Upload a `.mid` file. See it rendered in a piano roll editor. Hear it played back with the soundfont. Supports multi-track MIDI. Yes, all of them. Generated loops also get a live piano roll with a scrolling playhead.
-- 📝 **Lyrics Display** — Synchronized lyrics pulled from `public/lyrics.txt`. Update the file, update the display.
+## 🔬 Something's Cooking
 
-**New in Labs 🧪**
+Somewhere in this app there's a hidden toggle that unlocks an experimental layer — early access to trial models, extended raw analysis metrics, and a few other things we're not going to spell out. There are at least three ways to find it. Consider it a scavenger hunt for people who read READMEs. Whatever you unlock there is genuinely being tested, not just decoration — expect rough edges.
 
-- 🎲 **Local Chord Pack (no Gemini)** — Loop Studio now pulls progressions from a port of [ldrolez/free-midi-chords](https://github.com/ldrolez/free-midi-chords) (MIT). 128 real progressions across Major, Minor, and Modal scales, each tagged with moods. Resolved locally via a custom Roman numeral engine — zero API calls, zero latency, works offline. The button is now **Roll Progression**. Roll it again if you don't like what you got.
-- 🎭 **Mood Filter** — a dropdown above the Roll button lets you filter by mood: Hopeful, Romantic, Sad, Dark, Mysterious, Triumphant, Nostalgic, Rebellious, and more. Leave it on "Any mood" for full chaos. After rolling, the raw Roman numeral pattern and mood tags appear below the button so you know exactly what you got.
-- 🎹 **Piano Roll for generated loops** — roll a progression and a live piano roll appears below the chord cards. The red playhead moves in real time while the loop plays. Every note of every chord, rendered exactly where it sits in time.
-- 💾 **MIDI Export** — an **Export MIDI** button lives in the piano roll header. One click builds a proper `.mid` file (correct tempo, one track, all chord notes timed to the bar) and downloads it as `{key}_{scale}_{bpm}bpm.mid`. Drop it straight into your DAW.
-- 🔧 **Loop playback fixed** — the old player had a stale-closure bug that made the stop button do nothing, and created a fresh `AudioContext` on every play (which disconnected the cached synth). Both fixed: playback control now uses a ref, and the audio context is reused across plays.
-- 🥁 **Tap Tempo** — a TAP button lives next to the BPM field. Hit it to the beat — up to 8 taps averaged — and the BPM field updates live. The button flashes orange while you're tapping, resets after 2 seconds of silence. No more guessing 128 vs 130.
-- 🎚️ **Semitone Transpose** — generated a killer progression but it's in the wrong key? `−1 st` / `+1 st` buttons above the chord cards shift every chord and update the key selector in one click. No regeneration, no lost work. Stack transpositions freely.
-- 📜 **Chord History** — every progression you generate gets saved automatically to localStorage (keeps the last 10). A **History** button appears above the chord cards once you have entries. Click any saved progression to reload it — chords, key, scale, and BPM all restore. Session-persistent. Close the tab, come back, it's still there.
-- ⚡ **Send to Loop Studio** — in the Analyzer's Vibe Studio tab, after analysis, an **→ Loop Studio** button copies the detected key, scale, and BPM across to the Loop Studio and switches tabs in one click. Detected a track in F# Minor at 95 BPM? You're in Loop Studio ready to generate in 2 seconds flat.
+## 🚨 THE GOLDEN RULE: WAV/FLAC ONLY 🚨
 
----
+Listen to me very carefully. If you want to use the stem splitter or the music analyzer, **YOU SHOULD PREFER WAV OR FLAC FILES.**
 
-## 🤝 Contributing to Labs
+Why? Because MP3s are compressed, lossy garbage that throw our delicate algorithms into an existential crisis. We demand *uncompressed fidelity*. Give us the WAVs, or give us death (or, you know, a generic error message, which honestly feels similar).
 
-> **Full guide → [CONTRIBUTING.md](CONTRIBUTING.md)**
-> It's thorough, it's warm, and the PR section specifically explains what it means for your code to land here.
+## 🌐 Supported Sites (yt-dlp)
+We support over 1,000+ sites including:
+- **YouTube**, **SoundCloud**, **Bandcamp**, **Vimeo**, **Mixcloud**, **Twitch**, **Twitter/X**, **TikTok**
+- And basically anything else that hosts video or audio. If it streams, we probably eat it.
 
-The short version:
+## 🚀 How to Actually Use It
 
-```bash
-# 1. Fork the repo
-# 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/Harmonic-Studio-V2.git
-cd Harmonic-Studio-V2
+### Need to Pitch Shift Something?
+1. Go to the **Composer** tab (it's the landing page — you literally cannot miss it).
+2. Pick your current key/scale (From Track).
+3. Pick where you want it to go (To Track).
+4. It tells you the semitones ("+7" means pitch up 7, etc.).
+5. Go do that in your DAW.
 
-# 3. Create a branch off beta
-git checkout beta
-git checkout -b feat/your-cool-thing
+### Analyzing & Splitting a Track
+1. Go to the **Analyzer** tab.
+2. Paste a URL 📺 OR upload a local file 📁.
+3. Hit **Load** to fetch metadata.
+4. Choose your format (WAV/FLAC, we beg of you) and hit **Download**.
+5. Once loaded, use the sub-tabs:
+   - **Split**: Pick a model and variant, select which stems you want, hit **Split & Download ZIP**.
+   - **Analyze**: Hit **Start Analysis** to get the BPM, Key, and Mood.
+   - **Vibe**: After analysis, hit **Generate** for an AI chord progression.
 
-# 4. Build something
-# 5. Commit with Conventional Commits
-git commit -m "feat: add your cool thing"
+### Creating Custom Loops
+1. Go to the **Loop Studio** tab.
+2. Set your **Bars** (4–16), **BPM** (30–300), and **Time Signature**.
+3. (Optional) Set your key in the **Composer** tab using the Circle of Fifths — it's synced.
+4. Hit **Roll Progression** to pull one from the local chord pack, optionally filtered by mood.
+5. Hit **Play** to hear it, or **Export MIDI** to save it.
 
-# 6. Open a PR → targeting beta, not main
+### 📝 Lyrics Management
+`public/lyrics.txt` holds lyrics the app parses for synchronized display. Paste in new lyrics, update the display.
+
+## Installation & Setup 🛠️
+
+### The "I Just Need to Use It" Setup (Cloud Deployment)
+If you just want to run this somewhere permanently without your laptop sounding like a jet engine, use our **Oracle Cloud** deployment guide. Standard free tiers on Render or Netlify will crash due to the high RAM (2GB+) required by the audio models.
+**See the full step-by-step cloud guide in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md).**
+
+### The "Zero Setup" Local Install (Fully Automated)
+We wrote scripts that handle *literally everything*. They will fetch Git if you don't have it, clone the repo, install FFmpeg/Python/Node.js, download the AI models, and set up the app.
+
+**Windows (Run in PowerShell as Administrator):**
+```powershell
+irm https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/main/install.ps1 | iex
 ```
 
-### What we'd love to see in Labs specifically
+**macOS (Run in Terminal):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/main/install_mac.sh | bash
+```
 
-These are things that would fit right here in `beta` before graduating to `main`:
+**Linux (Debian/Ubuntu):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/airiharuki/Harmonic-Studio-V2/main/install_linux.sh | bash
+```
 
-| Area | Idea |
-|---|---|
-| 🎵 **AI Models** | New stem separation models, GPU acceleration toggles, quality presets |
-| 🧠 **Analysis** | More Essentia metrics, genre detection, key confidence visualisation |
-| 🎨 **Aesthetics** | New themes, animation variants, additional holographic effects |
-| ⌨️ **Power UX** | Keyboard shortcuts, drag-and-drop, batch processing |
-| 💾 **Persistence** | Save/load progressions, analysis history, preset banks |
-| 📱 **Mobile** | Touch gestures, responsive improvements, PWA support |
-| 🧪 **Tests** | Any tests at all, honestly. We will throw a party. |
-| ✨ **Wildcards** | Cassette tape filter. Spectral visualiser. Whatever you think is cool. We mean it. |
+### The "I Like Doing Things the Hard Way" Install (Manual)
 
-### The vibe here
-
-This branch moves fast and forgives things. If you have a half-baked idea that might be something, `beta` is the right place to try it. We'd rather see the experiment fail here than never exist at all.
-
-We use [Conventional Commits](https://www.conventionalcommits.org/) — check [CONTRIBUTING.md](CONTRIBUTING.md) for the cheat sheet. It's one habit that makes the git log readable for everyone who comes after.
-
----
-
-## 🛠️ Running Labs Locally
-
+**1. Clone the repository**
 ```bash
 git clone https://github.com/airiharuki/Harmonic-Studio-V2.git
 cd Harmonic-Studio-V2
-git checkout beta
+```
 
-# Node deps
-npm install
+**2. Install Core Dependencies**
+You must natively install the following pieces of software on your system:
+*   [Node.js](https://nodejs.org/) (v20+)
+*   [Python](https://www.python.org/downloads/) (v3.11 recommended — not 3.12, not 2.7, please)
+*   [FFmpeg](https://ffmpeg.org/download.html) (Crucial for audio processing. Non-negotiable.)
+*   [Deno](https://deno.land/) (v2.9+ — needed by `yt-dlp` to solve YouTube's n-challenge)
 
-# Python AI models
+**3. Install AI Audio Models & Downloader**
+```bash
+python3 -m pip install --upgrade pip
 pip3 install -U demucs spleeter "audio-separator[cpu]" yt-dlp
+```
+*(Note for Windows users with NVIDIA GPUs: swap `"audio-separator[cpu]"` for `"audio-separator[gpu]"` to utilize CUDA.)*
 
-# Run it
+**4. Build & Run the App**
+```bash
+npm install
 npm run dev
 ```
 
-**Requirements:** Node.js v20+, Python 3.11 (not 3.12, not 2.7, please), FFmpeg.
+## 🛠️ What's It Made With?
 
-For the fully automated install with scripts for Windows/macOS/Linux, the [main README](https://github.com/airiharuki/Harmonic-Studio-V2/tree/main#installation--setup-%EF%B8%8F) has you covered. Those scripts handle everything including the AI models. Go make a coffee.
+- ⚡ **Vite + React**
+- 🎨 **Tailwind CSS 4**
+- 🤖 **Google Gemini API** (for Vibe Studio chord suggestions on analyzed tracks)
+- 🧠 **Essentia.js** (for the analysis math)
+- 🎹 **sf2-synth-audio-worklet + Tonal** (soundfont playback and music theory)
+- 🐍 **Python, `yt-dlp`, and splitting engines** (Demucs, Spleeter, audio-separator)
+- 🦕 **Deno** (solves YouTube's n-challenge for `yt-dlp`)
+- 🎬 **`ffmpeg-static`**
+- 💾 **[Cobalt](https://github.com/imputnet/cobalt)** — shoutout for the inspo on their clean download design
+- 📺 **VHS Grain Overlay**
 
-> **GPU acceleration (Windows + NVIDIA):** Swap `"audio-separator[cpu]"` → `"audio-separator[gpu]"` for CUDA support. The models will go significantly faster. Your GPU will feel appreciated.
+## 🌓 It Looks Pretty Too™
 
----
-
-## 🛠️ Stack
-
-| Layer | Tech | Notes |
-|---|---|---|
-| Frontend | Vite + React + TypeScript | Living on the edge, touching grass never |
-| Styling | Tailwind CSS v4 + custom CSS | Utility classes go brrrr. Zero regrets. |
-| Loop Progressions | ldrolez/free-midi-chords (local) | 128 progressions, zero API calls, works offline |
-| AI Chords (Analyzer) | Google Gemini API | Still earns its keep in the Vibe Studio |
-| Audio Analysis | Essentia.js | Does not judge your music taste. Unlike us. |
-| Soundfont | sf2-synth-audio-worklet + Tonal | Accurate enough to be almost annoying |
-| Audio Pipeline | Python + yt-dlp + FFmpeg | The heavy lifting department |
-| Stem Splitting | Demucs, MDX-Net, Spleeter, BS-Roformer | Four engines, four personalities |
-| Texture | VHS Grain Overlay | 1995 called. We invited it in. It stayed. |
+- 🌙 **Dark Mode**: A moody deep-space aesthetic with a slow-breathing aurora backdrop.
+- ☀️ **Light Mode**: A barely-there lavender tint. Your brain registers it as *premium* without knowing why.
+- 📺 **VHS Grain Overlay**: It's aggressive, and we like it.
 
 ---
 
-## 📋 Lab Log
+## 🧘 Why 432Hz?
 
-A rough record of what's been brewing in here:
+Look, is there any peer-reviewed scientific evidence that tuning your instruments to 432Hz aligns your chakras with the resonant frequency of the universe? No. Absolutely not.
 
-- `feat` **Backing Vocal Removal (BVR)** — 2-pass pipeline: Pass 1 isolates all vocals via BS-RoFormer EP317, Pass 2 splits Lead vs Backing via a karaoke fine-tuned checkpoint (BS-RoFormer Karaoke, MelBand-RoFormer Karaoke, or UVR-BVR-MDX); BVR variants added to BS-RoFormer and MDX-Net; pipeline info card shows in-UI flow diagram; Lead Vocal + Backing Vocals stems added to the grid
-- `feat` **v2.1 "Prism" — Model capability & variant system** — each model now exposes its true capabilities; Spleeter unlocked to 2/4/5-stem configs; Demucs supports 4-stem and 6-stem (htdemucs_6s) variants; stem grid expands to 6 stems (Vocals, Drums, Bass, Guitar, Piano, Other/Inst) and greys out only what the active variant can't produce; execution mode badge per card (single-pass / multi-pass / single-target); Select All scoped to available stems; modelVariant wired through to the server
-- `fix` **YouTube n-challenge** — upgraded Deno to 2.9.4; yt-dlp now solves JS challenges via `--js-runtimes deno`; full format list restored; removed broken `tv_embedded,android` extractor args
-- `feat` **Loop piano roll + MIDI export** — generated progressions render a live piano roll with scrolling playhead; one-click export to `.mid` with correct tempo and timing
-- `fix` **Loop playback** — stale-closure bug + AudioContext reuse; stop button now works reliably
-- `feat` **Local chord pack engine** — 128 progressions from ldrolez/free-midi-chords, Roman numeral resolver, mood filter, zero Gemini calls in Loop Studio
-- `feat` **Holographic aesthetic overhaul** — aurora layer, iridescent edges, deeper glass, scanlines, heading glow, lavender light mode
-- `feat` **Beta mode system** — flask toggle, violet banner, model tier labels, extended analysis panel, lab notes card
-- `feat` **Multiple secret unlock methods** — we put easter eggs in the live app. There are three of them. Happy hunting.
-- `feat` **BS-Roformer model** — the ambitious fourth stem splitter joins the roster
-- `feat` **ZIP named after the song** — stems download with a real name instead of a timestamp crime
-- `fix` **cookies.txt purged from all git history** — it happened, it's handled, it's gone
+Is it a total vibe? **Yes.**
 
----
+*(If you want standard A440 instead, change the base frequency in the sine wave fallback in `src/App.tsx`:)*
 
-## ⚠️ Labs Disclaimer
+```typescript
+// In src/App.tsx
+const playMidiSine = async (file: File) => {
+  // ...
+  const A4 = 440; // Change this from 432 to 440
+  // ...
+};
+```
 
-Things on this branch might:
-- Work perfectly `(likely)`
-- Work *mostly* perfectly `(also likely)`
-- Behave in a way that makes you say "huh, interesting" `(possible)`
-- Crash in a creative and educational way `(rare, but this is the lab)`
+## 🤝 Want to Contribute?
 
-That's the deal. You're early. You're brave. If something breaks, open an issue — detailed reports with steps to reproduce are the best gift you can give us. If something is genuinely amazing, open a PR. If something made you feel something, drop a ⭐ on the main repo and we'll feel it right back.
+We love contributions. The codebase is chaotic but it has a soul.
 
----
+**👉 [Check out CONTRIBUTING.md to get started!](CONTRIBUTING.md)** New work lands on the `beta` branch first, gets stress-tested, then graduates here.
+
+### 🏆 Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START -->
+<!-- Add yourself here when you contribute! -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+*Your name could be here! 👀*
+
+## ⚠️ Stuff That's Kinda Broken
+
+- 📺 YouTube analyzer can take a while on hour-long files.
+- 🎵 Stem splitter quality depends on audio quality and length — garbage in, garbage out.
+- ⏱️ Stem processing can be slow on large files without GPU acceleration.
+- ⚗️ MDX-Net and BS-Roformer are mid-trial — expect them to graduate out of the experimental layer once they've proven out.
 
 ## 📝 License
 
-MIT. Fork it, remix it, build an empire on it. Just don't sue us if your track doesn't blow up. That's the algorithm's problem, not ours.
-
----
+MIT — do whatever you want with it, remix it, fork it, build an empire on it.
 
 ## 🙏 Credits
 
-Made by someone who got tired of manually calculating pitch shifts at 4am, then got completely carried away. Built on vibes, coffee, and the stubbornly held belief that music tools should be beautiful, fast, and actually work.
+Made by someone who got tired of manually calculating pitch shifts at 4am and also wanted a Circle of Fifths that didn't look like garbage. Built with pure vibes and an unreasonable amount of coffee.
 
-### Third-Party Credits
-
-**[ldrolez/free-midi-chords](https://github.com/ldrolez/free-midi-chords)** — Ludovic Drolez
-The chord progression data powering Loop Studio's local generator comes directly from this project. 128 progressions across Major, Minor, and Modal scales, each tagged with moods. Free, open, and MIT licensed. The whole thing exists because one person decided to sit down and catalog every useful chord progression they knew. That's the kind of quiet contribution that makes tools like this possible — thank you.
-> *"A collection of free MIDI chords and progressions ready to be used in your DAW, Akai MPC, or Roland MC-707/101"*
-> Licensed under the [MIT License](https://github.com/ldrolez/free-midi-chords/blob/main/LICENSE). Used with gratitude.
+If this helped you make something cool, drop a star ⭐ if you're feeling generous.
 
 ---
 
-<div align="center">
+## 💡 Pro Tips
 
-*You're on* `beta`*. That means you're part of the process before the process is finished.*
-*That's a specific kind of cool that most people never get to be.*
+- 🎧 Use the Circle of Fifths Camelot mode if you're a DJ trying to mix harmonically.
+- ☀️ Light mode is genuinely nice if you're not in a cave.
+- ✨ The theme toggle animation is smooth — try it a few times.
+- 🥁 Use Tap Tempo in Loop Studio when you already know the feel but not the number.
 
-**Made with ❤️, ☕, and increasingly experimental CSS**
+---
+
+*P.S. — If you made it this far in the README, you are the target audience and we love you specifically.*
 
 ~~Sponsored by Replit~~ *(or maybe not)*
 
-</div>
+**Made with ❤️, ☕, and questionable life choices at questionable hours**
+
+---
+
+*"Eight years on, and I'm still drifting in your orbit. Just a satellite transmitting old melodies into the dark, hoping the signal somehow finds its way back to your universe."* 💫
