@@ -6,12 +6,11 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 
 
 ## [Unreleased] — v2.2b2 "Reverie" (in progress)
+
 ### Added
-- **Beta mode toggle** (flask icon, top-right) — reveals model tier labels, extended analysis metrics (`spectral_centroid`, `loudness`, `dissonance`, `tuning`), lab-notes panel, and experimental model access.
-- **Holographic frosted glass aesthetic** — aurora breathing animation (dark mode), iridescent hairline card edges, VHS grain + scanlines overlay, deep backdrop blur. The app now looks like it was designed at 4am in the best possible way.
-- **Secure file token system** — processed files served via 12-character alphanumeric tokens (4-hour expiry, per-IP rate limiting on retrieval). Download URLs are short enough to share but effectively unbrute-forceable within the file's lifetime.
-- **Recent tracks** panel — quick access to previously downloaded/analyzed tracks.
-- **MIDI preview** — upload any `.mid` for piano roll rendering and soundfont playback, including multi-track files.
+- **Chromatic tuner**: dedicated tab — real-time mic pitch detection via autocorrelation. Big note + octave readout, smoothed ±50¢ needle (emerald glow within 5¢), switchable A4 reference (432/440/442 Hz). Fully client-side, mic always released on tab close.
+- **Metronome**: dedicated tab, companion to the Tuner. Web Audio API lookahead scheduler (drift-free). Tap Tempo averages the last 6 taps, drops stale ones after 3 s. Time signatures: 4/4, 3/4, 6/8, 5/4. Spring-animated beat dots — downbeat glows violet. BPM range 20–300.
+- **Live spectrum visualizer in WaveformPlayer**: real-time FFT canvas strip below the waveform during playback. Bars are frequency-coloured cyan→violet→rose to match the app palette (0.82 smoothing). Connects via `createMediaElementSource`, handles URL changes cleanly.
 
 ## [v2.2b1] — "Reverie"
 

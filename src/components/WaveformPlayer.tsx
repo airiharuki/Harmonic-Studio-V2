@@ -10,6 +10,50 @@ import { Play, Pause, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 
+// ── Spectrum visualizer helpers ───────────────────────────────────────────────
+const ANALYSER_FFT  = 256;
+const SPECTRUM_H    = 44; // canvas height in px
+const SPECTRUM_BINS = 0.7; // fraction of bins to display (drop ultra-high freq)
+
+function drawSpectrum(
+  canvas: HTMLCanvasElement,
+  analyser: AnalyserNode,
+  palette: { cyan: string; violet: string; rose: string },
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const W = canvas.width;
+  const H = canvas.height;
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(buf);
+  ctx.clearRect(0, 0, W, H);
+  const count = Math.floor(buf.length * SPECTRUM_BINS);
+  const bw = W / count;
+  for (let i = 0; i < count; i++) {
+    const v = buf[i] / 255;
+    const bh = Math.max(1, v * H);
+    // log-scale brightness blends cyan→violet→rose from low→high freq
+    const t = i / count;
+    const r0 = parseInt(palette.cyan.slice(5).split(",")[0])   || 125;
+    const g0 = parseInt(palette.cyan.slice(5).split(",")[1])   || 211;
+    const b0 = parseInt(palette.cyan.slice(5).split(",")[2])   || 252;
+    const r1 = parseInt(palette.violet.slice(5).split(",")[0]) || 167;
+    const g1 = parseInt(palette.violet.slice(5).split(",")[1]) || 139;
+    const b1 = parseInt(palette.violet.slice(5).split(",")[2]) || 250;
+    const r2 = parseInt(palette.rose.slice(5).split(",")[0])   || 249;
+    const g2 = parseInt(palette.rose.slice(5).split(",")[1])   || 168;
+    const b2 = parseInt(palette.rose.slice(5).split(",")[2])   || 212;
+    const [rF, gF, bF] = t < 0.5
+      ? [r0 + (r1 - r0) * (t * 2), g0 + (g1 - g0) * (t * 2), b0 + (b1 - b0) * (t * 2)]
+      : [r1 + (r2 - r1) * ((t - 0.5) * 2), g1 + (g2 - g1) * ((t - 0.5) * 2), b1 + (b2 - b1) * ((t - 0.5) * 2)];
+    const grad = ctx.createLinearGradient(0, H - bh, 0, H);
+    grad.addColorStop(0, `rgba(${rF|0},${gF|0},${bF|0},0.9)`);
+    grad.addColorStop(1, `rgba(${rF|0},${gF|0},${bF|0},0.3)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(i * bw, H - bh, Math.max(1, bw - 1), bh);
+  }
+}
+
 const formatTime = (seconds: number) => {
   if (!isFinite(seconds) || seconds < 0) return "0:00";
   const mins = Math.floor(seconds / 60);
@@ -82,14 +126,21 @@ export function WaveformPlayer({
   label,
   className = "",
 }: WaveformPlayerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
+  const containerRef    = useRef<HTMLDivElement>(null);
+  const wavesurferRef   = useRef<WaveSurfer | null>(null);
   const { resolvedTheme } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [isReady, setIsReady]     = useState(false);
+  const [failed, setFailed]       = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration]   = useState(0);
+
+  // ── Spectrum visualizer refs ─────────────────────────────────────────────
+  const spectrumCanvasRef  = useRef<HTMLCanvasElement>(null);
+  const spectrumRafRef     = useRef<number | null>(null);
+  const audioCtxRef        = useRef<AudioContext | null>(null);
+  const analyserRef        = useRef<AnalyserNode | null>(null);
+  const connectedMediaRef  = useRef<HTMLMediaElement | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || !url) return;
@@ -127,6 +178,30 @@ export function WaveformPlayer({
     ws.on("ready", () => {
       setIsReady(true);
       setDuration(ws!.getDuration());
+
+      // ── Connect analyser for spectrum viz ──────────────────────────────
+      try {
+        const media = (ws as any).getMediaElement?.() as HTMLMediaElement | undefined;
+        if (media && media !== connectedMediaRef.current) {
+          if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+            audioCtxRef.current = new AudioContext();
+          }
+          const actx = audioCtxRef.current;
+          // Reuse existing analyser node; create fresh source for this media element
+          if (!analyserRef.current) {
+            const an = actx.createAnalyser();
+            an.fftSize = ANALYSER_FFT;
+            an.smoothingTimeConstant = 0.82;
+            analyserRef.current = an;
+            an.connect(actx.destination);
+          }
+          const src = actx.createMediaElementSource(media);
+          src.connect(analyserRef.current);
+          connectedMediaRef.current = media;
+        }
+      } catch {
+        // Spectrum unavailable — audio still works normally
+      }
     });
     ws.on("timeupdate", (t) => setCurrentTime(t));
     ws.on("play", () => setIsPlaying(true));
@@ -183,6 +258,33 @@ export function WaveformPlayer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isReady]);
+
+  // ── Spectrum RAF draw loop ───────────────────────────────────────────────
+  useEffect(() => {
+    const canvas   = spectrumCanvasRef.current;
+    const analyser = analyserRef.current;
+    if (!isPlaying || !canvas || !analyser) {
+      if (spectrumRafRef.current) cancelAnimationFrame(spectrumRafRef.current);
+      return;
+    }
+    audioCtxRef.current?.resume();
+    const palette = readPalette();
+    const loop = () => {
+      // Sync canvas pixel width to its layout width
+      if (canvas.width !== canvas.offsetWidth) canvas.width = canvas.offsetWidth;
+      drawSpectrum(canvas, analyser, palette);
+      spectrumRafRef.current = requestAnimationFrame(loop);
+    };
+    spectrumRafRef.current = requestAnimationFrame(loop);
+    return () => { if (spectrumRafRef.current) cancelAnimationFrame(spectrumRafRef.current); };
+  }, [isPlaying]);
+
+  // ── Spectrum cleanup on unmount ──────────────────────────────────────────
+  useEffect(() => () => {
+    if (spectrumRafRef.current) cancelAnimationFrame(spectrumRafRef.current);
+    // Don't close audioCtxRef here — it may be shared across url changes within
+    // the same mount; the browser GCs it when refs drop.
+  }, []);
 
   // ── Plain-player fallback ────────────────────────────────────────────────
   if (failed) {
@@ -260,6 +362,15 @@ export function WaveformPlayer({
           </div>
         </div>
       </div>
+
+      {/* Spectrum visualizer — appears while audio is playing */}
+      <canvas
+        ref={spectrumCanvasRef}
+        height={SPECTRUM_H}
+        aria-hidden="true"
+        className="w-full rounded-xl transition-opacity duration-300"
+        style={{ opacity: isPlaying ? 1 : 0, display: isReady ? "block" : "none" }}
+      />
 
       {isReady && (
         <p className="hidden sm:block text-center text-[10px] font-mono opacity-35 select-none">
