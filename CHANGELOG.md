@@ -7,8 +7,12 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 ## [Unreleased] — v2.2b1 "Reverie" (in progress)
 
 ### Added
+- **Instant BPM + key badges**: BPM and key appear automatically the moment a track loads — no manual Analyze click required. A shimmer placeholder shows while the quick Essentia pass runs; the badge updates silently if the full analysis later refines the value.
 - **Stem mixer**: after splitting, remix live in the browser — per-stem volume sliders, solo/mute buttons, and sample-accurate synchronized Web Audio playback. "Bounce Remix" exports the current mix state as a downloadable WAV via OfflineAudioContext rendering.
 - **Waveform player**: WaveSurfer.js renders a click-to-seek waveform under the Analyzer player card — animated playhead, BPM gridlines when analysis data is available. Falls back to plain player if waveform rendering fails.
+
+### Fixed
+- **BS-Roformer EP317**: now correctly exposes both Vocals and Instrumental stems — the instrumental was always produced and included in the ZIP, but the UI previously labelled the variant "Vocals only".
 
 ---
 
