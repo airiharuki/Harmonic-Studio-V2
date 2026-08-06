@@ -101,7 +101,7 @@ const MODEL_CONFIGS: Record<string, {
   'bs-roformer': {
     execution: 'single-target',
     variants: [
-      { id: 'vocals_ep317',  label: 'EP317 Vocals',      desc: 'Vocals only · max SDR',              stems: ['vocals'] },
+      { id: 'vocals_ep317',  label: 'EP317',             desc: 'Vocals · Instrumental · max SDR',    stems: ['vocals','other'] },
       { id: 'karaoke_bsr',   label: 'BVR · BS-RoFormer', desc: 'Lead Vocal · Backing Vocals · 2-pass', stems: ['lead_vocal','backing_vocal'] },
       { id: 'karaoke_mel',   label: 'BVR · MelBand',     desc: 'Lead Vocal · Backing Vocals · 2-pass', stems: ['lead_vocal','backing_vocal'] },
     ],
