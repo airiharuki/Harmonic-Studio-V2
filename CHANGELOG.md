@@ -7,6 +7,15 @@ All notable changes to Harmonic Studio V2. Newest first. Format loosely follows 
 ## [Unreleased] — v2.2b1 "Reverie" (in progress)
 
 ### Added
+- **Step-by-step split progress**: the splitter now narrates itself — Download → Convert → Split → Package → Ready light up as the server advances through each stage, with BVR 2-pass jobs showing which pass is running. No more staring at a spinner wondering if it froze.
+- **Cross-tab jumps**: analysis results now offer "→ Open key in Composer" and "→ Send to Loop Studio" — detected key and BPM land pre-filled in the destination tab.
+- **Waveform keyboard shortcuts**: Space to play/pause, ←/→ to seek 5s, Shift+←/→ to jump to start/end, M to mute. Shortcuts stay quiet while typing in any field; a hint line sits under the waveform on desktop.
+- **Drag & drop upload**: the upload zone now accepts dropped files with a glow-ring hover state.
+- **First-visit welcome splash**: new visitors get a "What's new in v2.2" card — waveform player, stem mixer, instant badges, unlocked models. Shown once, remembered in localStorage.
+- **Demo track shortcut**: empty Analyzer state offers a one-click SoundCloud demo so new users can try every tool without hunting for a link.
+- **Skeleton loading**: track info fetches show shimmer placeholder cards instead of a bare spinner.
+- **Context-aware errors + one-tap retry**: downloader and splitter failures translate cryptic errors into actionable messages (region-blocked, too long, rate-limited, connection hiccup) with a Retry action on the toast.
+- **Auto-scroll to results**: when stems are ready, the view glides down to the mixer on its own.
 - **Instant BPM + key badges**: BPM and key appear automatically the moment a track loads — no manual Analyze click required. A shimmer placeholder shows while the quick Essentia pass runs; the badge updates silently if the full analysis later refines the value.
 - **Stem mixer**: after splitting, remix live in the browser — per-stem volume sliders, solo/mute buttons, and sample-accurate synchronized Web Audio playback. "Bounce Remix" exports the current mix state as a downloadable WAV via OfflineAudioContext rendering.
 - **Waveform player**: WaveSurfer.js renders a click-to-seek waveform under the Analyzer player card — animated playhead, BPM gridlines when analysis data is available. Falls back to plain player if waveform rendering fails.

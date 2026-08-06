@@ -885,6 +885,7 @@ async function startServer() {
 
       if (url) {
         log("Downloading audio from URL...");
+        send("stage", { stage: "download" });
 
         let attempts = 0;
         const maxAttempts = 2;
@@ -905,6 +906,7 @@ async function startServer() {
         }
 
         log("Download complete. Converting to WAV...");
+        send("stage", { stage: "convert" });
         await new Promise((resolve, reject) => {
           ffmpeg(tempFile)
             .toFormat('wav')
@@ -982,6 +984,7 @@ async function startServer() {
         }
 
         log("BVR — Pass 1: Isolating vocals from full mix...");
+        send("stage", { stage: "separate", pass: 1 });
         await runProcess("audio-separator", [inputPath, "--model_filename", bvrCfg.pass1, "--output_dir", pass1Dir]);
 
         // audio-separator names output like "input_(Vocals)_model.ext" — find it
@@ -993,11 +996,13 @@ async function startServer() {
         const vocalsPath = path.join(pass1Dir, vocalsFile);
 
         log("BVR — Pass 2: Splitting lead vs backing vocals...");
+        send("stage", { stage: "separate", pass: 2 });
         await runProcess("audio-separator", [vocalsPath, "--model_filename", bvrCfg.pass2, "--output_dir", pass2Dir]);
 
         stemsPath = pass2Dir;
         zipAllFromStemsPath = true;
         log("BVR — Both passes complete. Packaging stems...");
+        send("stage", { stage: "package" });
 
       } else {
         // ── Standard single-pass separation ──────────────────────────────────
@@ -1044,8 +1049,10 @@ async function startServer() {
         }
 
         log(`Starting ${(model || "demucs").toUpperCase()} stem separation...`);
+        send("stage", { stage: "separate" });
         await runProcess(bin, args);
         log("Separation complete. Packaging stems...");
+        send("stage", { stage: "package" });
 
         const isAudioSep = (model === "mdx" || model === "bs-roformer");
         if (isAudioSep) {
